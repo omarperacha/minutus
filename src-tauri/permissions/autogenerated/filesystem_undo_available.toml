@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-filesystem-undo-available"
+description = "Enables the filesystem_undo_available command without any pre-configured scope."
+commands.allow = ["filesystem_undo_available"]
+
+[[permission]]
+identifier = "deny-filesystem-undo-available"
+description = "Denies the filesystem_undo_available command without any pre-configured scope."
+commands.deny = ["filesystem_undo_available"]

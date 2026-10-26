@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-remove-evm-rpc"
+description = "Enables the remove_evm_rpc command without any pre-configured scope."
+commands.allow = ["remove_evm_rpc"]
+
+[[permission]]
+identifier = "deny-remove-evm-rpc"
+description = "Denies the remove_evm_rpc command without any pre-configured scope."
+commands.deny = ["remove_evm_rpc"]

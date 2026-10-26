@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-select-wallet"
+description = "Enables the select_wallet command without any pre-configured scope."
+commands.allow = ["select_wallet"]
+
+[[permission]]
+identifier = "deny-select-wallet"
+description = "Denies the select_wallet command without any pre-configured scope."
+commands.deny = ["select_wallet"]

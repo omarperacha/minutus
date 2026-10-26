@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-download-catalogue-model"
+description = "Enables the download_catalogue_model command without any pre-configured scope."
+commands.allow = ["download_catalogue_model"]
+
+[[permission]]
+identifier = "deny-download-catalogue-model"
+description = "Denies the download_catalogue_model command without any pre-configured scope."
+commands.deny = ["download_catalogue_model"]

@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "runtime": {
+    "repository": "https://github.com/ggml-org/whisper.cpp",
+    "tag": "b4938",
+    "commit": "371b5a7561823ab2bb32142d2751e35e7534727b",
+    "source_archive_sha256": "59f16e008b0fe4f283b5bede96952aed5a8f2e16c2f2f721f263218982a153e7",
+    "license": "MIT"
+  },
+  "converted_repository_revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+  "upstream": {
+    "repository": "https://github.com/openai/whisper",
+    "commit": "86098128c0b4f24f0e2aa2994de830614b474227",
+    "checkpoint_sha256": {
+      "small": "9ecf779972d90ba49c06d968637d720dd632c55bbf19d441fb42bf17a411e794",
+      "large-v3-turbo": "aff26ae408abcba5fbf8813c21e62b0941638c5f6eebfb145be0c9839262a19a"
+    },
+    "license": "MIT",
+    "verification": "Official checkpoint IDs from pinned source; original PT downloads not yet re-converted locally."
+  },
+  "resident_chat": {
+    "model": "Muse Glimmer 30B Q4_K_M",
+    "sha256": "4cc57c0f51040a226e5a72cc47b7613f7772950e460a665f7083de89f183f60e",
+    "context_tokens": 32768
+  },
+  "artifacts": [
+    {
+      "id": "small",
+      "file": "ggml-small.bin",
+      "bytes": 487601967,
+      "installed_bytes": 487601967,
+      "sha256": "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
+      "download_url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small.bin",
+      "format": "whisper-ggml",
+      "quantization": "F16"
+    },
+    {
+      "id": "small-q5_1",
+      "file": "ggml-small-q5_1.bin",
+      "bytes": 190085487,
+      "installed_bytes": 190085487,
+      "sha256": "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb",
+      "download_url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small-q5_1.bin",
+      "format": "whisper-ggml",
+      "quantization": "Q5_1"
+    },
+    {
+      "id": "large-v3-turbo",
+      "file": "ggml-large-v3-turbo.bin",
+      "bytes": 1624555275,
+      "installed_bytes": 1624555275,
+      "sha256": "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69",
+      "download_url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo.bin",
+      "format": "whisper-ggml",
+      "quantization": "F16"
+    },
+    {
+      "id": "large-v3-turbo-q5_0",
+      "file": "ggml-large-v3-turbo-q5_0.bin",
+      "bytes": 574041195,
+      "installed_bytes": 574041195,
+      "sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+      "download_url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q5_0.bin",
+      "format": "whisper-ggml",
+      "quantization": "Q5_0"
+    }
+  ]
+}

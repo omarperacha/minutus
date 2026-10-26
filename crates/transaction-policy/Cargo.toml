@@ -1,0 +1,18 @@
+[package]
+name = "transaction-policy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+getrandom.workspace = true
+serde.workspace = true
+sha3.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

@@ -1,0 +1,99 @@
+/* Shared Minutus tokens. Contract: resources/branding/minutus-design-system.md. */
+@font-face {
+  font-family: "Cormorant Garamond";
+  src: url("/fonts/cormorant-garamond-variable.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-variable.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+
+  --color-petal-white: #faf7fb;
+  --color-orchid-mist: #ebddeb;
+  --color-muted-orchid: #b975aa;
+  --color-deep-plum: #67406e;
+  --color-aubergine-ink: #302538;
+
+  --color-background: var(--color-petal-white);
+  --color-surface: #f3ecf3;
+  --color-surface-raised: var(--color-orchid-mist);
+  --color-surface-elevated: #ffffff;
+  --color-text-primary: var(--color-aubergine-ink);
+  --color-text-secondary: #5f5065;
+  --color-text-tertiary: #6f5e73;
+  --color-border-subtle: #ddd0df;
+  --color-border-strong: #8d7691;
+  --color-mark-background: var(--color-petal-white);
+  --color-mark-foreground: var(--color-deep-plum);
+  --color-accent: var(--color-deep-plum);
+  --color-accent-hover: #593360;
+  --color-accent-foreground: #ffffff;
+  --color-focus: var(--color-deep-plum);
+  --color-positive: #286445;
+  --color-warning: #85510a;
+  --color-error: #a33345;
+  --color-sidebar-background: var(--color-surface);
+  --color-sidebar-text: var(--color-text-primary);
+  --color-sidebar-text-secondary: var(--color-text-secondary);
+  --color-sidebar-text-tertiary: var(--color-text-tertiary);
+  --color-sidebar-border: var(--color-border-subtle);
+  --color-sidebar-raised: var(--color-orchid-mist);
+  --color-overlay: rgba(30, 20, 36, 0.48);
+  --shadow-soft: 0 8px 28px rgba(48, 37, 56, 0.06);
+  --shadow-floating: 0 16px 48px rgba(48, 37, 56, 0.14);
+
+  --font-display: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  --radius-small: 8px;
+  --radius-medium: 14px;
+  --sidebar-width: 260px;
+  --transition-fast: 160ms ease;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-background: #1e1723;
+  --color-surface: #281f2e;
+  --color-surface-raised: #35283c;
+  --color-surface-elevated: #302538;
+  --color-text-primary: #faf7fb;
+  --color-text-secondary: #dacbdd;
+  --color-text-tertiary: #bdaac1;
+  --color-border-subtle: #49384f;
+  --color-border-strong: #927799;
+  --color-accent: #d6add1;
+  --color-accent-hover: #e6cbe3;
+  --color-accent-foreground: #302538;
+  --color-focus: #d6add1;
+  --color-positive: #a0d6b4;
+  --color-warning: #e8c086;
+  --color-error: #f0a6b3;
+  --color-sidebar-background: var(--color-surface);
+  --color-sidebar-raised: var(--color-surface-raised);
+  --color-overlay: rgba(15, 9, 19, 0.68);
+  --shadow-soft: 0 8px 28px rgba(0, 0, 0, 0.16);
+  --shadow-floating: 0 16px 48px rgba(0, 0, 0, 0.3);
+}

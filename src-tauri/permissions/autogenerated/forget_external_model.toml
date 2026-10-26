@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-forget-external-model"
+description = "Enables the forget_external_model command without any pre-configured scope."
+commands.allow = ["forget_external_model"]
+
+[[permission]]
+identifier = "deny-forget-external-model"
+description = "Denies the forget_external_model command without any pre-configured scope."
+commands.deny = ["forget_external_model"]

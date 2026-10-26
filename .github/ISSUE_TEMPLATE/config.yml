@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Private security report
+    url: mailto:hello@minutus.ai
+    about: Report vulnerabilities privately. Never post wallet material or credentials in an issue.

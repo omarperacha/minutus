@@ -1,0 +1,5 @@
+{
+  "identity": "0123456789ABCDEF0123456789ABCDEF01234567",
+  "profile": "/absolute/path/to/Minutus_Developer_ID.provisionprofile",
+  "notary_profile": "minutus-notary"
+}

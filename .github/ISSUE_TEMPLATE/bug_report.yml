@@ -1,0 +1,66 @@
+name: Bug report
+description: Report a reproducible problem with Minutus.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is a public report. Use synthetic examples and redact screenshots/errors.
+        Do not include passwords, recovery phrases, private keys, API keys or raw traces.
+        Report security vulnerabilities privately to hello@minutus.ai.
+  - type: input
+    id: version
+    attributes:
+      label: App version or source commit
+      placeholder: "0.1.0-beta.1, or the output of git rev-parse --short HEAD"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "Version shown in About This Mac"
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Mac chip and unified memory
+      placeholder: "For example, M1 Pro (10-core), 32 GB"
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model and setup, if relevant
+      placeholder: "Model/profile, downloaded or imported, context/effort settings"
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include the smallest example you can share safely.
+      placeholder: "1. Open…\n2. Choose…\n3. …"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: Include a redacted error or screenshot if helpful. Do not upload raw debug traces.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked existing issues for this problem.
+          required: true
+        - label: This report contains no secrets or private user data.
+          required: true

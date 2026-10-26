@@ -1,0 +1,14 @@
+{
+  "schema": "minutus-public-source-v1",
+  "qwen": {
+    "repository": "https://github.com/omarperacha/accelerated-qwen-3.8",
+    "commit": "875b83beaf827566f69657131487cffa44e8a971",
+    "archive_url": "https://codeload.github.com/omarperacha/accelerated-qwen-3.8/tar.gz/875b83beaf827566f69657131487cffa44e8a971",
+    "archive_sha256": "366c3415bfda21b8f1376b9680ab5036953e8bc41a2661b0bd4d43f129969d59",
+    "patch_sha256": "d532916be03259bdf204695f5a721d468e559265a53c651f09fd9f057f604e7c"
+  },
+  "tokenizer": {
+    "repository": "https://github.com/ggml-org/llama.cpp.git",
+    "commit": "704485942ab54bbbbf1f241b3550ffba35f5f37e"
+  }
+}

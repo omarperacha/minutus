@@ -1,0 +1,105 @@
+[workspace]
+members = ["crates/*", "src-tauri"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0-beta.1"
+edition = "2024"
+rust-version = "1.97"
+license = "Apache-2.0"
+authors = ["Minutus contributors"]
+
+[workspace.dependencies]
+argon2 = { version = "=0.6.0", default-features = false, features = ["alloc", "zeroize"] }
+agent-core = { path = "crates/agent-core", version = "0.1.0-beta.1" }
+app-core = { path = "crates/app-core", version = "0.1.0-beta.1" }
+app-storage = { path = "crates/app-storage", version = "0.1.0-beta.1" }
+asset-store = { path = "crates/asset-store", version = "0.1.0-beta.1" }
+audio-runtime = { path = "crates/audio-runtime", version = "0.1.0-beta.1" }
+audit-log = { path = "crates/audit-log", version = "0.1.0-beta.1" }
+base64 = "0.22.1"
+block2 = "0.6.2"
+desktop-lifecycle = { path = "crates/desktop-lifecycle", version = "0.1.0-beta.1" }
+bip39 = { version = "2.2.2", features = ["zeroize"] }
+bip32 = { version = "0.6.0", default-features = false, features = ["secp256k1", "alloc"] }
+chacha20poly1305 = "0.10.1"
+chain-evm = { path = "crates/chain-evm", version = "0.1.0-beta.1" }
+computation-runtime = { path = "crates/computation-runtime", version = "0.1.0-beta.1" }
+cpal = "=0.18.2"
+dom_query = { version = "0.27.0", default-features = false }
+filesystem-tools = { path = "crates/filesystem-tools", version = "0.1.0-beta.1" }
+fs2 = "0.4.3"
+ipc-types = { path = "crates/ipc-types", version = "0.1.0-beta.1" }
+image = { version = "0.25.9", default-features = false, features = ["jpeg", "png", "webp"] }
+getrandom = "0.4.3"
+hyper = { version = "1.11.0", default-features = false }
+hkdf = "0.12.4"
+libc = "0.2.183"
+mach2 = "0.6.0"
+minisign-verify = "=0.2.5"
+model-runtime = { path = "crates/model-runtime", version = "0.1.0-beta.1" }
+objc2 = "0.6.4"
+objc2-app-kit = { version = "0.3.2", default-features = false }
+objc2-foundation = "0.3.2"
+permissions = { path = "crates/permissions", version = "0.1.0-beta.1" }
+reqwest = { version = "0.13.4", default-features = false, features = ["blocking", "json", "native-tls"] }
+regex = "1.13.1"
+rquickjs = { version = "0.12.2", default-features = false, features = ["std"] }
+rusqlite = { version = "0.40.1", features = ["bundled"] }
+rustix = { version = "1.1.4", features = ["fs", "process"] }
+semver = "1.0.28"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+tokenizers = { version = "0.22.2", default-features = false, features = ["fancy-regex"] }
+security-framework = { version = "3.7.0", features = ["OSX_10_15"] }
+security-framework-sys = "2.17.0"
+sha2 = "0.10.9"
+sha3 = { version = "0.12.0", default-features = false }
+tempfile = "3.23.0"
+time = { version = "0.3.47", features = ["formatting"] }
+tokio = { version = "1.53.3", features = ["macros", "net", "rt", "sync", "time"] }
+transaction-policy = { path = "crates/transaction-policy", version = "0.1.0-beta.1" }
+ts-rs = { version = "12.0.1", features = ["no-serde-warnings", "serde-compat"] }
+url = "2.5.8"
+uuid = { version = "1.24.0", features = ["v7"] }
+wallet-core = { path = "crates/wallet-core", version = "0.1.0-beta.1" }
+web-retrieval = { path = "crates/web-retrieval", version = "0.1.0-beta.1" }
+x402-client = { path = "crates/x402-client", version = "0.1.0-beta.1" }
+xattr = "1.6.1"
+zeroize = "1.8.2"
+tauri = { version = "2.11.5" }
+tauri-build = { version = "2.5.6" }
+tauri-plugin-dialog = "2.7.2"
+
+[workspace.lints.rust]
+missing_docs = "warn"
+unsafe_code = "deny"
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+expect_used = "deny"
+panic = "deny"
+unwrap_used = "deny"
+
+# Dev and signed staging both use this profile. Keep file/line backtraces without
+# generating full type/variable debug information for every dependency.
+# Use CARGO_PROFILE_DEV_DEBUG=2 for an occasional full-debugger build.
+[profile.dev]
+debug = "line-tables-only"
+
+# Full model verification processes tens of gigabytes. Avoid pathologically slow
+# SHA-256 in `tauri:dev`; reducing debug information must not remove this override.
+[profile.dev.package.sha2]
+opt-level = 3
+
+# Wallet KDF timings must exercise the reviewed algorithm, not unoptimised
+# multi-second debug arithmetic. Parameters remain identical in every profile.
+[profile.dev.package.argon2]
+opt-level = 3
+
+# Scratch allocation/zeroisation belongs to wallet-core; avoid debug-only loop
+# overhead changing the observed native password latency by several seconds.
+[profile.dev.package.wallet-core]
+opt-level = 3

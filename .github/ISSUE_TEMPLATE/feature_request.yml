@@ -1,0 +1,36 @@
+name: Feature request
+description: Suggest an improvement or describe an unmet need.
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature requests are welcome. Describe the problem and the outcome you want;
+        you do not need to design the implementation. Keep examples free of private data.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Explain your use case and what is difficult today.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What would you like to be able to do?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or workarounds
+      description: Optional — what have you tried, and why is it insufficient?
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked existing issues for a similar request.
+          required: true
+        - label: This request contains no secrets or private user data.
+          required: true

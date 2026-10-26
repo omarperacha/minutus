@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-save-verified-release-update"
+description = "Enables the save_verified_release_update command without any pre-configured scope."
+commands.allow = ["save_verified_release_update"]
+
+[[permission]]
+identifier = "deny-save-verified-release-update"
+description = "Denies the save_verified_release_update command without any pre-configured scope."
+commands.deny = ["save_verified_release_update"]

@@ -1,0 +1,21 @@
+{
+  "productName": "Minutus Staging",
+  "identifier": "com.omarperacha.zeta.staging",
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Minutus Staging",
+        "width": 1180,
+        "height": 760,
+        "minWidth": 880,
+        "minHeight": 600,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "dragDropEnabled": false,
+        "devtools": false
+      }
+    ]
+  }
+}

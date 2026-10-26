@@ -1,0 +1,62 @@
+name: Source validation
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: source-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  apple-silicon:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pnpm
+        run: npm install --global pnpm@10.2.0
+      - name: Require Apple Silicon and pinned Rust
+        run: |
+          test "$(uname -s)-$(uname -m)" = Darwin-arm64
+          rustup show active-toolchain
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build public native inputs
+        run: python3 scripts/bootstrap.py --jobs 3
+      - name: Qualify signed XPC execution and containment
+        # The containment script first builds and executes the smoke script.
+        run: sh scripts/test-computation-xpc-containment.sh
+      - name: Rust formatting and warnings
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - name: Rust tests
+        # Process-lifecycle and resource-budget fixtures need a quiet test host.
+        # Keep runtime limits/assertions intact; avoid cross-test scheduling load.
+        run: cargo test --workspace --all-features --locked -- --test-threads=1
+      - name: Frontend and build tooling
+        run: |
+          pnpm check
+          pnpm build
+          python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Source-built package
+        run: pnpm release:build
+      - name: Release x402 payment boundaries
+        run: |
+          cargo test -p x402-client --release --locked -- --test-threads=1
+          cargo test -p zeta-desktop --release --test x402_release_surface --no-default-features --locked -- --test-threads=1
+      - name: Dependency policy
+        run: |
+          cargo install cargo-deny --locked
+          python3 scripts/check_dependency_policy.py
+          pnpm audit --audit-level moderate
+      - name: Whitespace
+        run: git diff --check

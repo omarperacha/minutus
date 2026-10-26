@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-undo-filesystem-write"
+description = "Enables the undo_filesystem_write command without any pre-configured scope."
+commands.allow = ["undo_filesystem_write"]
+
+[[permission]]
+identifier = "deny-undo-filesystem-write"
+description = "Denies the undo_filesystem_write command without any pre-configured scope."
+commands.deny = ["undo_filesystem_write"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-evm-balances"
+description = "Enables the evm_balances command without any pre-configured scope."
+commands.allow = ["evm_balances"]
+
+[[permission]]
+identifier = "deny-evm-balances"
+description = "Denies the evm_balances command without any pre-configured scope."
+commands.deny = ["evm_balances"]

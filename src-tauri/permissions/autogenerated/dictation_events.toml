@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-dictation-events"
+description = "Enables the dictation_events command without any pre-configured scope."
+commands.allow = ["dictation_events"]
+
+[[permission]]
+identifier = "deny-dictation-events"
+description = "Denies the dictation_events command without any pre-configured scope."
+commands.deny = ["dictation_events"]

@@ -1,0 +1,44 @@
+#!/usr/bin/env python3
+"""Keep Tauri's Cargo process intact; trim just before Cargo launches the app."""
+
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+sys.dont_write_bytecode = True
+from build_cache import CacheBusyError, maintain_workspace
+
+
+def main():
+    arguments = sys.argv[1:]
+    cargo_arguments = arguments[:arguments.index("--")] if "--" in arguments else arguments
+    custom_arguments = any(
+        argument == flag or argument.startswith(flag + "=")
+        for argument in cargo_arguments
+        for flag in ("--target-dir", "--manifest-path", "--config")
+    )
+    if arguments and arguments[0] == "run" and not custom_arguments:
+        # Also bound artifacts left by an interrupted or failed prior build.
+        try:
+            maintain_workspace()
+        except CacheBusyError as error:
+            print(str(error), file=sys.stderr)
+        except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as error:
+            print(f"Cargo cache maintenance failed: {error}", file=sys.stderr)
+            return 1
+        # Cargo invokes this only after a successful build and releasing its
+        # artifact lock. A target-specific runner still takes precedence.
+        launcher = Path(__file__).resolve().with_name("run-dev-app.py")
+        configuration = 'target.\'cfg(all())\'.runner = ' + json.dumps([sys.executable, str(launcher)])
+        arguments = ["--config", configuration, *arguments]
+    elif custom_arguments:
+        print("Custom Cargo path/configuration arguments are outside the automatic cache budget.", file=sys.stderr)
+    # Tauri uses SIGKILL when restarting. Replacing this process lets it kill
+    # Cargo/the app directly; a Python parent could leave an orphan compiler.
+    os.execvp("cargo", ["cargo", *arguments])
+
+
+if __name__ == "__main__":
+    sys.exit(main())

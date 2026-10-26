@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="260" height="260" viewBox="0 0 260 260" fill="none">
+  <title>Minutus</title>
+  <defs>
+    <linearGradient id="orchid" x1="28" y1="20" x2="222" y2="128" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#B975AA"/>
+      <stop offset="100%" stop-color="#67406E"/>
+    </linearGradient>
+  </defs>
+  <!-- Relay: two broad, flowing folds; the open seam remains visible in one colour. -->
+  <g transform="translate(0 60)">
+    <path fill="url(#orchid)" d="M15 116C4 117 1 109 4 97C10 72 28 44 45 28C60 14 77 8 93 11C108 13 120 28 130 46C116 58 106 78 97 86C91 91 86 89 83 80C80 70 77 63 72 62C64 61 57 72 50 82L29 109C24 115 19 118 15 116Z"/>
+    <path fill="url(#orchid)" d="M91 93C101 100 110 82 120 65C131 47 145 37 158 35C176 31 189 44 201 61C212 77 219 86 231 84C239 83 241 76 248 76C258 75 258 84 253 94C243 117 224 128 207 125C189 123 178 110 167 94C160 84 155 80 149 84C140 90 134 109 125 118C113 129 101 118 91 93Z"/>
+  </g>
+</svg>

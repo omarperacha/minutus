@@ -1,0 +1,23 @@
+{
+  "schema": "zeta-experimental-qwen-pin-v1",
+  "artifact_sha256": "0cec0b5c76015417836db9ba8eef06aa103e973001318cc6487d4a5db3058424",
+  "platform": "darwin-arm64",
+  "ollama_version": "0.32.14",
+  "patch_sha256": "d532916be03259bdf204695f5a721d468e559265a53c651f09fd9f057f604e7c",
+  "files": {
+    "NOTICE": "48ac8af259d16e1c220d5e60ee94edbff1438af7d854f344ad3da4c4e4a82286",
+    "licenses/llama-MIT.txt": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d",
+    "licenses/llama-vendor/licenses/LICENSE-jsonhpp": "c0d068392ea65358b798b8c165103560f06e9e3b38c4ab4e2d8810a7b931af86",
+    "licenses/llama-vendor/vendor/cpp-httplib/LICENSE": "4b45cbe16d7b71b89ae6127e26e0d90a029198ca5e958ad8e3d0b8bbed364d8b",
+    "licenses/llama-vendor/vendor/miniaudio/miniaudio.h": "ac7af4de748b7e26b777f37e01cee313a308a7296a3eb080e2906b320cc55c89",
+    "licenses/llama-vendor/vendor/stb/stb_image.h": "594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3",
+    "licenses/ollama-MIT.txt": "5934ed2ce0d15154bcdb9c85203210abac0da4314af34081e36df4599f90b226",
+    "licenses/project-Apache-2.0.txt": "cf44954e17a2f0dfdd02b7f3dab0f230bc04cb958bcdbe27bea3581d5968b56e",
+    "llama-server": "37d165982f7ff435c9496e14b44a147d975704d4cae802abe4c0a68f378152e4",
+    "ollama": "63b2a1c4714b6f7f9363afd77b20eb92d88145dc842b91d44304590eab22c5ea",
+    "serve.py": "8e9f2b892b928f3bc04e998c99ee9aebf0342f11440b43ec88068d7a636442cc",
+    "upstream.lock.json": "d93cf793e9b2fe3c8a21d2f261d82c746a2949e7914c074be3e7833ff29753f8"
+  },
+  "production_promoted": false,
+  "profile": "combined"
+}

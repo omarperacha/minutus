@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-configure-brave-search"
+description = "Enables the configure_brave_search command without any pre-configured scope."
+commands.allow = ["configure_brave_search"]
+
+[[permission]]
+identifier = "deny-configure-brave-search"
+description = "Denies the configure_brave_search command without any pre-configured scope."
+commands.deny = ["configure_brave_search"]

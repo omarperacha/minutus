@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-prepare-evm-token-transfer"
+description = "Enables the prepare_evm_token_transfer command without any pre-configured scope."
+commands.allow = ["prepare_evm_token_transfer"]
+
+[[permission]]
+identifier = "deny-prepare-evm-token-transfer"
+description = "Denies the prepare_evm_token_transfer command without any pre-configured scope."
+commands.deny = ["prepare_evm_token_transfer"]

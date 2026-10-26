@@ -1,0 +1,55 @@
+{
+  "name": "minutus-desktop-ui",
+  "version": "0.1.0-beta.1",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.2.0",
+  "scripts": {
+    "bindings:generate": "cargo run -p ipc-types --bin export-bindings",
+    "bindings:check": "cargo run -p ipc-types --bin export-bindings -- --check",
+    "icons:generate": "./scripts/generate-app-icons.sh",
+    "dev": "vite --host 127.0.0.1",
+    "build": "pnpm bindings:check && tsc --noEmit && vite build",
+    "check": "pnpm bindings:check && tsc --noEmit && pnpm test:chat && pnpm test:models && pnpm test:wallet",
+    "test:models": "node --experimental-strip-types --test src/components/models/*.test.mjs",
+    "test:wallet": "node --experimental-strip-types --test src/components/wallet/*.test.mjs",
+    "test:chat": "node --experimental-strip-types --test src/components/chat/*.test.mjs",
+    "tauri": "tauri",
+    "tauri:dev": "python3 scripts/tauri-dev.py",
+    "tauri:stage": "python3 scripts/stage-macos-app.py",
+    "wallet:dev:sign": "python3 scripts/macos-wallet-signing.py sign",
+    "cache:status": "python3 scripts/build-cache.py status",
+    "cache:trim": "python3 scripts/build-cache.py trim",
+    "cache:clear": "python3 scripts/build-cache.py clear",
+    "tauri:build": "tauri build",
+    "release:build": "python3 scripts/build_macos_release.py",
+    "release:sign": "python3 scripts/build_macos_release.py --distribution-config .minutus-release.json",
+    "release:verify": "python3 scripts/macos_distribution.py verify",
+    "release:notarize": "python3 scripts/macos_distribution.py notarize",
+    "bootstrap": "python3 scripts/bootstrap.py"
+  },
+  "pnpm": {
+    "overrides": {
+      "source-map-js": "1.2.2"
+    }
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.11.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.4",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@vitejs/plugin-react": "6.0.5",
+    "typescript": "7.0.2",
+    "vite": "8.2.4"
+  },
+  "engines": {
+    "node": "22.23.4"
+  }
+}

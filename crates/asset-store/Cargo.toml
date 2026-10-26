@@ -1,0 +1,21 @@
+[package]
+name = "asset-store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+app-storage.workspace = true
+image.workspace = true
+ipc-types.workspace = true
+libc.workspace = true
+sha2.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

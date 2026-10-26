@@ -1,0 +1,30 @@
+[package]
+name = "computation-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "zeta-computation-runner"
+path = "src/bin/zeta-computation-runner.rs"
+
+[dependencies]
+base64.workspace = true
+getrandom.workspace = true
+libc.workspace = true
+rquickjs.workspace = true
+rustix.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+mach2.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

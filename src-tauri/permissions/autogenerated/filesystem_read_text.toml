@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-filesystem-read-text"
+description = "Enables the filesystem_read_text command without any pre-configured scope."
+commands.allow = ["filesystem_read_text"]
+
+[[permission]]
+identifier = "deny-filesystem-read-text"
+description = "Denies the filesystem_read_text command without any pre-configured scope."
+commands.deny = ["filesystem_read_text"]

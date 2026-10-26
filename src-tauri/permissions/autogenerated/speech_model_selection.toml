@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-speech-model-selection"
+description = "Enables the speech_model_selection command without any pre-configured scope."
+commands.allow = ["speech_model_selection"]
+
+[[permission]]
+identifier = "deny-speech-model-selection"
+description = "Denies the speech_model_selection command without any pre-configured scope."
+commands.deny = ["speech_model_selection"]

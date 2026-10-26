@@ -1,0 +1,568 @@
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-background);
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-height: 0;
+  padding: var(--space-6) var(--space-4) var(--space-5);
+  border-right: 1px solid var(--color-sidebar-border);
+  background: var(--color-sidebar-background);
+  color: var(--color-sidebar-text);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-inline: var(--space-2);
+}
+
+.brand-mark,
+.hero-mark {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  background: var(--color-mark-background);
+  color: var(--color-mark-foreground);
+  font-weight: 500;
+  line-height: 1;
+  padding: 0;
+}
+
+.brand-symbol {
+  display: block;
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+}
+
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  font-size: 25px;
+}
+
+.brand-name {
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+.project-switcher {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  gap: var(--space-2);
+}
+
+.project-switcher-block {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.project-switcher-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-inline: var(--space-1);
+  color: var(--color-sidebar-text-tertiary);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.project-response-status {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: var(--space-1);
+  overflow: hidden;
+  color: var(--color-sidebar-text-secondary);
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.project-switcher select,
+.project-switcher button {
+  height: 38px;
+  border: 1px solid var(--color-sidebar-border);
+  border-radius: var(--radius-small);
+  background: var(--color-sidebar-raised);
+  color: var(--color-sidebar-text);
+  font: inherit;
+}
+
+.project-switcher select {
+  min-width: 0;
+  padding-inline: var(--space-3);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.project-switcher select:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.project-switcher button {
+  font-size: 18px;
+}
+
+.new-chat {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-small);
+  background: var(--color-accent);
+  color: var(--color-accent-foreground);
+  cursor: default;
+  font-size: 14px;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.new-chat:hover:not(:disabled) {
+  border-color: var(--color-accent-hover);
+  background: var(--color-accent-hover);
+}
+
+.new-chat span {
+  font-family: var(--font-body);
+  font-size: 20px;
+  font-weight: 300;
+}
+
+.conversation-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 38px;
+  padding-inline: var(--space-3);
+  border: 1px solid var(--color-sidebar-border);
+  border-radius: var(--radius-small);
+  color: var(--color-sidebar-text-tertiary);
+}
+
+.conversation-search input,
+.conversation-edit input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-sidebar-text);
+  font: inherit;
+}
+
+.conversation-search input {
+  width: 100%;
+  font-size: 12px;
+}
+
+.conversation-search input::placeholder {
+  color: var(--color-sidebar-text-tertiary);
+  opacity: 1;
+}
+
+.conversation-search:focus-within,
+.conversation-edit:focus-within {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.conversation-history {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 0;
+  margin-inline: calc(var(--space-1) * -1);
+  overflow-y: auto;
+  padding: var(--space-1);
+}
+
+.conversation-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 38px;
+  border-radius: var(--radius-small);
+  color: var(--color-sidebar-text-secondary);
+}
+
+.conversation-row:hover,
+.conversation-row:focus-within {
+  background: var(--color-sidebar-raised);
+  color: var(--color-sidebar-text);
+}
+
+.conversation-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+  height: 38px;
+  padding: 0 var(--space-3);
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-select > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.response-indicator {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: response-indicator-spin 0.8s linear infinite;
+}
+
+@keyframes response-indicator-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .response-indicator {
+    animation: none;
+    border-right-color: currentColor;
+  }
+}
+
+.conversation-actions,
+.conversation-confirm {
+  display: none;
+  gap: 2px;
+  padding-right: var(--space-1);
+}
+
+.conversation-row:hover .conversation-actions,
+.conversation-row:focus-within .conversation-actions,
+.conversation-confirm {
+  display: flex;
+}
+
+.conversation-actions button,
+.conversation-confirm button,
+.conversation-edit button {
+  min-height: 26px;
+  padding-inline: 6px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-sidebar-text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.conversation-actions button:hover,
+.conversation-confirm button:hover,
+.conversation-edit button:hover {
+  border-color: var(--color-sidebar-border);
+  color: var(--color-sidebar-text);
+}
+
+.conversation-confirm button:first-child {
+  border-color: var(--color-error);
+  background: transparent;
+  color: var(--color-error);
+}
+
+.conversation-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--space-1);
+  min-height: 38px;
+  padding: var(--space-1);
+  border: 1px solid var(--color-sidebar-border);
+  border-radius: var(--radius-small);
+}
+
+.conversation-edit input {
+  padding-inline: var(--space-2);
+  font-size: 12px;
+}
+
+.conversation-empty-copy,
+.conversation-error {
+  margin: var(--space-2) var(--space-2) 0;
+  color: var(--color-sidebar-text-tertiary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.conversation-error {
+  color: var(--color-error);
+}
+
+.sidebar button:focus-visible {
+  outline-color: var(--color-focus);
+}
+
+.sidebar button:disabled,
+.sidebar input:disabled,
+.sidebar select:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.project-settings-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding-inline: var(--space-3);
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--color-sidebar-text-secondary);
+  font-size: 11px;
+  text-align: left;
+}
+
+.application-navigation {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.wallet-glyph,
+.settings-glyph,
+.navigation-back-glyph {
+  display: block;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.wallet-link {
+  min-height: 42px;
+  font-size: 12px;
+}
+
+.project-settings-link:hover {
+  background: var(--color-sidebar-raised);
+  color: var(--color-sidebar-text);
+}
+
+.conversation-row[data-selected="true"],
+.project-settings-link[data-selected="true"] {
+  background: var(--color-accent);
+  color: var(--color-accent-foreground);
+}
+
+.conversation-row[data-selected="true"] :is(.conversation-actions, .conversation-confirm) button {
+  color: var(--color-accent-foreground);
+}
+
+.conversation-row[data-selected="true"] :is(.conversation-actions, .conversation-confirm) button:hover,
+.conversation-row[data-selected="true"] .conversation-confirm button:first-child {
+  border-color: var(--color-accent-foreground);
+}
+
+.conversation-row[data-selected="true"] button:focus-visible {
+  outline-color: var(--color-accent-foreground);
+  outline-offset: -3px;
+}
+
+.app-settings-link {
+  min-height: 42px;
+  font-size: 12px;
+}
+
+.workspace-grants {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-sidebar-border);
+  border-radius: var(--radius-small);
+  background: var(--color-sidebar-raised);
+}
+
+.workspace-grants-heading,
+.workspace-grants-heading > div,
+.workspace-grant-list li,
+.workspace-grant-details {
+  display: flex;
+}
+
+.workspace-grants-heading,
+.workspace-grant-list li {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.workspace-grants-heading > div,
+.workspace-grant-details {
+  min-width: 0;
+  flex-direction: column;
+}
+
+.workspace-grant-details {
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.workspace-grants-heading span {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workspace-grants-heading small,
+.workspace-empty-copy,
+.workspace-error {
+  color: var(--color-sidebar-text-tertiary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.workspace-permission-select {
+  width: 132px;
+  height: 20px;
+  margin-left: -3px;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 4px;
+  outline: 0;
+  background: transparent;
+  color: var(--color-sidebar-text-tertiary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.workspace-permission-select:hover {
+  color: var(--color-sidebar-text);
+}
+
+.workspace-permission-select:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.workspace-permission-select[data-pointer-focus="true"]:focus-visible {
+  outline: 0;
+}
+
+.workspace-grants-heading button {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-sidebar-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-sidebar-text);
+  cursor: pointer;
+  font-size: 17px;
+}
+
+.workspace-grant-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 180px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.workspace-grant-list li {
+  min-height: 52px;
+  padding: var(--space-2) 0 var(--space-2) var(--space-2);
+  border-top: 1px solid var(--color-sidebar-border);
+}
+
+.workspace-grant-list strong {
+  max-width: 132px;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-revoke,
+.workspace-revoke-confirm button {
+  min-height: 25px;
+  padding-inline: 6px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-sidebar-text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.workspace-revoke:hover,
+.workspace-revoke-confirm button:hover {
+  border-color: var(--color-sidebar-border);
+  color: var(--color-sidebar-text);
+}
+
+.workspace-revoke-confirm {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+}
+
+.workspace-revoke-confirm button:first-child {
+  border-color: var(--color-error);
+  background: transparent;
+  color: var(--color-error);
+}
+
+.workspace-empty-copy,
+.workspace-error {
+  margin: 0;
+  padding-inline: var(--space-2);
+}
+
+.workspace-error {
+  color: var(--color-error);
+}

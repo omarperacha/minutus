@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-remove-wallet-account"
+description = "Enables the remove_wallet_account command without any pre-configured scope."
+commands.allow = ["remove_wallet_account"]
+
+[[permission]]
+identifier = "deny-remove-wallet-account"
+description = "Denies the remove_wallet_account command without any pre-configured scope."
+commands.deny = ["remove_wallet_account"]

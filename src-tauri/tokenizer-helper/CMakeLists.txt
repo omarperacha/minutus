@@ -1,0 +1,5 @@
+set(TARGET zeta-tokenizer)
+add_executable(${TARGET} main.cpp)
+target_link_libraries(${TARGET} PRIVATE llama)
+target_compile_features(${TARGET} PRIVATE cxx_std_17)
+install(TARGETS ${TARGET} RUNTIME)

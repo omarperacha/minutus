@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-discard-chat-image"
+description = "Enables the discard_chat_image command without any pre-configured scope."
+commands.allow = ["discard_chat_image"]
+
+[[permission]]
+identifier = "deny-discard-chat-image"
+description = "Denies the discard_chat_image command without any pre-configured scope."
+commands.deny = ["discard_chat_image"]

@@ -1,0 +1,84 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Rust
+target/
+**/*.rs.bk
+
+# Frontend and Tauri build output
+node_modules/
+dist/
+build/
+.svelte-kit/
+.vite/
+coverage/
+src-tauri/gen/
+*.dSYM/
+*.app/
+*.dmg
+*.dmg.minisig
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+.zeta-stage.json
+.minutus-release.json
+# Private signing keys and local certificate setup. Public trust keys stay tracked.
+.minisign/
+*.key
+*.p8
+*.pem
+*.p12
+*.pfx
+*.cer
+*.certSigningRequest
+*.provisionprofile
+*.mobileprovision
+*.keystore
+*.jks
+
+# Logs, diagnostics, and temporary files
+/tmp/
+*.log
+*.pid
+*.profraw
+*.tmp
+*.temp
+.cache/
+__pycache__/
+*.pyc
+
+# Downloaded model artifacts
+/models/
+*.gguf
+*.ggml
+*.safetensors
+*.onnx
+*.part
+*.download
+
+# Locally built or cloned inference runtimes
+/vendor/
+/src-tauri/binaries/*
+!/src-tauri/binaries/README.md
+/src-tauri/computation-service/
+/src-tauri/ollama-runtime/*
+!/src-tauri/ollama-runtime/README.md
+!/src-tauri/ollama-runtime/OLLAMA-LICENSE
+!/src-tauri/ollama-runtime/runtime.lock
+
+# Local application state and wallet test data
+/app-data/
+/local-data/
+/wallet-data/

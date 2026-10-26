@@ -1,0 +1,364 @@
+.composer-wrap {
+  padding: 0 var(--space-6) var(--space-5);
+  background: linear-gradient(to bottom, transparent, var(--color-background) 18%);
+}
+
+.composer {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: end;
+  gap: var(--space-3);
+  width: min(760px, 100%);
+  min-height: 58px;
+  margin: 0 auto;
+  padding: 10px 10px 10px var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-medium);
+  background: var(--color-background);
+  box-shadow: var(--shadow-soft);
+}
+
+.composer-attachments {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding: 0 0 2px;
+}
+
+.composer-settings {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 9px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.composer-setting {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 4px 7px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+}
+
+.composer-setting > span {
+  color: var(--color-text-tertiary);
+}
+
+.composer-setting select {
+  min-width: 0;
+  max-width: 185px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.composer-setting:focus-within {
+  border-color: var(--color-accent);
+}
+
+.composer-setting select:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.composer-setting-error {
+  width: min(760px, 100%);
+  margin: var(--space-2) auto 0;
+  color: var(--color-error);
+  font-size: 11px;
+}
+
+.composer-attachment {
+  position: relative;
+  flex: 0 0 82px;
+  height: 66px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-small);
+  background: var(--color-surface);
+}
+
+.composer-attachment img,
+.composer-attachment .attachment-preview-loading,
+.composer-attachment .attachment-preview-error {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.composer-attachment button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.68);
+  color: white;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.attachment-preview-loading,
+.attachment-preview-error {
+  display: grid;
+  place-items: center;
+  background: var(--color-surface);
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+}
+
+.attachment-preview-loading::after {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-border-strong);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  content: "";
+  animation: attachment-spin 0.8s linear infinite;
+}
+
+.attach-action {
+  display: grid;
+  place-items: center;
+  align-self: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 9px;
+  background: var(--color-surface);
+  color: var(--color-accent);
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.attach-action:hover {
+  border-color: var(--color-accent);
+}
+
+.attach-action:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.composer:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.composer[data-dictating="true"] {
+  border-color: var(--color-accent);
+}
+
+.composer textarea {
+  width: 100%;
+  max-height: 160px;
+  min-height: 36px;
+  resize: none;
+  padding: 8px 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.composer textarea::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.composer textarea:disabled {
+  opacity: 0.7;
+}
+
+.send-action,
+.stop-action,
+.dictation-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  border: 1px solid var(--color-accent);
+  border-radius: 10px;
+  background: var(--color-accent);
+  color: var(--color-accent-foreground);
+  cursor: pointer;
+}
+
+.dictation-action {
+  width: 38px;
+  padding: 0;
+  border-color: var(--color-border-subtle);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+.dictation-action:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.dictation-action:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.dictation-action[data-recording="true"] {
+  border-color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 10%, var(--color-surface));
+  color: var(--color-error);
+}
+
+.dictation-action svg {
+  width: 18px;
+  height: 18px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.send-action {
+  width: 38px;
+  font-size: 19px;
+}
+
+.stop-action {
+  gap: 7px;
+  padding: 0 var(--space-3);
+  font-size: 12px;
+}
+
+.stop-action span {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.send-action:disabled,
+.stop-action:disabled,
+.dictation-action:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.dictation-status,
+.dictation-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: min(760px, 100%);
+  min-height: 22px;
+  margin: var(--space-2) auto 0;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+}
+
+.dictation-error {
+  color: var(--color-error);
+}
+
+.dictation-status button,
+.dictation-error button {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+}
+
+.dictation-meter {
+  width: 72px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-border-subtle);
+}
+
+.dictation-meter > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent);
+  transform-origin: left center;
+  transition: transform 80ms linear;
+}
+
+@media (max-width: 540px) {
+  .composer {
+    gap: var(--space-2);
+  }
+
+  .dictation-meter {
+    flex: 1;
+    width: auto;
+  }
+}
+
+.composer-hint {
+  width: min(760px, 100%);
+  margin: var(--space-2) auto 0;
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  text-align: center;
+}
+
+.attachment-error {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: min(760px, 100%);
+  margin: var(--space-2) auto 0;
+  color: var(--color-error);
+  font-size: 11px;
+}
+
+.attachment-error button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+@keyframes attachment-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes generation-pulse {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}

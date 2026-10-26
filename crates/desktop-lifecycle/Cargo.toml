@@ -1,0 +1,16 @@
+[package]
+name = "desktop-lifecycle"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+block2.workspace = true
+objc2.workspace = true
+objc2-app-kit = { workspace = true, features = ["NSWorkspace", "NSApplication"] }
+objc2-foundation = { workspace = true, features = ["NSDistributedNotificationCenter", "NSNotification", "NSOperation", "NSString", "block2"] }

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-filesystem-search"
+description = "Enables the filesystem_search command without any pre-configured scope."
+commands.allow = ["filesystem_search"]
+
+[[permission]]
+identifier = "deny-filesystem-search"
+description = "Denies the filesystem_search command without any pre-configured scope."
+commands.deny = ["filesystem_search"]

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Minutus",
+  "version": "../package.json",
+  "identifier": "com.omarperacha.zeta",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Minutus",
+        "width": 1180,
+        "height": 760,
+        "minWidth": 880,
+        "minHeight": 600,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "dragDropEnabled": false,
+        "devtools": false
+      }
+    ],
+    "security": {
+      "capabilities": ["main-window"],
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' asset: data: blob:; font-src 'self'; media-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg"],
+    "copyright": "Copyright 2026 Minutus contributors",
+    "license": "Apache-2.0",
+    "licenseFile": "../LICENSE",
+    "homepage": "https://minutus.ai",
+    "externalBin": [
+      "binaries/zeta-tokenizer",
+      "binaries/zeta-whisper-helper",
+      "binaries/zeta-computation-broker",
+      "binaries/zeta-computation-runner"
+    ],
+    "resources": ["ollama-runtime", "computation-service", "speech-runtime", "../LICENSE"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns"
+    ],
+    "macOS": {
+      "entitlements": "Entitlements.plist",
+      "minimumSystemVersion": "13.3"
+    }
+  }
+}

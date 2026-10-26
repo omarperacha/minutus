@@ -1,0 +1,6 @@
+version=0.32.14
+source_revision=d67ad83426633195089509347ffd4fe795120198
+darwin_archive=ollama-darwin.tgz
+darwin_archive_bytes=153876009
+darwin_archive_sha256=c7e8b91485943785bc6d295d96551e971ec94c6829d0d6b3500366942dc50cd1
+darwin_archive_url=https://github.com/ollama/ollama/releases/download/v0.32.14/ollama-darwin.tgz

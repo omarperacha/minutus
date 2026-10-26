@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-check-release-update"
+description = "Enables the check_release_update command without any pre-configured scope."
+commands.allow = ["check_release_update"]
+
+[[permission]]
+identifier = "deny-check-release-update"
+description = "Denies the check_release_update command without any pre-configured scope."
+commands.deny = ["check_release_update"]

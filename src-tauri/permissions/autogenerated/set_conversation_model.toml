@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-conversation-model"
+description = "Enables the set_conversation_model command without any pre-configured scope."
+commands.allow = ["set_conversation_model"]
+
+[[permission]]
+identifier = "deny-set-conversation-model"
+description = "Denies the set_conversation_model command without any pre-configured scope."
+commands.deny = ["set_conversation_model"]

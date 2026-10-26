@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-decode-evm-authorization"
+description = "Enables the decode_evm_authorization command without any pre-configured scope."
+commands.allow = ["decode_evm_authorization"]
+
+[[permission]]
+identifier = "deny-decode-evm-authorization"
+description = "Denies the decode_evm_authorization command without any pre-configured scope."
+commands.deny = ["decode_evm_authorization"]

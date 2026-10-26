@@ -1,0 +1,138 @@
+//! Persistence for untrusted semantic-summary checkpoints.
+
+use agent_core::SemanticCompactionCheckpoint;
+use rusqlite::{OptionalExtension, params};
+
+use super::ApplicationStore;
+use crate::StorageError;
+
+pub(super) fn save(
+    store: &mut ApplicationStore,
+    checkpoint: &SemanticCompactionCheckpoint,
+) -> Result<(), StorageError> {
+    checkpoint
+        .validate()
+        .map_err(|_| StorageError::InvalidRecord("semantic checkpoint is invalid"))?;
+    let encoded = serde_json::to_string(checkpoint)?;
+    store.connection.execute(
+        "INSERT INTO semantic_compaction_checkpoints
+            (conversation_id, project_id, covered_message_count, covered_message_id,
+             history_sha256, source_state_sha256, summary_policy_version,
+             model_sha256, checkpoint_json, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+         ON CONFLICT(conversation_id) DO UPDATE SET
+            project_id = excluded.project_id,
+            covered_message_count = excluded.covered_message_count,
+            covered_message_id = excluded.covered_message_id,
+            history_sha256 = excluded.history_sha256,
+            source_state_sha256 = excluded.source_state_sha256,
+            summary_policy_version = excluded.summary_policy_version,
+            model_sha256 = excluded.model_sha256,
+            checkpoint_json = excluded.checkpoint_json,
+            updated_at = excluded.updated_at",
+        params![
+            checkpoint.conversation_id(),
+            checkpoint.project_id(),
+            checkpoint.covered_message_count(),
+            checkpoint.covered_message_id(),
+            checkpoint.history_sha256(),
+            checkpoint.source_state_sha256(),
+            checkpoint.summary_policy_version(),
+            checkpoint.binding_sha256(),
+            encoded,
+            checkpoint.updated_at(),
+        ],
+    )?;
+    Ok(())
+}
+
+pub(super) fn load(
+    store: &ApplicationStore,
+    conversation_id: &str,
+    project_id: &str,
+) -> Result<Option<SemanticCompactionCheckpoint>, StorageError> {
+    validate_scope(conversation_id, project_id)?;
+    let row = store
+        .connection
+        .query_row(
+            "SELECT covered_message_count, covered_message_id, history_sha256,
+                    source_state_sha256, summary_policy_version, model_sha256,
+                    checkpoint_json, updated_at
+             FROM semantic_compaction_checkpoints
+             WHERE conversation_id = ?1 AND project_id = ?2",
+            params![conversation_id, project_id],
+            |row| {
+                Ok((
+                    row.get::<_, u32>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, u16>(4)?,
+                    row.get::<_, String>(5)?,
+                    row.get::<_, String>(6)?,
+                    row.get::<_, String>(7)?,
+                ))
+            },
+        )
+        .optional()?;
+    row.map(
+        |(
+            covered_count,
+            covered_id,
+            history_digest,
+            source_digest,
+            policy_version,
+            model_digest,
+            encoded,
+            updated_at,
+        )| {
+            let checkpoint: SemanticCompactionCheckpoint = serde_json::from_str(&encoded)?;
+            checkpoint.validate().map_err(|_| {
+                StorageError::InvalidRecord("stored semantic checkpoint is invalid")
+            })?;
+            if checkpoint.conversation_id() != conversation_id
+                || checkpoint.project_id() != project_id
+                || checkpoint.covered_message_count() != covered_count
+                || checkpoint.covered_message_id() != covered_id
+                || checkpoint.history_sha256() != history_digest
+                || checkpoint.source_state_sha256() != source_digest
+                || checkpoint.summary_policy_version() != policy_version
+                || checkpoint.binding_sha256() != model_digest
+                || checkpoint.updated_at() != updated_at
+            {
+                return Err(StorageError::InvalidRecord(
+                    "semantic checkpoint metadata does not match its record",
+                ));
+            }
+            Ok(checkpoint)
+        },
+    )
+    .transpose()
+}
+
+pub(super) fn delete(
+    store: &mut ApplicationStore,
+    conversation_id: &str,
+    project_id: &str,
+) -> Result<bool, StorageError> {
+    validate_scope(conversation_id, project_id)?;
+    Ok(store.connection.execute(
+        "DELETE FROM semantic_compaction_checkpoints
+         WHERE conversation_id = ?1 AND project_id = ?2",
+        params![conversation_id, project_id],
+    )? == 1)
+}
+
+fn validate_scope(conversation_id: &str, project_id: &str) -> Result<(), StorageError> {
+    if [conversation_id, project_id].iter().any(|value| {
+        value.is_empty() || value.len() > 160 || value.chars().any(char::is_whitespace)
+    }) {
+        return Err(StorageError::InvalidRecord(
+            "semantic checkpoint scope is invalid",
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests;

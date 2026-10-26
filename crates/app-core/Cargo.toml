@@ -1,0 +1,46 @@
+[package]
+name = "app-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[features]
+# Cross-crate trajectory tests can inspect the production prompt assembly.
+test-support = []
+password-vault-prototype = ["wallet-core/password-vault-prototype"]
+
+[dependencies]
+agent-core.workspace = true
+app-storage.workspace = true
+asset-store.workspace = true
+audio-runtime.workspace = true
+base64.workspace = true
+audit-log.workspace = true
+chain-evm.workspace = true
+computation-runtime.workspace = true
+filesystem-tools.workspace = true
+ipc-types.workspace = true
+model-runtime.workspace = true
+permissions.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+time.workspace = true
+transaction-policy.workspace = true
+uuid.workspace = true
+wallet-core.workspace = true
+web-retrieval.workspace = true
+x402-client.workspace = true
+
+[dev-dependencies]
+getrandom.workspace = true
+zeroize.workspace = true
+image.workspace = true
+reqwest.workspace = true
+tempfile.workspace = true
+tokio.workspace = true
+web-retrieval = { workspace = true, features = ["test-support"] }
