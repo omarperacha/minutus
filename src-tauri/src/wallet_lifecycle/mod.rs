@@ -12,8 +12,10 @@ mod signing;
 mod storage;
 #[cfg(target_os = "macos")]
 mod submission;
+mod transfer;
 #[cfg(target_os = "macos")]
 pub(crate) use submission::{WalletSigned, WalletSubmission};
+pub(crate) use transfer::TransferCancellation;
 mod watchdog;
 pub(crate) use commands::*;
 pub(crate) use control::WalletControl;

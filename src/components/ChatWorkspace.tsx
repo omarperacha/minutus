@@ -203,6 +203,8 @@ function activityFromToolRequest(request: ToolRequest): TaskActivity {
       return { id: request.callId, kind: "search", title: "Retrieved an approved web resource", detail: null, status: "inProgress" };
     case "web.search":
       return { id: request.callId, kind: "search", title: "Searched the public web", detail: null, status: "inProgress" };
+    case "wallet.request_transfer":
+      return { id: request.callId, kind: "transactionPreparation", title: "Requested a native-reviewed wallet transfer", detail: null, status: "inProgress" };
     case "x402.request":
       return { id: request.callId, kind: "transactionStatus", title: "Handled an x402 request", detail: null, status: "inProgress" };
     case "filesystem.list":

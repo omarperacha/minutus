@@ -113,6 +113,15 @@ impl TransactionObservation {
     }
 }
 
+/// Computes the public hash of exact signed bytes without submitting them.
+/// # Errors
+/// Returns an error for malformed or oversized signed transaction bytes.
+pub fn signed_transaction_hash(signed: &str) -> Result<TransactionHash, BroadcastError> {
+    Ok(TransactionHash(format_hash(&decode_signed_transaction(
+        signed,
+    )?)))
+}
+
 /// Submits one already approved and wallet-signed transaction.
 ///
 /// This chain boundary deliberately has no approval or signing API. Its caller

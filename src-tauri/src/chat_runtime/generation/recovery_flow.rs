@@ -77,7 +77,7 @@ pub(super) fn validate_or_recover_phase_calls(
     tool_state: &mut GenerationToolState,
     generated: &mut ChatGenerationRound,
     round: usize,
-    cancellation_requested: &AtomicBool,
+    cancellation_requested: &std::sync::Arc<AtomicBool>,
 ) -> Result<bool, ChatTerminal> {
     if super::plan_pending::defer_preplan_calls(
         app,
@@ -418,7 +418,7 @@ pub(super) fn recover_invalid_tool_arguments(
     tool_state: &mut GenerationToolState,
     generated: &mut ChatGenerationRound,
     round: usize,
-    cancellation_requested: &AtomicBool,
+    cancellation_requested: &std::sync::Arc<AtomicBool>,
 ) -> Result<Option<bool>, ChatTerminal> {
     let invalid = match tool_state
         .path_references

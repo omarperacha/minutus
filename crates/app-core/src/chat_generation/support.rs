@@ -181,6 +181,7 @@ pub(crate) const fn tool_name(name: &ToolName) -> &'static str {
         ToolName::WebRetrieve => "web.retrieve",
         ToolName::WebSearch => "web.search",
         ToolName::X402Request => "x402.request",
+        ToolName::WalletRequestTransfer => "wallet.request_transfer",
         ToolName::FilesystemList => "filesystem.list",
         ToolName::FilesystemFindPaths => "filesystem.find_paths",
         ToolName::FilesystemCollectEvidence => "filesystem.collect_evidence",

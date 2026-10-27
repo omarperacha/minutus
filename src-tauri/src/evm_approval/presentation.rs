@@ -69,6 +69,7 @@ impl ApprovalEvidence {
         };
         let origin = match origin {
             ApprovalOrigin::User => TransactionAuditOrigin::User,
+            ApprovalOrigin::Chat { .. } => TransactionAuditOrigin::Agent,
         };
         TransactionAuditEvent::new(
             &self.session_id,

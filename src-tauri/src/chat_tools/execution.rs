@@ -163,7 +163,11 @@ pub(super) fn prepare_chat_tool(
     let request = validated_chat_tool_request(call, workspaces)?;
     let workspace = if matches!(
         call.name.as_str(),
-        "computation.run" | "web.retrieve" | "web.search" | "x402.request"
+        "computation.run"
+            | "web.retrieve"
+            | "web.search"
+            | "x402.request"
+            | "wallet.request_transfer"
     ) {
         None
     } else {
@@ -195,7 +199,7 @@ pub(super) fn execute_prepared_chat_tool(
     conversation: &Conversation,
     prepared: PreparedChatTool,
     image_slot_available: bool,
-    cancellation_requested: &AtomicBool,
+    cancellation_requested: &std::sync::Arc<AtomicBool>,
 ) -> ChatToolExchange {
     let PreparedChatTool {
         call,
@@ -203,6 +207,32 @@ pub(super) fn execute_prepared_chat_tool(
         workspace,
         mut activity,
     } = prepared;
+    if call.name == "wallet.request_transfer" {
+        let outcome =
+            super::wallet_transfer::execute(app, core, conversation, &call, cancellation_requested)
+                .unwrap_or_else(|mut error| {
+                    error.retryable = false;
+                    ToolOutcome::Failed { error }
+                });
+        activity.status = match &outcome {
+            ToolOutcome::Completed { .. } => TaskActivityStatus::Completed,
+            ToolOutcome::Failed { .. } => TaskActivityStatus::Failed,
+        };
+        activity.detail =
+            Some("Transfer request · separate native approval and fresh password".into());
+        return ChatToolExchange {
+            request: request.clone(),
+            result: ToolResult {
+                call_id: request.call_id,
+                outcome,
+            },
+            activity,
+            workspace_grant_id: None,
+            undo_changes: Vec::new(),
+            inspected_asset_id: None,
+            computation_reuse_digest: None,
+        };
+    }
     if call.name == "x402.request" {
         let outcome = super::x402::execute(app, core, conversation, &call, cancellation_requested)
             .unwrap_or_else(|error| ToolOutcome::Failed { error });

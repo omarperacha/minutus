@@ -212,6 +212,12 @@ const TOOL_CATALOGUE_METADATA: &[ToolCatalogueMetadata] = &[
         common: false,
     },
     ToolCatalogueMetadata {
+        name: "wallet.request_transfer",
+        category: ToolCategory::Payments,
+        action_class: Some(ToolActionClass::ExternalWrite),
+        common: false,
+    },
+    ToolCatalogueMetadata {
         name: "x402.request",
         category: ToolCategory::Payments,
         action_class: Some(ToolActionClass::ExternalWrite),
@@ -281,11 +287,12 @@ pub(crate) fn terminal_result_completes_stage(
     arguments: &std::collections::BTreeMap<String, serde_json::Value>,
     outcome: &ipc_types::ToolOutcome,
 ) -> bool {
-    name == "x402.request"
-        && arguments
-            .get("operation")
-            .and_then(serde_json::Value::as_str)
-            .is_some_and(|operation| matches!(operation, "purchase" | "purchase_url"))
+    (name == "wallet.request_transfer"
+        || (name == "x402.request"
+            && arguments
+                .get("operation")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|operation| matches!(operation, "purchase" | "purchase_url"))))
         && match outcome {
             ipc_types::ToolOutcome::Completed { .. } => true,
             ipc_types::ToolOutcome::Failed { error } => !error.retryable,
@@ -324,6 +331,13 @@ pub(crate) fn tool_has_bulk_arguments(name: &str) -> bool {
 /// Bounded intent aliases for discovery, never authorization or operation names.
 pub(super) fn tool_search_aliases(name: &str) -> &'static [&'static str] {
     match name {
+        "wallet.request_transfer" => &[
+            "send ETH",
+            "send USDC",
+            "wallet transfer",
+            "crypto transfer",
+            "send tokens",
+        ],
         "filesystem.inspect_image" => &[
             "read image",
             "inspect image",
@@ -501,6 +515,7 @@ pub(crate) fn chat_tool_definitions(
             }),
     );
     computation.push(super::x402::tool_definition());
+    computation.push(super::wallet_transfer::tool_definition());
     computation.extend(
         web_search_tool_registry()
             .map_err(|_| IpcError::internal())?

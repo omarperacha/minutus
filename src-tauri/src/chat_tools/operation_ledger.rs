@@ -124,7 +124,7 @@ impl OperationLedger {
         // authorize request-local replay or suppress a fresh approval/fetch.
         if matches!(
             target.call.name.as_str(),
-            "web.retrieve" | "web.search" | "x402.request"
+            "web.retrieve" | "web.search" | "x402.request" | "wallet.request_transfer"
         ) {
             return None;
         }

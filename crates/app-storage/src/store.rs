@@ -22,11 +22,13 @@ use crate::{
 
 mod assets;
 mod audit;
+mod chat_transfers;
 mod checkpoints;
 mod compact_results;
 mod conversations;
 mod dialogue_continuity;
 mod evm;
+mod evm_dispatch;
 mod execution_ledgers;
 pub(crate) mod external_models;
 mod model_installs;

@@ -114,3 +114,16 @@ The [contributor checks](../CONTRIBUTING.md) include signed XPC execution and
 containment tests, plus Rust and JavaScript dependency policy. Packaged fixtures
 are ignored by ordinary Cargo runs and must be exercised through their scripts.
 A green unit-test run alone does not qualify the native sandbox.
+
+## Reviewed chat transfers
+
+Chat ETH/native USDC transfers use the same native approval and fresh-password
+signing boundary as Wallet on the four supported Base/Ethereum networks.
+Per-turn durable admission blocks automatic repeat attempts. Known transaction
+hashes are retained before submission so uncertain outcomes can be reconciled
+without rebroadcast. Proven-unsent reservations are retired atomically; uncertain
+submissions require a separate native acknowledgement before further chat
+requests. That acknowledgement retains monitoring and grants no signing authority.
+See [chat transfer boundaries](chat-transfers.md) for
+freshness rules, cancellation and qualification limits. Arbitrary contract calls
+and arbitrary message/typed-data signing remain unavailable.

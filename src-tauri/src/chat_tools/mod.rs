@@ -20,6 +20,7 @@ mod plan_contract;
 pub(crate) mod recall;
 mod tool_search;
 mod validation;
+mod wallet_transfer;
 mod web;
 mod web_search;
 mod x402;

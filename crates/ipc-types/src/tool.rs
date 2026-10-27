@@ -51,6 +51,10 @@ pub enum ToolName {
     #[serde(rename = "x402.request", alias = "x402.purchase_flowzed_test_resource")]
     #[ts(rename = "x402.request")]
     X402Request,
+    /// Request one native-reviewed ETH or native USDC transfer.
+    #[serde(rename = "wallet.request_transfer")]
+    #[ts(rename = "wallet.request_transfer")]
+    WalletRequestTransfer,
     /// List one granted workspace directory.
     #[serde(rename = "filesystem.list")]
     #[ts(rename = "filesystem.list")]

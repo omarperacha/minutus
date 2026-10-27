@@ -22,7 +22,7 @@ pub use balance::{
 pub use broadcast::{
     BroadcastError, BroadcastReceipt, TransactionHash, TransactionLifecycle,
     TransactionObservation, broadcast_signed_transaction,
-    broadcast_signed_transaction_with_admission, monitor_transaction,
+    broadcast_signed_transaction_with_admission, monitor_transaction, signed_transaction_hash,
 };
 pub use network::{
     BASE_MAINNET_BLOCK_EXPLORER_URL, BASE_MAINNET_CHAIN_ID, BASE_MAINNET_DEFAULT_RPC_URL,

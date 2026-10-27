@@ -1,9 +1,9 @@
 //! Native EVM transfer preparation without approval, signing or broadcast.
 
+use app_core::AppCore;
 use chain_evm::{
-    NativeTransferCandidate, NativeTransferError, NativeTransferRequest, TokenTransferCandidate,
-    TokenTransferError, TokenTransferRequest, TransactionSimulation, prepare_native_transfer,
-    prepare_token_transfer,
+    NativeTransferCandidate, NativeTransferError, TokenTransferCandidate, TokenTransferError,
+    TransactionSimulation,
 };
 use ipc_types::{
     EvmDecodedTokenTransfer, EvmNativeTransferCandidate, EvmNativeTransferRequest,
@@ -11,17 +11,21 @@ use ipc_types::{
     EvmTokenTransferCandidate, EvmTokenTransferRequest, EvmTransactionSimulation, IpcError,
     IpcErrorCode,
 };
+use std::sync::Arc;
 use tauri::State;
+
+pub(crate) mod preparation;
 
 use crate::{
     evm_approval::{ApprovalCandidate, ApprovalOrigin, EvmApprovalControl},
-    evm_rpc_settings::{chain_network, resolved},
+    evm_rpc_settings::chain_network,
     wallet_lifecycle::WalletControl,
 };
 
 #[tauri::command]
 pub(crate) async fn prepare_evm_native_transfer(
     approval: State<'_, EvmApprovalControl>,
+    core: State<'_, Arc<AppCore>>,
     wallet: State<'_, WalletControl>,
     request: EvmNativeTransferRequest,
 ) -> Result<EvmNativeTransferCandidate, IpcError> {
@@ -29,18 +33,24 @@ pub(crate) async fn prepare_evm_native_transfer(
     if !request.sender.eq_ignore_ascii_case(&sender) {
         return Err(selected_account_error());
     }
-    let network = chain_network(request.network);
-    let transfer = NativeTransferRequest::new(&sender, &request.recipient, &request.amount_eth)
-        .map_err(|error| transfer_error(&error))?;
-    let endpoint = resolved(network)?;
-    let candidate =
-        tokio::task::spawn_blocking(move || prepare_native_transfer(network, &endpoint, &transfer))
-            .await
-            .map_err(|_| IpcError::internal())?
-            .map_err(|error| transfer_error(&error))?;
+    let epoch = wallet.transfer_epoch()?;
+    core.retire_evm_reservations(
+        chain_network(request.network).descriptor().caip2_id(),
+        &sender,
+    )
+    .map_err(crate::error_mapping::app_core_error)?;
+    let candidate = preparation::native(
+        chain_network(request.network),
+        &sender,
+        &request.recipient,
+        &request.amount_eth,
+    )
+    .await?;
+    wallet.check_transfer_epoch(epoch)?;
     let review_id = approval.register(
         ApprovalCandidate::Native(candidate.clone()),
         ApprovalOrigin::User,
+        epoch,
     )?;
     Ok(project_candidate(request.network, review_id, &candidate))
 }
@@ -48,6 +58,7 @@ pub(crate) async fn prepare_evm_native_transfer(
 #[tauri::command]
 pub(crate) async fn prepare_evm_token_transfer(
     approval: State<'_, EvmApprovalControl>,
+    core: State<'_, Arc<AppCore>>,
     wallet: State<'_, WalletControl>,
     request: EvmTokenTransferRequest,
 ) -> Result<EvmTokenTransferCandidate, IpcError> {
@@ -55,18 +66,24 @@ pub(crate) async fn prepare_evm_token_transfer(
     if !request.sender.eq_ignore_ascii_case(&sender) {
         return Err(selected_account_error());
     }
-    let network = chain_network(request.network);
-    let transfer = TokenTransferRequest::new(&sender, &request.recipient, &request.amount)
-        .map_err(|error| token_error(&error))?;
-    let endpoint = resolved(network)?;
-    let candidate =
-        tokio::task::spawn_blocking(move || prepare_token_transfer(network, &endpoint, &transfer))
-            .await
-            .map_err(|_| IpcError::internal())?
-            .map_err(|error| token_error(&error))?;
+    let epoch = wallet.transfer_epoch()?;
+    core.retire_evm_reservations(
+        chain_network(request.network).descriptor().caip2_id(),
+        &sender,
+    )
+    .map_err(crate::error_mapping::app_core_error)?;
+    let candidate = preparation::token(
+        chain_network(request.network),
+        &sender,
+        &request.recipient,
+        &request.amount,
+    )
+    .await?;
+    wallet.check_transfer_epoch(epoch)?;
     let review_id = approval.register(
         ApprovalCandidate::Token(candidate.clone()),
         ApprovalOrigin::User,
+        epoch,
     )?;
     Ok(project_token_candidate(
         request.network,
