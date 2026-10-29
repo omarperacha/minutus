@@ -38,3 +38,37 @@ fn checksummed_review_account_binds_the_canonical_signer_without_changing_displa
     }
     Ok(())
 }
+
+#[test]
+fn increasing_a_reviewed_fee_budget_invalidates_exact_approval_even_with_the_same_transaction()
+-> Result<(), Box<dyn std::error::Error>> {
+    use transaction_policy::{ApprovalBindingInput, ApprovalCommitment, ApprovalTransactionType};
+    let original = chain_evm::TransferFeeBudget::new("10000", "100", "10")?;
+    let changed = chain_evm::TransferFeeBudget::new("10000", "101", "10")?;
+    let digest = |budget| {
+        simulation_budget_digest(b"fixed simulation", budget, ["quote", "10110", "100", "10"])
+            .map_err(|e| e.message)
+    };
+    let binding = ApprovalBindingInput {
+        signing_digest: [1; 32],
+        chain_id: 84532,
+        account: "0x1111111111111111111111111111111111111111",
+        session_id: "fee-budget-test",
+        expires_at_unix: 1060,
+        transaction_type: ApprovalTransactionType::Eip1559 {
+            transaction_type: 2,
+        },
+        decoder_digest: [2; 32],
+        simulation_digest: digest(&original)?,
+    };
+    let approval = ApprovalCommitment::issue(binding, 1000)?;
+    assert!(approval.verify(binding, 1001).is_ok());
+    let altered = ApprovalBindingInput {
+        simulation_digest: digest(&changed)?,
+        ..binding
+    };
+    assert!(approval.verify(altered, 1001).is_err());
+    assert_eq!(binding.signing_digest, altered.signing_digest);
+    assert_eq!(original.l1_wei(), "150");
+    Ok(())
+}

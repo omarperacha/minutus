@@ -127,3 +127,18 @@ requests. That acknowledgement retains monitoring and grants no signing authorit
 See [chat transfer boundaries](chat-transfers.md) for
 freshness rules, cancellation and qualification limits. Arbitrary contract calls
 and arbitrary message/typed-data signing remain unavailable.
+
+### Transfer fee budgets
+
+Native ETH and USDC review distinguishes quoted fees from the retained
+pre-submit budget. Base L1/operator quotes receive 50% headroom (rounded up in
+wei) before approval; the budget is bound into exact approval evidence and is
+never increased afterwards. Refresh retains the approved execution cap and tip,
+checks current base-fee coverage, compares raw rollup quotes to the retained
+budget and keeps nonce, balance, intent and simulation checks. Costs above the
+budget require a new candidate and approval. No automatic repricing or retry is
+introduced. Ethereum's Base-fee components remain zero.
+
+The signed EIP-1559 fields cap execution pricing, not Base's separate L1/operator
+charges at inclusion. The native review discloses that the total budget is checked
+before submission and cannot guarantee those future charges.

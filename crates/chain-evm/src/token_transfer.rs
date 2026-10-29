@@ -10,8 +10,7 @@ use crate::{
     BaseAssetDescriptor, BaseNetwork, EvmRpcUrl, PublicEvmAddress, RpcChainIdError,
     rpc::{RpcClient, RpcError, Uint256, format_units},
     simulation::{
-        SimulationIntent, SimulationTransaction, TransactionSimulation, observe_latest_block,
-        simulate_transaction,
+        SimulationIntent, SimulationTransaction, TransactionSimulation, simulate_transaction,
     },
     trusted_assets,
 };
@@ -251,6 +250,42 @@ pub fn prepare_token_transfer(
     endpoint: &EvmRpcUrl,
     request: &TokenTransferRequest,
 ) -> Result<TokenTransferCandidate, TokenTransferError> {
+    prepare_with_caps(network, endpoint, request, None)
+}
+
+/// Refreshes token observations while retaining the exact approved execution caps.
+/// # Errors
+/// Rejects changed chain, malformed observations and preparation failures.
+/// This never signs, broadcasts or mutates the retained candidate.
+pub fn refresh_token_transfer(
+    network: BaseNetwork,
+    endpoint: &EvmRpcUrl,
+    old: &TokenTransferCandidate,
+) -> Result<TokenTransferCandidate, TokenTransferError> {
+    network.validate_rpc_chain_id(&format!("0x{:x}", old.chain_id()))?;
+    let request = TokenTransferRequest::new(
+        old.sender(),
+        old.decoded().recipient(),
+        old.decoded().amount(),
+    )?;
+    prepare_with_caps(
+        network,
+        endpoint,
+        &request,
+        Some((
+            old.max_priority_fee_per_gas_wei(),
+            old.max_fee_per_gas_wei(),
+            old.gas_limit(),
+        )),
+    )
+}
+
+fn prepare_with_caps(
+    network: BaseNetwork,
+    endpoint: &EvmRpcUrl,
+    request: &TokenTransferRequest,
+    caps: Option<(&str, &str, &str)>,
+) -> Result<TokenTransferCandidate, TokenTransferError> {
     let asset = trusted_assets(network)[1];
     let contract = asset
         .token_contract()
@@ -281,6 +316,7 @@ pub fn prepare_token_transfer(
             data,
             decoded,
         },
+        caps,
     )
 }
 
@@ -297,6 +333,7 @@ fn prepare_token_rpc(
     client: &RpcClient<'_>,
     request: &TokenTransferRequest,
     intent: PreparedTokenIntent,
+    caps: Option<(&str, &str, &str)>,
 ) -> Result<TokenTransferCandidate, TokenTransferError> {
     let contract = intent
         .asset
@@ -319,16 +356,12 @@ fn prepare_token_rpc(
         "eth_getTransactionCount",
         &json!([request.sender.as_str(), "pending"]),
     )?;
-    let priority = quantity(client, "eth_maxPriorityFeePerGas", &json!([]))?;
-    let observed_block = observe_latest_block(client)?;
+    let fees =
+        crate::execution_fees::observe(client, caps.map(|(priority, cap, _)| (priority, cap)))?;
+    let observed_block = fees.block;
     let base = observed_block.base_fee;
-    let max_fee = base
-        .checked_add(base)
-        .and_then(|value| value.checked_add(priority))
-        .ok_or(TokenTransferError::ArithmeticOverflow)?;
-    if priority > max_fee {
-        return Err(TokenTransferError::MalformedRpcResponse);
-    }
+    let priority = fees.priority;
+    let max_fee = fees.cap;
     let transaction = token_transaction_object(
         network,
         request,
@@ -338,10 +371,8 @@ fn prepare_token_rpc(
         priority,
         max_fee,
     );
-    let gas = quantity(client, "eth_estimateGas", &json!([transaction]))?;
-    if gas.is_zero() {
-        return Err(TokenTransferError::MalformedRpcResponse);
-    }
+    let estimate = quantity(client, "eth_estimateGas", &json!([transaction]))?;
+    let gas = crate::execution_fees::gas_limit(estimate, caps.map(|(_, _, gas)| gas))?;
     let unsigned_size = unsigned_transaction_size(network, nonce, priority, max_fee, gas, 68);
     let (l1, operator) = network_fees(network, client, unsigned_size, gas)?;
     let (execution, total) = token_fee_total(gas, max_fee, l1, operator)?;
@@ -630,6 +661,10 @@ pub enum TokenTransferError {
     MalformedRpcResponse,
     /// Fee arithmetic overflowed uint256.
     ArithmeticOverflow,
+    /// Current base fee no longer fits the immutable reviewed execution cap.
+    ApprovedFeeCapExceeded,
+    /// Current gas requirement exceeds the immutable reviewed gas limit.
+    ApprovedGasLimitExceeded,
     /// Pending token balance is below the decoded amount.
     InsufficientTokenBalance {
         /// Available token base units.
@@ -677,6 +712,8 @@ impl fmt::Display for TokenTransferError {
             Self::MalformedRpcResponse => {
                 f.write_str("The EVM RPC endpoint returned invalid token transfer data")
             }
+            Self::ApprovedGasLimitExceeded => f.write_str("gas_limit_exceeded: current gas requirement needs a new transaction and fresh native approval"),
+            Self::ApprovedFeeCapExceeded => f.write_str("base_fee_exceeds_signed_cap: current base fee requires a new transaction and fresh native approval"),
             Self::ArithmeticOverflow => {
                 f.write_str("The prepared transfer fee exceeds the EVM uint256 limit")
             }
@@ -712,6 +749,19 @@ impl From<RpcError> for TokenTransferError {
 impl From<RpcChainIdError> for TokenTransferError {
     fn from(e: RpcChainIdError) -> Self {
         Self::ChainId(e)
+    }
+}
+
+impl From<crate::execution_fees::ExecutionFeeError> for TokenTransferError {
+    fn from(error: crate::execution_fees::ExecutionFeeError) -> Self {
+        use crate::execution_fees::ExecutionFeeError;
+        match error {
+            ExecutionFeeError::Rpc(error) => Self::from(error),
+            ExecutionFeeError::Invalid => Self::MalformedRpcResponse,
+            ExecutionFeeError::Overflow => Self::ArithmeticOverflow,
+            ExecutionFeeError::ApprovedCapExceeded => Self::ApprovedFeeCapExceeded,
+            ExecutionFeeError::ApprovedGasExceeded => Self::ApprovedGasLimitExceeded,
+        }
     }
 }
 

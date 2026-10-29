@@ -41,6 +41,7 @@ pub(crate) struct ApprovalEvidence {
     transaction_type: ApprovalTransactionType,
     decoder_digest: [u8; 32],
     simulation_digest: [u8; 32],
+    pub(crate) fee_budget: chain_evm::TransferFeeBudget,
 }
 
 impl ApprovalEvidence {
@@ -112,6 +113,7 @@ impl ApprovalDisplay {
         now_unix: u64,
     ) -> Result<PreparedApproval, IpcError> {
         let context = context(candidate);
+        let fee_budget = budget_for_candidate(candidate)?;
         let payload =
             encode_prepared_transaction(context.prepared).map_err(|_| invalid_candidate_error())?;
         let (decoded, approval_allowed) = verified_decoded(&context, &payload)?;
@@ -133,6 +135,7 @@ impl ApprovalDisplay {
             origin,
             simulation_is_stale,
             &warnings,
+            &fee_budget,
             ApprovalBindingDisplay {
                 session_id,
                 expires_at_unix,
@@ -157,16 +160,16 @@ impl ApprovalDisplay {
         let simulation_bytes =
             serde_json::to_vec(simulation).map_err(|_| invalid_candidate_error())?;
         let decoder_digest = digest_parts(b"zeta.approval-decoder.v1", &[&decoded_bytes]);
-        let simulation_digest = digest_parts(
-            b"zeta.approval-simulation.v1",
-            &[
-                &simulation_bytes,
-                context.maximum_network_fee_eth.as_bytes(),
-                context.maximum_network_fee_wei.as_bytes(),
-                context.maximum_l1_fee_wei.as_bytes(),
-                context.operator_fee_wei.as_bytes(),
+        let simulation_digest = simulation_budget_digest(
+            &simulation_bytes,
+            &fee_budget,
+            [
+                context.maximum_network_fee_eth,
+                context.maximum_network_fee_wei,
+                context.maximum_l1_fee_wei,
+                context.operator_fee_wei,
             ],
-        );
+        )?;
         Ok(PreparedApproval {
             display,
             payload,
@@ -183,10 +186,62 @@ impl ApprovalDisplay {
                 },
                 decoder_digest,
                 simulation_digest,
+                fee_budget,
             },
             audit_warning_codes,
         })
     }
+}
+
+fn simulation_budget_digest(
+    simulation: &[u8],
+    budget: &chain_evm::TransferFeeBudget,
+    quotes: [&str; 4],
+) -> Result<[u8; 32], IpcError> {
+    let encoded = serde_json::to_vec(budget).map_err(|_| invalid_candidate_error())?;
+    Ok(digest_parts(
+        b"zeta.approval-simulation.v2",
+        &[
+            simulation,
+            &encoded,
+            quotes[0].as_bytes(),
+            quotes[1].as_bytes(),
+            quotes[2].as_bytes(),
+            quotes[3].as_bytes(),
+        ],
+    ))
+}
+
+fn budget_for_candidate(
+    candidate: &ApprovalCandidate,
+) -> Result<chain_evm::TransferFeeBudget, IpcError> {
+    let (execution, l1, operator, balance, value) = match candidate {
+        ApprovalCandidate::Native(c) => (
+            c.maximum_execution_fee_wei(),
+            c.maximum_l1_fee_wei(),
+            c.operator_fee_wei(),
+            c.account_balance_wei(),
+            c.value_wei(),
+        ),
+        ApprovalCandidate::Token(c) => (
+            c.maximum_execution_fee_wei(),
+            c.maximum_l1_fee_wei(),
+            c.operator_fee_wei(),
+            c.native_balance_wei(),
+            "0",
+        ),
+    };
+    let budget = chain_evm::TransferFeeBudget::new(execution, l1, operator)
+        .map_err(|_| invalid_candidate_error())?;
+    if !budget
+        .affordable(balance, value)
+        .map_err(|_| invalid_candidate_error())?
+    {
+        return Err(IpcError::invalid_request(
+            "Insufficient ETH for the full reviewed fee budget, including headroom",
+        ));
+    }
+    Ok(budget)
 }
 
 fn signing_account(decoded: &chain_evm::DecodedEip1559Transaction) -> Result<String, IpcError> {
@@ -372,6 +427,7 @@ fn render_body(
     origin: ApprovalOrigin,
     simulation_is_stale: bool,
     warnings: &[String],
+    fee_budget: &chain_evm::TransferFeeBudget,
     binding: ApprovalBindingDisplay<'_>,
 ) -> String {
     let simulation = context.simulation;
@@ -386,7 +442,7 @@ fn render_body(
     );
     let _ = writeln!(body, "WALLET ACCOUNT\n{}\n", decoded.account());
     write_action(&mut body, decoded.action());
-    write_fees(&mut body, decoded, context);
+    write_fees(&mut body, decoded, context, fee_budget);
     let _ = writeln!(body, "\nORIGIN\n{}\n", origin.display_name());
     let _ = writeln!(
         body,
@@ -449,20 +505,33 @@ fn write_fees(
     body: &mut String,
     decoded: &chain_evm::DecodedEip1559Transaction,
     context: &CandidateContext<'_>,
+    budget: &chain_evm::TransferFeeBudget,
 ) {
     let _ = writeln!(
         body,
-        "MAXIMUM FEES\n{} ETH total network fee ({} wei)\n{} ETH execution fee ({} wei)",
+        "FEE BUDGET BEFORE SUBMISSION\n{} ETH ({} wei)\n",
+        budget.total_eth(),
+        budget.total_wei()
+    );
+    let _ = writeln!(
+        body,
+        "INITIAL FEE QUOTE\n{} ETH total network fee ({} wei)\n{} ETH execution fee ({} wei)",
         context.maximum_network_fee_eth,
         context.maximum_network_fee_wei,
         decoded.maximum_execution_fee_eth(),
         decoded.maximum_execution_fee_wei()
     );
-    if context.maximum_l1_fee_wei != "0" || context.operator_fee_wei != "0" {
+    if decoded.network().is_base() {
         let _ = writeln!(
             body,
             "Candidate/simulation fee bounds: {} wei L1 data + {} wei operator fee",
             context.maximum_l1_fee_wei, context.operator_fee_wei
+        );
+        let _ = writeln!(
+            body,
+            "Approved rollup budgets (+50%, rounded up): {} wei L1 data + {} wei operator fee. The execution fee cap and transaction bytes stay fixed.\nThis budget is checked before submission; Base L1/operator charges can change before inclusion and are not capped by the signed EIP-1559 execution fee fields.",
+            budget.l1_wei(),
+            budget.operator_wei()
         );
     }
 }

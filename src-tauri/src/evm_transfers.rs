@@ -250,6 +250,8 @@ fn transfer_error(error: &NativeTransferError) -> IpcError {
         | NativeTransferError::ExcessPrecision
         | NativeTransferError::AmountOverflow
         | NativeTransferError::MalformedRpcResponse
+        | NativeTransferError::ApprovedGasLimitExceeded
+        | NativeTransferError::ApprovedFeeCapExceeded
         | NativeTransferError::ArithmeticOverflow
         | NativeTransferError::InsufficientBalance { .. } => (IpcErrorCode::InvalidRequest, false),
     };

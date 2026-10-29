@@ -237,6 +237,7 @@ async fn sign_approved(
             crate::evm_transfers::preparation::revalidate(
                 &pending.candidate,
                 refresh_policy(pending.origin),
+                &evidence.fee_budget,
             )
             .await?;
             check_pending(wallet, pending, cancelled)
@@ -293,6 +294,7 @@ async fn broadcast_approved(
     crate::evm_transfers::preparation::revalidate(
         &pending.candidate,
         refresh_policy(pending.origin),
+        &evidence.fee_budget,
     )
     .await?;
     let network = pending.candidate.network()?;

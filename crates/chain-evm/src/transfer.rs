@@ -10,8 +10,7 @@ use crate::{
     BaseNetwork, EvmRpcUrl, PublicEvmAddress, RpcChainIdError,
     rpc::{RpcClient, RpcError, Uint256, format_units},
     simulation::{
-        SimulationIntent, SimulationTransaction, TransactionSimulation, observe_latest_block,
-        simulate_transaction,
+        SimulationIntent, SimulationTransaction, TransactionSimulation, simulate_transaction,
     },
 };
 
@@ -196,6 +195,38 @@ pub fn prepare_native_transfer(
     endpoint: &EvmRpcUrl,
     request: &NativeTransferRequest,
 ) -> Result<NativeTransferCandidate, NativeTransferError> {
+    prepare_with_caps(network, endpoint, request, None)
+}
+
+/// Refreshes observations using the original execution fee cap and tip.
+/// # Errors
+/// Rejects changed chain, malformed observations, simulation/preparation failures
+/// or insufficient funds. Never signs, broadcasts or changes the original.
+pub fn refresh_native_transfer(
+    network: BaseNetwork,
+    endpoint: &EvmRpcUrl,
+    old: &NativeTransferCandidate,
+) -> Result<NativeTransferCandidate, NativeTransferError> {
+    network.validate_rpc_chain_id(&format!("0x{:x}", old.chain_id()))?;
+    let request = NativeTransferRequest::new(old.sender(), old.recipient(), old.amount_eth())?;
+    prepare_with_caps(
+        network,
+        endpoint,
+        &request,
+        Some((
+            old.max_priority_fee_per_gas_wei(),
+            old.max_fee_per_gas_wei(),
+            old.gas_limit(),
+        )),
+    )
+}
+
+fn prepare_with_caps(
+    network: BaseNetwork,
+    endpoint: &EvmRpcUrl,
+    request: &NativeTransferRequest,
+    caps: Option<(&str, &str, &str)>,
+) -> Result<NativeTransferCandidate, NativeTransferError> {
     let client = RpcClient::new(endpoint)?;
     let chain_id_response = client.string_result("eth_chainId", &json!([]))?;
     network.validate_rpc_chain_id(&chain_id_response)?;
@@ -214,19 +245,15 @@ pub fn prepare_native_transfer(
         "eth_getTransactionCount",
         &json!([request.sender.as_str(), "pending"]),
     )?;
-    let priority_fee = quantity_result(&client, "eth_maxPriorityFeePerGas", &json!([]))?;
-    let observed_block = observe_latest_block(&client)?;
+    let fees =
+        crate::execution_fees::observe(&client, caps.map(|(priority, cap, _)| (priority, cap)))?;
+    let observed_block = fees.block;
     let base_fee = observed_block.base_fee;
-    let max_fee = eip1559_max_fee(base_fee, priority_fee)?;
-    if priority_fee > max_fee {
-        return Err(NativeTransferError::MalformedRpcResponse);
-    }
-
+    let priority_fee = fees.priority;
+    let max_fee = fees.cap;
     let transaction = transaction_object(network, request, value, nonce, priority_fee, max_fee);
-    let gas_limit = quantity_result(&client, "eth_estimateGas", &json!([transaction]))?;
-    if gas_limit.is_zero() {
-        return Err(NativeTransferError::MalformedRpcResponse);
-    }
+    let estimate = quantity_result(&client, "eth_estimateGas", &json!([transaction]))?;
+    let gas_limit = crate::execution_fees::gas_limit(estimate, caps.map(|(_, _, gas)| gas))?;
     let maximum_execution_fee = gas_limit
         .checked_mul(max_fee)
         .ok_or(NativeTransferError::ArithmeticOverflow)?;
@@ -316,16 +343,6 @@ fn transaction_object(
         "data": "0x",
         "accessList": [],
     })
-}
-
-fn eip1559_max_fee(
-    base_fee: Uint256,
-    priority_fee: Uint256,
-) -> Result<Uint256, NativeTransferError> {
-    base_fee
-        .checked_add(base_fee)
-        .and_then(|doubled| doubled.checked_add(priority_fee))
-        .ok_or(NativeTransferError::ArithmeticOverflow)
 }
 
 fn quantity_result(
@@ -497,6 +514,10 @@ pub enum NativeTransferError {
     MalformedRpcResponse,
     /// Fee or required-balance arithmetic overflowed uint256.
     ArithmeticOverflow,
+    /// Current base fee no longer fits the immutable reviewed execution cap.
+    ApprovedFeeCapExceeded,
+    /// Current gas requirement exceeds the immutable reviewed gas limit.
+    ApprovedGasLimitExceeded,
     /// Pending balance does not cover the value plus maximum fees.
     InsufficientBalance {
         /// Pending sender balance in wei.
@@ -533,6 +554,8 @@ impl fmt::Display for NativeTransferError {
             Self::ChainId(error) => error.fmt(formatter),
             Self::MalformedRpcResponse => formatter
                 .write_str("The EVM RPC endpoint returned invalid transfer preparation data"),
+            Self::ApprovedGasLimitExceeded => formatter.write_str("gas_limit_exceeded: current gas requirement needs a new transaction and fresh native approval"),
+            Self::ApprovedFeeCapExceeded => formatter.write_str("base_fee_exceeds_signed_cap: current base fee requires a new transaction and fresh native approval"),
             Self::ArithmeticOverflow => {
                 formatter.write_str("The prepared transfer fee exceeds the EVM uint256 limit")
             }
@@ -564,6 +587,19 @@ impl From<RpcError> for NativeTransferError {
 impl From<RpcChainIdError> for NativeTransferError {
     fn from(error: RpcChainIdError) -> Self {
         Self::ChainId(error)
+    }
+}
+
+impl From<crate::execution_fees::ExecutionFeeError> for NativeTransferError {
+    fn from(error: crate::execution_fees::ExecutionFeeError) -> Self {
+        use crate::execution_fees::ExecutionFeeError;
+        match error {
+            ExecutionFeeError::Rpc(error) => Self::from(error),
+            ExecutionFeeError::Invalid => Self::MalformedRpcResponse,
+            ExecutionFeeError::Overflow => Self::ArithmeticOverflow,
+            ExecutionFeeError::ApprovedCapExceeded => Self::ApprovedFeeCapExceeded,
+            ExecutionFeeError::ApprovedGasExceeded => Self::ApprovedGasLimitExceeded,
+        }
     }
 }
 
@@ -660,8 +696,12 @@ mod tests {
     #[test]
     fn eip1559_fee_uses_double_base_fee_headroom() -> Result<(), NativeTransferError> {
         assert_eq!(
-            eip1559_max_fee(Uint256::from_u64(5_000_000), Uint256::from_u64(1_000_000))?
-                .to_decimal(),
+            crate::execution_fees::fee_cap(
+                Uint256::from_u64(5_000_000),
+                Uint256::from_u64(1_000_000)
+            )
+            .map_err(NativeTransferError::from)?
+            .to_decimal(),
             "11000000"
         );
         Ok(())

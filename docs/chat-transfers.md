@@ -33,12 +33,31 @@ validated address; the exact signer/account check remains enforced.
 
 After password entry and again before submission, the host refreshes chain,
 pending nonce, balances, gas, fees and exact-block simulation. Changed nonce,
-reduced balances or increased fee/gas bounds require a new candidate and native
-review. Chat requires a successful simulation. Wallet retains the warning policy
+reduced balances, gas requirements above the signed gas limit, or costs above
+the approved fee budget require a new candidate and native review. Chat requires a successful simulation. Wallet retains the warning policy
 explicitly reviewed by the user: an unchanged inconclusive/unavailable/reverted
 warning or improvement to success is allowed; a changed or mismatching warning
-requires a new review. A lower fee estimate does not mutate
-the approved signed payload. These checks cannot guarantee future chain state.
+requires a new review. A changing estimate does not mutate the approved signed payload. Refresh uses
+the original execution fee cap and tip rather than generating a newly priced
+transaction. Current base fee plus that fixed tip must still fit the signed cap.
+These checks cannot guarantee future chain state.
+
+The native review distinguishes the initial fee quote from the approved
+pre-submit budget. Base L1 and operator quotes each receive **50% headroom,
+rounded up to whole wei**, before approval. The execution cap retains the
+existing EIP-1559 policy (twice the observed base fee plus the suggested tip).
+Fresh raw oracle quotes are compared with the same frozen budget after password
+entry and before submission; headroom is never reapplied to a fresh quote or
+increased after approval. The complete budget is bound into the approval's
+simulation-evidence digest, and the account must cover value plus that budget.
+Ethereum has no Base fee component, so those budgets remain zero.
+
+This is a pre-submit safety budget, not an on-chain total-spend cap. Base L1 and
+operator charges may change between submission and inclusion; the signed
+EIP-1559 execution fields do not cap those separate charges. Native review
+states that limitation. A failed refresh identifies the specific comparison
+(such as `l1_fee_budget_exceeded` or `base_fee_exceeds_signed_cap`) rather than
+combining every reason into a simulation error.
 Account selection, vault revision, lock, sleep, expiry and cancellation invalidate
 pending work. Signing and final transport admission retain the wallet epoch.
 The actual request cancellation token is owned through signing and final send

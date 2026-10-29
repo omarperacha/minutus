@@ -108,7 +108,7 @@ recipients. ETH-to-contract transfers remain available through Wallet's existing
 explicit warned review; chat requires a code-free recipient. ENS, other tokens, “send all”, swaps, approvals and arbitrary contract
 calls are unavailable. Minutus resolves the sender from the activated wallet and
 uses the same native review and fresh password signing path as Wallet. Read the
-network, sender, recipient, amount and maximum fees in that native window.
+network, sender, recipient, amount, signed execution cap and fee budget in that native window.
 
 Denial, cancellation, expiry or a preparation failure ends that turn's attempt.
 A deliberate retry requires a new user message and fresh review. A submitted
@@ -119,6 +119,10 @@ opens a separate native uncertainty review. Keep blocked is the default. Choosin
 to allow new requests acknowledges the risk of additional payments; it neither
 retries nor cancels the earlier transfer, and every new transfer still requires
 its own exact native approval and fresh password. Monitoring history is retained.
+The preparation screen shows an initial fee quote. Native review shows the fee
+budget before you approve, including 50% headroom on Base L1/operator estimates.
+That budget stays fixed during the attempt. Base's extra fees can change before
+inclusion; they are separate from the execution fee cap in the signed transaction.
 ETH pays network fees; USDC transfers require ETH as well as USDC. Changing chain
 facts can invalidate approval and require a newly prepared transaction.
 
