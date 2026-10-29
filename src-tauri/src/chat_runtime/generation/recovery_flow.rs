@@ -210,10 +210,10 @@ pub(super) fn validate_or_recover_phase_calls(
         tool_state.record_calls(&generated.calls);
         return Ok(false);
     }
-    if !tool_state.plan_policy.active() && is_direct_discovery_call_batch(&generated.calls) {
-        // Bounded web retrieval and resource metadata discovery retain normal
-        // schema, permission and broker validation without inventing semantic
-        // stage state solely to permit information gathering.
+    if !tool_state.plan_policy.active() && is_direct_call_batch(&generated.calls) {
+        // Direct discovery and a standalone transfer keep ordinary schema and
+        // broker validation. Transfer authority still comes exclusively from
+        // exact native review, fresh authentication and the durable turn claim.
         tool_state.record_calls(&generated.calls);
         return Ok(false);
     }
@@ -231,6 +231,11 @@ pub(super) fn validate_or_recover_phase_calls(
     }
     tool_state.record_calls(&generated.calls);
     Ok(false)
+}
+
+pub(super) fn is_direct_call_batch(calls: &[ParsedToolCall]) -> bool {
+    is_direct_discovery_call_batch(calls)
+        || crate::chat_runtime::plan::is_standalone_transfer(calls)
 }
 
 pub(super) fn is_direct_discovery_call_batch(calls: &[ParsedToolCall]) -> bool {

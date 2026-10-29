@@ -36,6 +36,8 @@ use sha2::{Digest as _, Sha256};
 use time::OffsetDateTime;
 
 mod budget;
+#[cfg(test)]
+mod direct_transfer_tests;
 mod dispatch;
 mod images;
 mod plan_pending;

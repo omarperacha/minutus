@@ -11,6 +11,12 @@ effects of a contract fallback, so an inconclusive contract transfer is rejected
 before chat opens approval. Wallet retains its existing explicit warned approval
 for contract recipients; this chat restriction does not remove that capability.
 
+A standalone transfer is directly callable from the initial chat tool surface;
+no semantic plan is needed. Missing inputs still require clarification. Its tool
+call must be alone in the batch. Broader tasks may include transfers in an
+accepted semantic plan. This changes planning admission only, never payment
+authority or the one-attempt-per-user-turn rule.
+
 ## Approval and lifecycle
 
 The Wallet screen and chat share native candidate preparation, independently
@@ -18,6 +24,12 @@ decoded review, exact single-use approval, fresh app-password signing and
 broadcast. The chat origin is host-authored and includes hashes of the
 conversation and call identity; it is bound into the random approval session.
 Optional model reason text never populates trusted facts or grants authority.
+
+Native transaction review uses a screen-bounded, wider scrollable panel, with
+decision buttons outside the scroll area. Complete warnings and transaction
+facts remain available; technical details are not truncated. The displayed
+EIP-55 account and the canonical lowercase signing account represent the same
+validated address; the exact signer/account check remains enforced.
 
 After password entry and again before submission, the host refreshes chain,
 pending nonce, balances, gas, fees and exact-block simulation. Changed nonce,
@@ -35,7 +47,9 @@ interval cannot grant signing or submission authority.
 
 Chat reviews have a two-minute lifetime and cancellation closes native review or
 password input. At most one transfer attempt is admitted per persisted user turn,
-including refusal, cancellation and preparation failure. SQLite schema 20 retains
+including refusal, cancellation and preparation failure. Errors after preparation
+are reported as review/signing failures and do not imply that native approval
+or password entry never occurred. SQLite schema 20 retains
 identity-only turn tombstones across conversation saves and process restarts;
 conversation deletion removes them. They are replay guards, never approval or
 signing authority. Parallel calls cannot bypass the unique claim. No tool result

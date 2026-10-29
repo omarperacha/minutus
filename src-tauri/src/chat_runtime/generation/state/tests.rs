@@ -55,3 +55,35 @@ fn startup_catalogue_describes_deferred_capabilities_without_exposing_them() {
             })
     );
 }
+
+#[test]
+fn fresh_chat_catalogue_and_callable_surface_include_bounded_transfer()
+-> Result<(), ipc_types::IpcError> {
+    let all = crate::chat_tools::chat_tool_definitions(&[])?;
+    let state = GenerationToolState {
+        recall_scope: RecallScope::CurrentInputOnly,
+        ..GenerationToolState::default()
+    };
+    let index = state.available_catalogue_index(&all);
+    let payments = index
+        .iter()
+        .find(|category| category.name() == "payments")
+        .ok_or_else(ipc_types::IpcError::internal)?;
+    assert!(
+        payments
+            .operations()
+            .iter()
+            .any(|name| name == "wallet.request_transfer")
+    );
+    let callable = state.projected_tools(&all);
+    assert!(
+        callable
+            .iter()
+            .any(|tool| tool.name == "wallet.request_transfer")
+    );
+
+    println!("MINUTUS_CATEGORY_SNAPSHOT={}", serde_json::json!(index.iter().map(|entry|
+        serde_json::json!({"name":entry.name(),"responsibility":entry.responsibility(),"operations":entry.operations()})
+    ).collect::<Vec<_>>()));
+    Ok(())
+}

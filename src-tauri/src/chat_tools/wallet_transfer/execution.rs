@@ -88,7 +88,7 @@ pub(crate) fn execute(
     }));
     let (review_id, wallet, managed_core) = match result {
         Ok(prepared) => prepared,
-        Err(error) => return failed_outcome(&error),
+        Err(error) => return failed_outcome(&error, FailurePhase::Preparation),
     };
     let approval = app.state::<EvmApprovalControl>();
     match review_chat_transfer(app, &managed_core, &approval, &wallet, review_id, cancelled) {
@@ -98,14 +98,34 @@ pub(crate) fn execute(
             reviewed.submission_uncertain,
             &intent,
         ),
-        Err(error) => failed_outcome(&error),
+        Err(error) => failed_outcome(&error, FailurePhase::Review),
     }
 }
-fn failed_outcome(error: &IpcError) -> Result<ToolOutcome, IpcError> {
-    outcome(
-        &serde_json::json!({"state":if error.code == IpcErrorCode::Cancelled {"cancelled"} else if error.message.contains("expired") {"expired"} else {"preparationFailed"},"message":error.message,"retryAutomatically":false}),
-    )
+#[derive(Clone, Copy)]
+enum FailurePhase {
+    Preparation,
+    Review,
 }
+fn failed_outcome(error: &IpcError, phase: FailurePhase) -> Result<ToolOutcome, IpcError> {
+    let after_preparation = matches!(phase, FailurePhase::Review);
+    outcome(&serde_json::json!({
+        "state": if error.code == IpcErrorCode::Cancelled { "cancelled" }
+            else if error.message.contains("expired") { "expired" }
+            else if after_preparation { "reviewFailed" } else { "preparationFailed" },
+        "phase": if after_preparation { "reviewOrSigning" } else { "preparation" },
+        "approvalMayHaveBeenRequested": after_preparation,
+        "message": error.message,
+        "retryAutomatically": false,
+        "guidance": if after_preparation {
+            "The native review or signing flow failed after preparation. Do not claim that no approval was requested, invent wallet setup or account-authorisation instructions, or retry automatically. Report the host error; a different-signing-account error requires application investigation."
+        } else {
+            "Preparation failed before transaction approval. Report the host error without inventing wallet setup instructions."
+        }
+    }))
+}
+#[cfg(test)]
+#[path = "execution_failure_tests.rs"]
+mod failure_tests;
 fn outcome(value: &serde_json::Value) -> Result<ToolOutcome, IpcError> {
     Ok(ToolOutcome::Completed {
         content: vec![ToolResultPart::Json {

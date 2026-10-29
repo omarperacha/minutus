@@ -173,7 +173,9 @@ impl ApprovalDisplay {
             evidence: ApprovalEvidence {
                 signing_digest,
                 chain_id: decoded.chain_id(),
-                account: decoded.account().to_owned(),
+                // Display keeps EIP-55 spelling; signing binds the same address
+                // in the wallet signer's canonical lowercase representation.
+                account: signing_account(&decoded)?,
                 session_id: session_id.to_owned(),
                 expires_at_unix,
                 transaction_type: ApprovalTransactionType::Eip1559 {
@@ -186,6 +188,16 @@ impl ApprovalDisplay {
         })
     }
 }
+
+fn signing_account(decoded: &chain_evm::DecodedEip1559Transaction) -> Result<String, IpcError> {
+    chain_evm::PublicEvmAddress::new(decoded.account())
+        .map(|account| account.as_str().to_owned())
+        .map_err(|_| invalid_candidate_error())
+}
+
+#[cfg(test)]
+#[path = "presentation/tests.rs"]
+mod tests;
 
 fn collect_audit_warning_codes(
     decoded: &chain_evm::DecodedEip1559Transaction,

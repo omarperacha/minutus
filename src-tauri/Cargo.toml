@@ -54,7 +54,7 @@ image.workspace = true
 [target.'cfg(target_os = "macos")'.dependencies]
 desktop-lifecycle.workspace = true
 objc2.workspace = true
-objc2-app-kit = { workspace = true, features = ["NSAlert", "NSApplication", "NSButton", "NSControl", "NSResponder", "NSRunningApplication", "NSScrollView", "NSSecureTextField", "NSText", "NSTextContainer", "NSTextField", "NSTextView", "NSView", "NSWindow"] }
+objc2-app-kit = { workspace = true, features = ["NSAlert", "NSApplication", "NSButton", "NSControl", "NSResponder", "NSRunningApplication", "NSScreen", "NSScrollView", "NSSecureTextField", "NSText", "NSTextContainer", "NSTextField", "NSTextView", "NSView", "NSWindow"] }
 objc2-foundation = { workspace = true, features = ["NSArray", "NSData", "NSError", "NSGeometry", "NSString", "NSURL"] }
 security-framework.workspace = true
 security-framework-sys.workspace = true

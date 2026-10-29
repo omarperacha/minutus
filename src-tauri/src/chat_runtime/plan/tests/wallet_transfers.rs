@@ -40,13 +40,45 @@ fn explicit_transfer_is_an_external_effect_and_refusal_ends_the_stage() -> Resul
     Ok(())
 }
 #[test]
-fn a_model_cannot_invoke_transfer_before_external_effect_planning() {
-    let policy = PlanPolicy::default();
-    let all = vec![tool(PLAN_TOOL), tool("wallet.request_transfer")];
+fn standalone_transfer_is_callable_without_a_plan_but_mixed_batches_are_not() -> Result<(), IpcError>
+{
+    let mut policy = PlanPolicy::default();
+    let all = crate::chat_tools::chat_tool_definitions(&[])?;
+    let initial = policy.tools(&all);
+    let transfer = initial
+        .iter()
+        .find(|tool| tool.name == "wallet.request_transfer")
+        .ok_or_else(IpcError::internal)?;
     assert!(
-        !policy
-            .tools(&all)
-            .iter()
-            .any(|tool| tool.name == "wallet.request_transfer")
+        transfer
+            .description
+            .contains("no semantic plan is required")
     );
+    assert_eq!(transfer.parameters["additionalProperties"], false);
+    let request = operation("direct-transfer", "wallet.request_transfer");
+    assert!(!policy.initial_plan_required(std::slice::from_ref(&request)));
+    policy.validate_calls(std::slice::from_ref(&request))?;
+    assert!(!policy.active());
+    for mixed in [
+        vec![
+            request.clone(),
+            operation("second", "wallet.request_transfer"),
+        ],
+        vec![operation("web", "web.retrieve"), request.clone()],
+        vec![request.clone(), operation("write", "filesystem.write_text")],
+    ] {
+        assert!(policy.initial_plan_required(&mixed));
+        assert!(policy.validate_calls(&mixed).is_err());
+    }
+    assert!(
+        policy
+            .validate_calls(&[operation("write", "filesystem.write_text")])
+            .is_err()
+    );
+    assert!(
+        policy
+            .validate_calls(&[operation("purchase", "x402.request")])
+            .is_err()
+    );
+    Ok(())
 }
