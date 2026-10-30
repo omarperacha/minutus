@@ -82,8 +82,9 @@ class StageMacosAppTests(unittest.TestCase):
         self.assertEqual(
             run.call_args_list,
             [
+                call([staging.sys.executable, str(staging.REPOSITORY / "scripts/stage_evm_workers.py"), "--identity", "A" * 40], cwd=staging.REPOSITORY, check=True),
                 call(
-                    ["/opt/pnpm", "tauri", "build", "--debug", "--config", "src-tauri/tauri.stage.conf.json", "--bundles", "app", "--", "--timings"],
+                    ["/opt/pnpm", "tauri", "build", "--debug", "--config", "src-tauri/tauri.stage.conf.json", "--config", "src-tauri/tauri.evm-workers.conf.json", "--no-sign", "--bundles", "app", "--", "--timings"],
                     cwd=staging.REPOSITORY,
                     env={"ZETA_X402_DEBUG_BASE_URL": "http://localhost:5001"},
                     check=True,
@@ -100,6 +101,7 @@ class StageMacosAppTests(unittest.TestCase):
                     cwd=staging.REPOSITORY,
                     check=True,
                 ),
+                call([staging.sys.executable, str(staging.REPOSITORY / "scripts/stage_evm_workers.py"), "--verify-bundle", str(application)], cwd=staging.REPOSITORY, check=True),
             ],
         )
 
@@ -114,8 +116,8 @@ class StageMacosAppTests(unittest.TestCase):
         ):
             staging.stage()
         commands = [entry.args[0] for entry in run.call_args_list]
-        self.assertEqual(commands[1], ["sh", str(staging.REPOSITORY / "scripts/sign-macos-bundle.sh"), str(staging.APPLICATION), "-"])
-        self.assertEqual(commands[2], ["sh", str(staging.REPOSITORY / "scripts/verify-macos-bundle.sh"), str(staging.APPLICATION)])
+        self.assertEqual(commands[2], ["sh", str(staging.REPOSITORY / "scripts/sign-macos-bundle.sh"), str(staging.APPLICATION), "-"])
+        self.assertEqual(commands[3], ["sh", str(staging.REPOSITORY / "scripts/verify-macos-bundle.sh"), str(staging.APPLICATION)])
         self.assertFalse(any("macos-wallet-signing.py" in str(command) for command in commands))
 
     def test_running_staged_app_stops_before_build(self):

@@ -18,6 +18,7 @@ app-core (composition root)
 ├── wallet-core ────────────┐
 ├── transaction-policy <────┴── x402-client
 ├── chain-evm <──────────── x402-client
+│   └── evm-simulation (isolated local execution)
 ├── web-retrieval
 └── ipc-types
 ~~~
@@ -33,6 +34,13 @@ the enforceable dependency graph:
 - "filesystem-tools" depends only on capability decisions from "permissions".
 - "x402-client" may construct EVM payment data using "chain-evm" and apply
   rules from "transaction-policy"; it cannot depend on "wallet-core".
+- "chain-evm" may depend on "evm-simulation" for authority-free local execution
+  values and a developer worker API. It owns the concrete RPC/proof adapter.
+- "evm-simulation" owns the fixed process protocol, pinned upstream execution
+  adapters and one-shot isolated lifecycle. It cannot depend on wallet,
+  filesystem grants, permissions, application storage, HTTP clients, desktop UI
+  or concrete agent orchestration. Its narrow private native resource FFI is
+  documented in its README; no model tool or signing route selects the worker.
 - All other crates begin as independent leaves.
 - "agent-core" defines model-neutral orchestration. It cannot depend on
   concrete filesystem, wallet, chain, x402, networking or audit
@@ -75,6 +83,7 @@ dependency that reverses one of these arrows requires an architecture review.
 | "permissions" | Capability grants and authorisation decisions | Performing filesystem, network or signing effects |
 | "filesystem-tools" | Handle-relative operations inside active grants | Wallet, inference and network access |
 | "wallet-core" | Encrypted vault, key lifecycle and signing boundary | Broadcasting, RPC, agent and workspace access |
+| "evm-simulation" | Bounded local Revm/Base worker, fixed protocol and isolated one-shot lifecycle | Wallet secrets, signing, submission, network IO, project grants and effect/source qualification |
 | "chain-evm" | EVM types, construction, decoding and simulation interfaces | Private-key storage and UI approval |
 | "transaction-policy" | Candidate binding, approval lifecycle and transaction rules | Key access and broadcasting |
 | "x402-client" | Bounded x402 v2 HTTP protocol and payment construction | Direct signing and autonomous payment |
@@ -102,6 +111,8 @@ by focused modules rather than accumulated in the facade:
 - `models/`, `conversations/`, `diagnostics/` and `transaction_audit` own model
   lifecycle, conversation/asset lifecycle, bounded operational records and
   public transaction-audit coordination respectively;
+- `evm_transactions/` separates durable nonce-owner lifetime, exact dispatch
+  fencing, public monitoring and chat-turn admission;
 - `working_context/` owns bounded persisted-history projection and semantic
   checkpoint reuse;
 - `projection` owns IPC-safe value conversion and `error` owns the application

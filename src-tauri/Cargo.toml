@@ -21,6 +21,7 @@ app-core.workspace = true
 base64.workspace = true
 chain-evm.workspace = true
 computation-runtime.workspace = true
+evm-simulation.workspace = true
 filesystem-tools.workspace = true
 getrandom.workspace = true
 ipc-types.workspace = true

@@ -10,17 +10,24 @@ use schema::{
     MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
     MIGRATION_8, MIGRATION_9, MIGRATION_10, MIGRATION_11, MIGRATION_12, MIGRATION_13, MIGRATION_14,
     MIGRATION_15, MIGRATION_16, MIGRATION_17, MIGRATION_18, MIGRATION_19, MIGRATION_20,
-    MIGRATION_21,
+    MIGRATION_21, MIGRATION_22, MIGRATION_23, MIGRATION_24,
 };
 
 /// `SQLite` application identifier for ASCII `ZETA`.
 const APPLICATION_ID: u32 = 0x5A45_5441;
 
 /// Latest schema version understood by this build.
-pub const SCHEMA_VERSION: u32 = 21;
+pub const SCHEMA_VERSION: u32 = 24;
 
-const REQUIRED_TABLES: [&str; 26] = [
+const REQUIRED_TABLES: [&str; 33] = [
     "schema_migrations",
+    "evm_nonce_claims",
+    "evm_nonce_hashes",
+    "contract_workflow_scopes",
+    "contract_workflow_candidates",
+    "contract_workflow_observations",
+    "contract_workflows",
+    "contract_workflow_steps",
     "chat_transfer_attempts",
     "evm_transfer_dispatches",
     "dialogue_continuity_checkpoints",
@@ -48,7 +55,31 @@ const REQUIRED_TABLES: [&str; 26] = [
     "transaction_approval_replay_events",
 ];
 
-const MIGRATIONS: [&str; 21] = [
+// Nonce fencing also protects already-open older connections. Missing schema
+// guards must not turn a reopen into an apparently healthy hash-only sender.
+const REQUIRED_NONCE_TRIGGERS: [&str; 12] = [
+    "evm_nonce_hashes_no_delete",
+    "evm_nonce_hashes_immutable",
+    "evm_nonce_no_delete",
+    "evm_nonce_binding_immutable",
+    "evm_nonce_no_revive",
+    "evm_nonce_signed_hash_immutable",
+    "evm_transaction_nonce_conflict",
+    "evm_transaction_identity_immutable",
+    "evm_transaction_nonce_retention",
+    "evm_dispatch_requires_nonce",
+    "evm_dispatch_identity_immutable",
+    "evm_dispatch_requires_fence",
+];
+
+const REQUIRED_WORKFLOW_TRIGGERS: [&str; 4] = [
+    "contract_scope_format_immutable",
+    "contract_scope_immutable",
+    "contract_candidate_immutable",
+    "contract_observation_immutable",
+];
+
+const MIGRATIONS: [&str; 24] = [
     MIGRATION_1,
     MIGRATION_2,
     MIGRATION_3,
@@ -70,6 +101,9 @@ const MIGRATIONS: [&str; 21] = [
     MIGRATION_19,
     MIGRATION_20,
     MIGRATION_21,
+    MIGRATION_22,
+    MIGRATION_23,
+    MIGRATION_24,
 ];
 
 pub(crate) fn initialize(connection: &mut Connection) -> Result<(), StorageError> {
@@ -156,6 +190,23 @@ fn validate(connection: &Connection) -> Result<(), StorageError> {
         if count != 1 {
             return Err(StorageError::CorruptDatabase);
         }
+    }
+    for name in REQUIRED_NONCE_TRIGGERS
+        .into_iter()
+        .chain(REQUIRED_WORKFLOW_TRIGGERS)
+    {
+        let count: i64 = connection.query_row(
+            "SELECT count(*) FROM sqlite_schema WHERE type='trigger' AND name=?1",
+            [name],
+            |row| row.get(0),
+        )?;
+        if count != 1 {
+            return Err(StorageError::CorruptDatabase);
+        }
+    }
+    let unique_key:bool=connection.query_row("SELECT EXISTS(SELECT 1 FROM pragma_index_list('evm_nonce_claims') WHERE name='evm_nonce_active_key' AND [unique]=1 AND partial=1)",[],|row|row.get(0))?;
+    if !unique_key {
+        return Err(StorageError::CorruptDatabase);
     }
     Ok(())
 }

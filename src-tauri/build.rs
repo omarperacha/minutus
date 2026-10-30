@@ -1,7 +1,11 @@
 //! Build-time configuration for Zeta's Tauri command allow-list.
 
+#[path = "build_support/evm_workers.rs"]
+mod evm_workers;
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     watch_runtime_sources();
+    evm_workers::configure()?;
     verify_release_computation_runner()?;
     verify_release_ollama_payload()?;
     verify_release_whisper_helper()?;

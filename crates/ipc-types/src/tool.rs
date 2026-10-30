@@ -55,6 +55,18 @@ pub enum ToolName {
     #[serde(rename = "wallet.request_transfer")]
     #[ts(rename = "wallet.request_transfer")]
     WalletRequestTransfer,
+    /// Observe public runtime code identity without signing authority.
+    #[serde(rename = "contract.inspect")]
+    #[ts(rename = "contract.inspect")]
+    ContractInspect,
+    /// Perform one bounded unsigned contract call at a canonical block.
+    #[serde(rename = "contract.read")]
+    #[ts(rename = "contract.read")]
+    ContractRead,
+    /// Request exact bounded ordered source-qualified contract writes.
+    #[serde(rename = "contract.request_workflow")]
+    #[ts(rename = "contract.request_workflow")]
+    ContractRequestWorkflow,
     /// List one granted workspace directory.
     #[serde(rename = "filesystem.list")]
     #[ts(rename = "filesystem.list")]

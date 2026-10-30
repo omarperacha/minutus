@@ -3,8 +3,10 @@
 mod authorization;
 mod balance;
 mod broadcast;
+pub mod contract;
 mod execution_fees;
 mod fee_budget;
+pub mod local_simulation;
 mod network;
 mod rpc;
 mod signing_payload;

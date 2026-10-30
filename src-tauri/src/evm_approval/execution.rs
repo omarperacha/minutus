@@ -10,7 +10,7 @@ use crate::{
     wallet_lifecycle::{TransferCancellation, WalletControl},
 };
 use app_core::{
-    AppCore, ApprovalAuditDecision, ApprovalFinalizationAuditOutcome,
+    AppCore, ApprovalAuditDecision, ApprovalFinalizationAuditOutcome, EvmNonceReservation,
     OwnerAuthorizationAuditOutcome, StoredEvmTransaction, StoredEvmTransactionState,
     TransactionAuditEventKind, TransactionAuditFailureCode, TransactionAuditResult,
 };
@@ -191,6 +191,9 @@ async fn approve_sign_and_broadcast(
     cancelled: &TransferCancellation,
 ) -> Result<ApprovedSubmission, IpcError> {
     check_pending(wallet, pending, cancelled)?;
+    let nonce = core.claim_evm_nonce(pending.candidate.caip2_id(),pending.candidate.sender(),pending.candidate.nonce(),pending.candidate.candidate_digest(),&review_id.0)
+        .map_err(crate::error_mapping::app_core_error)?
+        .ok_or_else(||IpcError::invalid_request("This account nonce is already owned or may have been sent; reconcile its status and prepare a fresh transaction"))?;
     let commitment = ApprovalCommitment::issue(evidence.binding_input(), unix_now()?)
         .map_err(commitment_error)?;
     let signature = sign_approved(
@@ -199,7 +202,10 @@ async fn approve_sign_and_broadcast(
         review_id,
         pending,
         evidence,
-        &commitment,
+        SignPreconditions {
+            commitment: &commitment,
+            nonce: &nonce,
+        },
         cancelled,
     )
     .await?;
@@ -215,11 +221,19 @@ async fn approve_sign_and_broadcast(
         review_id,
         pending,
         evidence,
-        signed,
-        signature.submission,
+        SignedTransfer {
+            signed,
+            submission: signature.submission,
+            nonce,
+        },
         cancelled,
     )
     .await
+}
+
+struct SignPreconditions<'a> {
+    commitment: &'a ApprovalCommitment,
+    nonce: &'a EvmNonceReservation,
 }
 
 async fn sign_approved(
@@ -228,11 +242,12 @@ async fn sign_approved(
     review_id: &TransactionProposalId,
     pending: &PendingReview,
     evidence: &presentation::ApprovalEvidence,
-    commitment: &ApprovalCommitment,
+    conditions: SignPreconditions<'_>,
     cancelled: &TransferCancellation,
 ) -> Result<crate::wallet_lifecycle::WalletSigned, IpcError> {
     let signature = wallet
-        .sign_exact_transaction(core, commitment, evidence, cancelled, async {
+        .sign_exact_transaction(core, conditions.commitment, evidence, cancelled, async {
+            check_nonce(conditions.nonce)?;
             check_pending(wallet, pending, cancelled)?;
             crate::evm_transfers::preparation::revalidate(
                 &pending.candidate,
@@ -240,7 +255,8 @@ async fn sign_approved(
                 &evidence.fee_budget,
             )
             .await?;
-            check_pending(wallet, pending, cancelled)
+            check_pending(wallet, pending, cancelled)?;
+            check_nonce(conditions.nonce)
         })
         .await;
     let outcome = match &signature {
@@ -282,15 +298,25 @@ async fn sign_approved(
     signature
 }
 
+struct SignedTransfer {
+    signed: zeroize::Zeroizing<String>,
+    submission: crate::wallet_lifecycle::WalletSubmission,
+    nonce: EvmNonceReservation,
+}
+
 async fn broadcast_approved(
     core: &Arc<AppCore>,
     review_id: &TransactionProposalId,
     pending: &PendingReview,
     evidence: &presentation::ApprovalEvidence,
-    signed: zeroize::Zeroizing<String>,
-    submission: crate::wallet_lifecycle::WalletSubmission,
+    transfer: SignedTransfer,
     cancelled: &TransferCancellation,
 ) -> Result<ApprovedSubmission, IpcError> {
+    let SignedTransfer {
+        signed,
+        submission,
+        nonce,
+    } = transfer;
     crate::evm_transfers::preparation::revalidate(
         &pending.candidate,
         refresh_policy(pending.origin),
@@ -318,34 +344,41 @@ async fn broadcast_approved(
     };
     cancelled.check()?;
     let cancellation = cancelled.clone();
-    let reservation_id = review_id.0.clone();
-    let submission_core = Arc::clone(core);
     let admission = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let worker_admission = Arc::clone(&admission);
+    let entered = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let returned = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let worker_entered = Arc::clone(&entered);
+    let worker_returned = Arc::clone(&returned);
     let receipt = tokio::task::spawn_blocking(move || {
         broadcast_signed_transaction_with_admission(network, &endpoint, signed, || {
-            if submission_core
-                .reserve_evm_transaction(&record, &reservation_id)
-                .is_err()
-            {
+            worker_entered.store(true, std::sync::atomic::Ordering::Release);
+            if nonce.reserve_transaction(&record).is_err() {
+                worker_returned.store(true, std::sync::atomic::Ordering::Release);
                 return false;
             }
             let ready = cancellation.check().is_ok()
-                && submission_core
-                    .mark_evm_dispatched(&record.transaction_hash, &reservation_id)
+                && nonce
+                    .mark_dispatched(&record.transaction_hash)
                     .unwrap_or(false);
             let admitted = ready && cancellation.admit(|| submission.begin()).is_ok();
             worker_admission.store(admitted, std::sync::atomic::Ordering::Release);
             if !admitted {
-                let _ = submission_core
-                    .discard_unsent_evm_transaction(&record.transaction_hash, &reservation_id);
+                let _ = nonce.discard_known_unsent(&record.transaction_hash);
             }
+            worker_returned.store(true, std::sync::atomic::Ordering::Release);
             admitted
         })
     })
     .await
     .unwrap_or(Err(chain_evm::BroadcastError::Transport));
-    let admitted = admission.load(std::sync::atomic::Ordering::Acquire);
+    // Panic/termination after callback entry is never evidence of a completed
+    // false admission. Durable possible-send ownership remains blocking.
+    let admitted = possible_submission(
+        admission.load(std::sync::atomic::Ordering::Acquire),
+        entered.load(std::sync::atomic::Ordering::Acquire),
+        returned.load(std::sync::atomic::Ordering::Acquire),
+    );
     let receipt = receipt.map_err(|error| broadcast_failure(error, admitted));
     let result = receipt.as_ref().map_or_else(
         |_| TransactionAuditResult::Failed(TransactionAuditFailureCode::BroadcastFailed),
@@ -371,6 +404,10 @@ async fn broadcast_approved(
         transaction_hash,
         uncertain: receipt.is_err(),
     })
+}
+
+fn possible_submission(admitted: bool, entered: bool, returned: bool) -> bool {
+    admitted || (entered && !returned)
 }
 
 fn broadcast_failure(error: chain_evm::BroadcastError, admitted: bool) -> IpcError {
@@ -453,6 +490,19 @@ fn check_pending(
     Ok(())
 }
 
+fn check_nonce(nonce: &EvmNonceReservation) -> Result<(), IpcError> {
+    if nonce
+        .is_current()
+        .map_err(crate::error_mapping::app_core_error)?
+    {
+        Ok(())
+    } else {
+        Err(IpcError::invalid_request(
+            "The nonce owner changed; prepare a fresh transaction after reconciling status",
+        ))
+    }
+}
+
 fn commitment_error(_error: transaction_policy::ApprovalCommitmentError) -> IpcError {
     IpcError {
         code: IpcErrorCode::InvalidRequest,
@@ -463,7 +513,7 @@ fn commitment_error(_error: transaction_policy::ApprovalCommitmentError) -> IpcE
 }
 
 #[cfg(target_os = "macos")]
-async fn show_native_review(
+pub(super) async fn show_native_review(
     app: &tauri::AppHandle,
     display: ApprovalDisplay,
 ) -> Result<EvmApprovalDecision, IpcError> {
@@ -471,7 +521,7 @@ async fn show_native_review(
 }
 
 #[cfg(not(target_os = "macos"))]
-async fn show_native_review(
+pub(super) async fn show_native_review(
     _app: &tauri::AppHandle,
     _display: ApprovalDisplay,
 ) -> Result<EvmApprovalDecision, IpcError> {

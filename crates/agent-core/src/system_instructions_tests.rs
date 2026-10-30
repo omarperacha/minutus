@@ -34,6 +34,12 @@ fn base_policy_has_minutus_identity_voice_and_authority_boundaries() -> Result<(
     assert!(content.contains("Preserve the accepted semantic plan"));
     assert!(content.contains("No separate execution forecast is required"));
     assert!(!content.contains("accepted forecast"));
+    assert!(content.contains("Where the host advertises contract.request_workflow"));
+    assert!(
+        content.contains("If that workflow is absent, do not claim contract writes are available")
+    );
+    assert!(content.contains("An earlier allowance can remain"));
+    assert!(content.contains("Never automatically retry or clean up a workflow"));
     assert!(content.contains("Current date: 2026-08-17."));
     assert!(!content.contains("FlowZed knowledge foundation"));
     assert_eq!(

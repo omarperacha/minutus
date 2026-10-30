@@ -646,3 +646,126 @@ fn invalid_tool_arguments_receive_one_safe_concrete_correction()
     assert!(unknown_tool_batch_repairable(&[unknown.clone(), unknown]));
     Ok(())
 }
+
+#[test]
+fn duplicate_contract_observations_in_one_batch_are_each_fetched() -> Result<(), IpcError> {
+    for name in ["contract.inspect", "contract.read"] {
+        let value = if name == "contract.inspect" {
+            serde_json::json!({"block":"latest","network":"baseSepolia","target":"0x1111111111111111111111111111111111111111"})
+        } else {
+            serde_json::json!({"block":"latest","network":"baseSepolia","target":"0x1111111111111111111111111111111111111111","caller":null,"function":"f()","arguments":[],"outputs":[]})
+        };
+        let mut call = ParsedToolCall {
+            call_id: "first".into(),
+            recipient: name.into(),
+            name: name.into(),
+            arguments: serde_json::from_value(value).unwrap_or_default(),
+        };
+        let first = prepare_chat_tool(&[], &call)?;
+        call.call_id = "second".into();
+        let second = prepare_chat_tool(&[], &call)?;
+        let batch = plan_batch(&[first, second]);
+        assert_eq!(batch.execution_order, vec![0, 1]);
+        assert_eq!(batch.duplicate_of, vec![None, None]);
+    }
+    Ok(())
+}
+
+fn prepared_contract(name: &str) -> Result<PreparedChatTool, IpcError> {
+    let arguments = match name {
+        "contract.inspect" => {
+            serde_json::json!({"block":"latest","network":"baseSepolia","target":"0x1111111111111111111111111111111111111111"})
+        }
+        "contract.read" => {
+            serde_json::json!({"block":"latest","network":"baseSepolia","target":"0x1111111111111111111111111111111111111111","caller":null,"function":"allowance(address,address)","arguments":["0x1111111111111111111111111111111111111111","0x2222222222222222222222222222222222222222"],"outputs":["uint256"]})
+        }
+        "contract.request_workflow" => {
+            serde_json::json!({"network":"baseSepolia","steps":[{"target":"0x1111111111111111111111111111111111111111","function":"approve(address,uint256)","arguments":["0x2222222222222222222222222222222222222222","7"],"valueWei":"0","deploymentTransaction":format!("0x{}","3".repeat(64))}]})
+        }
+        _ => return Err(IpcError::internal()),
+    };
+    let call = ParsedToolCall {
+        call_id: name.into(),
+        recipient: name.into(),
+        name: name.into(),
+        arguments: serde_json::from_value(arguments.clone()).map_err(|_| IpcError::internal())?,
+    };
+    if name != "contract.request_workflow" {
+        return prepare_chat_tool(&[], &call);
+    }
+    // Exercise valid semantics without manufacturing a trusted worker for the
+    // unit-test executable. This fixture reaches scheduling only, never dispatch.
+    let request: crate::evm_approval::contracts::ContractWorkflowRequest =
+        serde_json::from_value(arguments).map_err(|_| IpcError::internal())?;
+    request.validate()?;
+    Ok(PreparedChatTool {
+        request: ToolRequest {
+            call_id: ToolCallId(call.call_id.clone()),
+            name: ToolName::ContractRequestWorkflow,
+            arguments: serde_json::from_value(serde_json::json!(call.arguments))
+                .map_err(|_| IpcError::internal())?,
+        },
+        workspace: None,
+        activity: crate::chat_runtime::tool_activity(&call.call_id, name),
+        call,
+    })
+}
+
+#[test]
+fn valid_contract_calls_fit_the_batch_budget_and_remain_serial() -> Result<(), IpcError> {
+    for (name, estimate) in [
+        ("contract.inspect", 4 * 1024),
+        ("contract.read", 64 * 1024),
+        ("contract.request_workflow", 64 * 1024),
+    ] {
+        let calls = [prepared_contract(name)?];
+        let plan = plan_batch(&calls);
+        assert!(!plan.concurrent_reads, "{name}");
+        assert_eq!(estimated_output_bytes(&calls[0].call), estimate);
+        assert_eq!(
+            admit_execution_order(&plan.execution_order, &calls, 8, 2 * 1024 * 1024),
+            [0],
+            "{name} must fit the default batch"
+        );
+        assert_eq!(
+            admit_execution_order(&plan.execution_order, &calls, 1, estimate),
+            [0]
+        );
+        assert!(admit_execution_order(&plan.execution_order, &calls, 1, estimate - 1).is_empty());
+    }
+    Ok(())
+}
+
+#[test]
+fn contract_result_estimates_never_erase_executed_facts() -> Result<(), IpcError> {
+    for name in ["contract.read", "contract.request_workflow"] {
+        let prepared = prepared_contract(name)?;
+        let mut exchange = failed_exchange(
+            &prepared,
+            IpcError::internal(),
+            TaskActivityStatus::Completed,
+            "Executed contract operation",
+        );
+        // Exceed the estimate deliberately: it is a scheduling reservation, not
+        // authority to erase a read's evidence or a workflow's partial effects.
+        let error = IpcError::invalid_request("x".repeat(64 * 1024 + 1));
+        exchange.result.outcome = ToolOutcome::Failed {
+            error: error.clone(),
+        };
+        let mut references = PathReferenceLedger::default();
+        let mut bytes = 0;
+        let retained = retain_scheduled_result(
+            &prepared,
+            Some(Ok(exchange)),
+            &mut references,
+            &mut bytes,
+            64 * 1024,
+            false,
+        )?;
+        assert!(
+            matches!(retained.result.outcome, ToolOutcome::Failed { error: actual } if actual == error)
+        );
+        assert!(bytes > 64 * 1024);
+    }
+    Ok(())
+}

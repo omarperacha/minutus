@@ -37,7 +37,16 @@ impl<'a> RpcClient<'a> {
     }
 
     pub(crate) fn value_result(&self, method: &str, params: &Value) -> Result<Value, RpcError> {
-        let response = self.response(method, params)?;
+        self.value_result_with_timeout(method, params, RPC_REQUEST_TIMEOUT)
+    }
+
+    pub(crate) fn value_result_with_timeout(
+        &self,
+        method: &str,
+        params: &Value,
+        timeout: Duration,
+    ) -> Result<Value, RpcError> {
+        let response = self.response_with_timeout(method, params, timeout)?;
         if let Some(error) = response.error {
             return Err(RpcError::Rejected(error.code));
         }
@@ -71,6 +80,15 @@ impl<'a> RpcClient<'a> {
     }
 
     fn response(&self, method: &str, params: &Value) -> Result<RpcResponse, RpcError> {
+        self.response_with_timeout(method, params, RPC_REQUEST_TIMEOUT)
+    }
+
+    fn response_with_timeout(
+        &self,
+        method: &str,
+        params: &Value,
+        timeout: Duration,
+    ) -> Result<RpcResponse, RpcError> {
         let request = json!({
             "jsonrpc": "2.0",
             "id": 1,
@@ -80,6 +98,7 @@ impl<'a> RpcClient<'a> {
         let mut response = self
             .client
             .post(self.endpoint.expose_sensitive())
+            .timeout(timeout.min(RPC_REQUEST_TIMEOUT))
             .json(&request)
             .send()
             .map_err(|_| RpcError::Transport)?;

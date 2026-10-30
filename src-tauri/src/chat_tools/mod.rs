@@ -5,6 +5,7 @@ mod artifact_transform;
 mod catalog;
 mod collect_evidence;
 mod computation;
+mod contracts;
 mod execution;
 mod filesystem;
 mod forecast_contract;

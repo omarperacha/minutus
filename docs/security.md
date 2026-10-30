@@ -123,10 +123,31 @@ Per-turn durable admission blocks automatic repeat attempts. Known transaction
 hashes are retained before submission so uncertain outcomes can be reconciled
 without rebroadcast. Proven-unsent reservations are retired atomically; uncertain
 submissions require a separate native acknowledgement before further chat
-requests. That acknowledgement retains monitoring and grants no signing authority.
+requests. That acknowledgement retains monitoring and grants no signing authority or
+permission to reuse a possible-send nonce. Wallet/chat share a durable
+[nonce owner](evm-nonce-ownership.md) before fresh authentication.
 See [chat transfer boundaries](chat-transfers.md) for
-freshness rules, cancellation and qualification limits. Arbitrary contract calls
-and arbitrary message/typed-data signing remain unavailable.
+freshness rules, cancellation and qualification limits. Qualification builds passing packaged isolated-worker admission can separately advertise [source-qualified contract workflows](contract-qualification.md), limited to the bundled compiled token profile and three exact declared functions. Release availability remains disabled until native interaction qualification and final human security review pass; packaging pins alone cannot promote this write capability. Every scope requires outbound consent before RPC, every write requires independent native review and fresh password, and dependent writes require fresh receipt/state predicate proofs. Endpoint, account, ordered semantics and profile are fixed; nonce and possible-send fences are shared with Wallet. Unknown source/proxies/functions, swaps/bridges, account upgrades and arbitrary message/typed-data signing remain unsupported. Prior allowances may remain after later failure; no automatic cleanup or retry is authorised.
+
+### Unsigned contract observations
+
+[Contract observations](contract-observations.md) use configured host-owned RPC
+endpoints and fresh native outbound consent for exact public target/caller/call
+bytes. They never access a wallet or signer. Calls are zero-value simulations at
+canonical hash-pinned state with strict bounded ABI decoding with resource preflight and canonical re-encoding; declared ABI
+and provider data are untrusted. Canonicality is rechecked, never treated as
+finality. Latest reads bypass request and batch reuse. Cancellation gates each
+RPC dispatch. Missing methods/state, wrong chains and unknown ABI layouts fail
+without fallback. There is no generic write tool: runtime identity and eth_call
+success cannot qualify effects, proxy/source provenance or signing safety.
+
+The dormant sequential workflow journal stores host-owned ordered commitments
+and public state only. It shares turn tombstones with standalone transfers,
+requires separately recorded postconditions before dependent claims, preserves
+uncertain sends, retires pending steps on restart and never stores approval or
+signing authority. It is not wired to execution. Wallet/chat now use shared
+nonce ownership; workflow integration with that owner and native per-write
+lifecycle qualification remain requirements.
 
 ### Transfer fee budgets
 
@@ -142,3 +163,12 @@ introduced. Ethereum's Base-fee components remain zero.
 The signed EIP-1559 fields cap execution pricing, not Base's separate L1/operator
 charges at inclusion. The native review discloses that the total budget is checked
 before submission and cannot guarantee those future charges.
+
+
+The developer [local EVM worker](local-evm-simulation.md) runs pinned upstream
+engines in a separate mandatory macOS sandbox. The host binds RPC account/storage
+proofs and code to one header/state root; provider chain identity remains trusted.
+No secret/signing/network capability enters the child, and every output remains
+unqualified for arbitrary effects. Amsterdam Sepolia now has exact header/context
+and synthetic gas qualification;
+current Base full-envelope fees remain an unpassed gate. This API is not wired to packaged chat or write approval.

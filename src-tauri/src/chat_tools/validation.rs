@@ -96,6 +96,9 @@ pub(crate) fn validated_chat_tool_request(
             | ToolName::WebSearch
             | ToolName::X402Request
             | ToolName::WalletRequestTransfer
+            | ToolName::ContractInspect
+            | ToolName::ContractRead
+            | ToolName::ContractRequestWorkflow
     ) {
         if name == ToolName::OrchestrationRecall {
             super::recall::arguments(call)?;
@@ -105,6 +108,10 @@ pub(crate) fn validated_chat_tool_request(
             web::validate_call(call)?;
         } else if name == ToolName::WebSearch {
             web_search::validate_call(call)?;
+        } else if matches!(name, ToolName::ContractInspect | ToolName::ContractRead) {
+            super::contracts::validate_call(call)?;
+        } else if name == ToolName::ContractRequestWorkflow {
+            super::contracts::validate_write_call(call)?;
         } else if name == ToolName::WalletRequestTransfer {
             super::wallet_transfer::validate_call(call)?;
         } else if name == ToolName::X402Request {
@@ -271,6 +278,25 @@ pub(super) fn chat_tool_contract(name: &str) -> Option<(ToolName, &'static [&'st
         "web.search" => (
             ToolName::WebSearch,
             &["count", "country", "freshness", "query", "searchLanguage"][..],
+        ),
+        "contract.inspect" => (
+            ToolName::ContractInspect,
+            &["block", "network", "target"][..],
+        ),
+        "contract.request_workflow" => {
+            (ToolName::ContractRequestWorkflow, &["network", "steps"][..])
+        }
+        "contract.read" => (
+            ToolName::ContractRead,
+            &[
+                "arguments",
+                "block",
+                "caller",
+                "function",
+                "network",
+                "outputs",
+                "target",
+            ][..],
         ),
         "wallet.request_transfer" => (
             ToolName::WalletRequestTransfer,

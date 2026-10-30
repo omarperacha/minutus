@@ -1,4 +1,6 @@
 //! Trusted projection from an independently verified candidate to native text.
+mod qualified;
+pub(super) use qualified::qualified_approval;
 
 use std::fmt::Write as _;
 
@@ -628,3 +630,6 @@ fn invalid_candidate_error() -> IpcError {
         retryable: false,
     }
 }
+
+#[cfg(any(debug_assertions, test))]
+pub(super) use qualified::synthetic_preview;

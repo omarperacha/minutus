@@ -8,6 +8,7 @@ import platform
 import re
 import shutil
 import subprocess
+import sys
 
 from inspect_macos_release import ROOT, inspect
 
@@ -52,7 +53,9 @@ def main():
         raise ValueError('Quit the release app before rebuilding (or check pgrep)')
     OUTPUT.mkdir(parents=True, exist_ok=True)
     with (OUTPUT / 'release-build.log').open('w') as log:
-        run([pnpm, 'tauri', 'build', '--target', 'aarch64-apple-darwin',
+        run([sys.executable, str(ROOT / 'scripts/stage_evm_workers.py'), '--identity',
+             distribution['identity'] if distribution else '-'], log)
+        run([pnpm, 'tauri', 'build', '--config', 'src-tauri/tauri.evm-workers.conf.json', '--target', 'aarch64-apple-darwin',
              '--bundles', 'app', '--no-sign', '--ci', '--', '--locked'], log)
         unsigned = inspect(APPLICATION, verify_unsigned=True)
         (OUTPUT / 'unsigned-package.json').write_text(json.dumps(unsigned, indent=2) + '\n')

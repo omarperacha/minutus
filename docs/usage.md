@@ -98,15 +98,16 @@ silent migration from older wallet storage. See [security](security.md#wallet-re
 | ETH and native USDC transfers on Base and Ethereum mainnet | Available, with native review and fresh password authentication | Available through `wallet.request_transfer`, with the same native controls |
 | ETH and native USDC transfers on Base Sepolia and Ethereum Sepolia | Available for testing, with the same approval requirements | Available through `wallet.request_transfer`, with the same native controls |
 | x402 exact USDC payments on Base mainnet | Initiated through chat | Available for supported public HTTPS services; separate request and payment approval |
-| Arbitrary contract calls, swaps and token approvals | Not available | Not available |
+| Bounded unsigned contract reads/runtime metadata | Not available | Available with separate native outbound approval; reads require a semantic plan |
+| Source-qualified contract writes and ordered token workflows | Not available | `contract.request_workflow` only in qualification builds when packaged isolated-worker admission succeeds; release availability is disabled pending native interaction and final security review; three functions on the bundled compiled token profile, separate native review and fresh password for each write |
+| Unknown source/proxy writes, swaps and bridges | Not available | Not available |
 | Arbitrary typed-data or message signing | Not available | Not available |
 
 Choose the network explicitly, whether using Wallet or chat. For example:
 “Send 0.001 ETH on Base Sepolia to 0x1111111111111111111111111111111111111111.”
-Chat accepts only ETH or native USDC, exact positive amounts and hexadecimal
+Chat transfers accept only ETH or native USDC, exact positive amounts and hexadecimal
 recipients. ETH-to-contract transfers remain available through Wallet's existing
-explicit warned review; chat requires a code-free recipient. ENS, other tokens, “send all”, swaps, approvals and arbitrary contract
-calls are unavailable. Minutus resolves the sender from the activated wallet and
+explicit warned review; chat transfers require a code-free recipient. ENS and “send all” remain unavailable. Start a contract workflow with an existing account selected and already unlocked in Wallet, then make a fresh request; a locked account is reported as locked rather than absent. Every write still requires its own fresh password, and later lock/account changes remain subject to the normal readiness and approval checks. Other token writes use only the separately advertised [source-qualified workflow](contract-qualification.md): exact `approve`, `transfer` and `transferFrom` on the bundled compiled token profile. Unknown source/proxies, swaps and bridges reject. A successful earlier approval may leave allowance when a later step stops; there is no automatic cleanup or retry. [Unsigned contract observations](contract-observations.md) use a separate read-only path without wallet unlock. Minutus resolves the sender from the activated wallet and
 uses the same native review and fresh password signing path as Wallet. Read the
 network, sender, recipient, amount, signed execution cap and fee budget in that native window.
 

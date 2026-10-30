@@ -1,8 +1,12 @@
 [advisories]
 yanked = "deny"
-# These are unmaintained-only advisories with no safe upgrade in Tauri 2.11.5's
-# transitive graph. Review and remove entries whenever Tauri is upgraded.
+# Existing maintenance exceptions and the separately bounded simulation timing
+# applicability exception. The policy wrapper enforces exact graphs and expiry.
 ignore = [
+    # Affected public verification arithmetic only, never the wallet signing graph.
+    # Exact packages/checksums/consumers and 2027-01-30 UTC expiry are enforced by
+    # simulation_dependency_policy.py. This version remains affected, not patched.
+    { id = "RUSTSEC-2026-0387", reason = "crypto-bigint 0.5.5 is used for public EVM recovery/verification under the exact bounded graph in docs/local-simulation-dependency-review.md; wallet-core uses patched 0.7.9 and cannot reach 0.5.5. Re-review before 2027-01-30 or any graph/use change. No secret arithmetic is qualified." },
     # Temporary exception, expires 2027-10-13; exact dependency path and deadline
     # are enforced by scripts/check_dependency_policy.py (also used in public CI).
     { id = "RUSTSEC-2024-0436", reason = "Unmaintained compile-time paste 1.0.15 via tokenizers 0.22.2. Stable 0.23.2 still depends on paste; review by 2027-10-13 or any dependency-path change. See docs/dependency-maintenance.md in the public repo." },
@@ -48,6 +52,14 @@ allow = ["CC0-1.0"]
 [[licenses.exceptions]]
 name = "hex-conservative"
 version = "=0.2.2"
+allow = ["CC0-1.0"]
+
+# New source/licence review on 2026-10-30; not inherited from wallet exceptions.
+# CC0 patent/trademark limitation and exact source/parents/checksum are recorded
+# in docs/local-simulation-dependency-review.md; wrapper expiry is 2027-01-30.
+[[licenses.exceptions]]
+name = "aurora-engine-modexp"
+version = "=1.3.0"
 allow = ["CC0-1.0"]
 
 [bans]
@@ -135,4 +147,8 @@ skip = [
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
+# Exact commit/features are additionally enforced by simulation_dependency_policy.py.
+# Reviewed Base v1.5.1 core execution only; no reth/provider/network features.
+allow-git = ["https://github.com/base/base"]
+required-git-spec = "rev"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]

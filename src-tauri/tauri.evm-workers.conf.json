@@ -1,0 +1,20 @@
+{
+  "bundle": {
+    "externalBin": [
+      "binaries/zeta-tokenizer",
+      "binaries/zeta-whisper-helper",
+      "binaries/zeta-computation-broker",
+      "binaries/zeta-computation-runner",
+      "binaries/minutus-evm-simulator",
+      "binaries/minutus-base-offline-simulator"
+    ],
+    "resources": [
+      "ollama-runtime",
+      "computation-service",
+      "speech-runtime",
+      "../LICENSE",
+      "evm-workers",
+      "third-party-notices"
+    ]
+  }
+}

@@ -368,3 +368,155 @@ fn version_eighteen_upgrade_preserves_managed_installs_without_inventing_externa
     assert_eq!(registrations, 0);
     Ok(())
 }
+
+fn legacy_evm_database(
+    path: &std::path::Path,
+    version: usize,
+) -> Result<Connection, Box<dyn std::error::Error>> {
+    let connection = Connection::open(path)?;
+    connection.execute_batch("PRAGMA foreign_keys=ON;")?;
+    for sql in &MIGRATIONS[..version] {
+        connection.execute_batch(sql)?;
+    }
+    connection.pragma_update(None, "application_id", APPLICATION_ID)?;
+    connection.pragma_update(None, "user_version", u32::try_from(version)?)?;
+    Ok(connection)
+}
+fn legacy_transaction(
+    connection: &Connection,
+    byte: u8,
+    nonce: &str,
+    digest: u8,
+    phase: Option<&str>,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let hash = format!("0x{}", format!("{byte:02x}").repeat(32));
+    connection.execute("INSERT INTO evm_transactions(transaction_hash,network,sender,nonce,candidate_digest,state,submitted_at,updated_at) VALUES (?1,'eip155:8453','0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',?2,?3,'pending','2026-10-30T00:00:00Z','2026-10-30T00:00:00Z')",rusqlite::params![hash,nonce,format!("0x{}",format!("{digest:02x}").repeat(32))])?;
+    if let Some(phase) = phase {
+        connection.execute("INSERT INTO evm_transfer_dispatches(transaction_hash,reservation_id,phase) VALUES (?1,'old-worker',?2)",rusqlite::params![hash,phase])?;
+    }
+    Ok(hash)
+}
+#[test]
+fn schema_twenty_legacy_monitoring_backfills_blocking_nonce_without_invented_dispatch()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let path = temp.path().join("legacy.sqlite");
+    let legacy = legacy_evm_database(&path, 20)?;
+    let hash = legacy_transaction(&legacy, 1, "7", 0x22, None)?;
+    let mut store = crate::ApplicationStore::open(&path)?;
+    assert_eq!(store.evm_transactions()?.len(), 1);
+    assert_eq!(store.evm_dispatch_phase(&hash)?, None);
+    assert_eq!(
+        store
+            .retire_evm_reservations("eip155:8453", "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd")?,
+        0
+    );
+    assert!(store.acknowledge_evm_uncertainty(&hash)?);
+    assert!(
+        store
+            .claim_evm_nonce(
+                "eip155:8453",
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+                "7",
+                &format!("0x{}", "22".repeat(32)),
+                "new"
+            )?
+            .is_none()
+    );
+    Ok(())
+}
+#[test]
+fn schema_twenty_two_duplicate_hashes_remain_blocked_and_old_open_workers_are_fenced()
+-> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let path = temp.path().join("legacy.sqlite");
+    let legacy = legacy_evm_database(&path, 22)?;
+    let first = legacy_transaction(&legacy, 1, "7", 0x22, Some("dispatched"))?;
+    let second = legacy_transaction(&legacy, 2, "7", 0x33, Some("acknowledged"))?;
+    let unsent = legacy_transaction(&legacy, 3, "8", 0x44, Some("reserved"))?;
+    let mut store = crate::ApplicationStore::open(&path)?;
+    assert_eq!(store.evm_transactions()?.len(), 3);
+    assert_eq!(
+        legacy.query_row(
+            "SELECT count(*) FROM evm_nonce_claims WHERE nonce='7' AND phase='possible_send'",
+            [],
+            |row| row.get::<_, u32>(0)
+        )?,
+        1
+    );
+    assert_eq!(
+        legacy.query_row(
+            "SELECT count(*) FROM evm_nonce_hashes WHERE transaction_hash IN (?1,?2)",
+            rusqlite::params![first, second],
+            |row| row.get::<_, u32>(0)
+        )?,
+        2
+    );
+    assert!(
+        store
+            .claim_evm_nonce(
+                "eip155:8453",
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+                "7",
+                &format!("0x{}", "22".repeat(32)),
+                "new"
+            )?
+            .is_none()
+    );
+    assert!(
+        legacy
+            .execute(
+                "UPDATE evm_transfer_dispatches SET phase='dispatched' WHERE transaction_hash=?1",
+                [&unsent]
+            )
+            .is_err()
+    );
+    assert!(legacy.execute("UPDATE evm_transfer_dispatches SET reservation_id='new-worker' WHERE transaction_hash=?1",[&unsent]).is_err());
+    assert!(
+        legacy
+            .execute(
+                "UPDATE evm_transfer_dispatches SET phase='acknowledged' WHERE transaction_hash=?1",
+                [&unsent]
+            )
+            .is_err()
+    );
+    assert!(legacy.execute("INSERT INTO evm_transfer_dispatches(transaction_hash,reservation_id,phase) VALUES (?1,'old-worker','dispatched')",[&unsent]).is_err());
+    assert_eq!(
+        store
+            .retire_evm_reservations("eip155:8453", "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd")?,
+        1
+    );
+    assert!(
+        store
+            .claim_evm_nonce(
+                "eip155:8453",
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+                "8",
+                &format!("0x{}", "44".repeat(32)),
+                "new"
+            )?
+            .is_some()
+    );
+    Ok(())
+}
+
+#[test]
+fn missing_nonce_fences_fail_schema_validation() -> Result<(), Box<dyn std::error::Error>> {
+    for name in REQUIRED_NONCE_TRIGGERS {
+        let mut connection = Connection::open_in_memory()?;
+        initialize(&mut connection)?;
+        connection.execute_batch(&format!("DROP TRIGGER {name}"))?;
+        assert!(matches!(
+            validate(&connection),
+            Err(StorageError::CorruptDatabase)
+        ));
+    }
+    let mut connection = Connection::open_in_memory()?;
+    initialize(&mut connection)?;
+    connection.execute_batch("DROP INDEX evm_nonce_active_key")?;
+    assert!(matches!(
+        validate(&connection),
+        Err(StorageError::CorruptDatabase)
+    ));
+    Ok(())
+}

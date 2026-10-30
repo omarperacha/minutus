@@ -51,6 +51,8 @@ for required in \
   fi
 done
 
+python3 "$REPOSITORY_ROOT/scripts/stage_evm_workers.py" --verify-bundle "$APPLICATION"
+
 read -r SPEECH_DIGEST SPEECH_PATH < "$SPEECH_DIGEST_MANIFEST"
 if [ "$SPEECH_PATH" != "MacOS/zeta-whisper-helper" ] || \
   [ ${#SPEECH_DIGEST} -ne 64 ] || \

@@ -327,6 +327,9 @@ fn plan_batch(prepared: &[PreparedChatTool]) -> BatchPlan {
                 | "web.retrieve"
                 | "web.search"
                 | "wallet.request_transfer"
+                | "contract.inspect"
+                | "contract.read"
+                | "contract.request_workflow"
         ) {
             execution_order.push(index);
         } else if let Some(first) = first_by_key.get(&key) {
@@ -594,8 +597,11 @@ fn aggregate_rank(call: &ParsedToolCall) -> u8 {
 }
 
 fn estimated_output_bytes(call: &ParsedToolCall) -> usize {
+    // Reservations guide batch admission; serial effect/observation results are
+    // retained and charged at their actual serialized size. In particular, a
+    // bounded ABI read can exceed its reservation after JSON escaping.
     match call.name.as_str() {
-        "filesystem.stat" | "filesystem.inspect_image" => 4 * 1024,
+        "filesystem.stat" | "filesystem.inspect_image" | "contract.inspect" => 4 * 1024,
         "filesystem.list" | "filesystem.find_paths" | "filesystem.scan" => 128 * 1024,
         "filesystem.search" => 512 * 1024,
         "filesystem.collect_evidence"
@@ -609,7 +615,9 @@ fn estimated_output_bytes(call: &ParsedToolCall) -> usize {
         | "computation.run_project"
         | "web.retrieve"
         | "x402.request"
-        | "wallet.request_transfer" => 64 * 1024,
+        | "wallet.request_transfer"
+        | "contract.read"
+        | "contract.request_workflow" => 64 * 1024,
         "web.search" => 32 * 1024,
         _ => usize::MAX,
     }

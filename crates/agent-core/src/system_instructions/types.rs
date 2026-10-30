@@ -3,7 +3,7 @@ use std::{error::Error, fmt};
 use serde::{Deserialize, Serialize};
 
 /// Current revision of Minutus's host-authored behavioral policy.
-pub const AGENT_SYSTEM_POLICY_VERSION: u16 = 5;
+pub const AGENT_SYSTEM_POLICY_VERSION: u16 = 6;
 pub(crate) const FLOWZED_KNOWLEDGE_BUNDLE_VERSION: u16 = 3;
 
 /// Persistable identity of the exact trusted instruction content used by a run.

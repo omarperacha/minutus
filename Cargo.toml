@@ -10,6 +10,18 @@ license = "Apache-2.0"
 authors = ["Minutus contributors"]
 
 [workspace.dependencies]
+evm-simulation = { path = "crates/evm-simulation", version = "0.1.0-beta.1" }
+# Stable Base v1.5.1; reviewed core-only features, no reth/metrics/provider layer.
+base-evm = { package = "base-common-evm", version = "=1.5.1", git = "https://github.com/base/base", rev = "5476069f1eb74a56bccb56fdefd4b4bb0e3cda42", default-features = false, features = ["std", "portable", "blst", "c-kzg", "memory_limit"] }
+base-consensus = { package = "base-common-consensus", version = "=1.5.1", git = "https://github.com/base/base", rev = "5476069f1eb74a56bccb56fdefd4b4bb0e3cda42", default-features = false, features = ["std"] }
+revm = { version = "=43.0.3", default-features = false, features = ["std", "portable", "blst", "c-kzg", "memory_limit"] }
+revm-base = { package = "revm", version = "=42.0.1", default-features = false, features = ["std", "portable", "blst", "c-kzg", "memory_limit"] }
+alloy-primitives = { version = "=1.7.3", default-features = false, features = ["std"] }
+alloy-consensus = { version = "=2.5.0", default-features = false, features = ["std", "serde"] }
+alloy-trie = { version = "=0.9.9", default-features = false, features = ["std", "ethereum"] }
+alloy-rlp = { version = "=0.3.17", default-features = false, features = ["std"] }
+alloy-dyn-abi = { version = "=1.7.3", default-features = false, features = ["std"] }
+
 argon2 = { version = "=0.6.0", default-features = false, features = ["alloc", "zeroize"] }
 agent-core = { path = "crates/agent-core", version = "0.1.0-beta.1" }
 app-core = { path = "crates/app-core", version = "0.1.0-beta.1" }

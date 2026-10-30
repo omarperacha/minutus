@@ -361,6 +361,45 @@ fn shutdown_app(app: &tauri::AppHandle) {
 }
 
 fn main() -> ExitCode {
+    if std::env::args_os().nth(1).as_deref() == Some(OsStr::new("--contract-approval-preview")) {
+        #[cfg(all(debug_assertions, target_os = "macos"))]
+        return match evm_approval::preview_contract_approval() {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("Synthetic contract review preview failed: {error:?}");
+                ExitCode::FAILURE
+            }
+        };
+        #[cfg(not(all(debug_assertions, target_os = "macos")))]
+        {
+            eprintln!(
+                "The synthetic native review preview is available only in macOS debug builds"
+            );
+            return ExitCode::FAILURE;
+        }
+    }
+
+    if std::env::args_os().nth(1).as_deref() == Some(OsStr::new("--qualify-contract-release")) {
+        #[cfg(not(debug_assertions))]
+        return match chat_runtime::qualify_contract_release_surface() {
+            Ok(()) => {
+                println!(
+                    "contract release surface: writes disabled; catalogue, startup and forecast schemas absent; no app setup, vault, RPC, native review or signing executed"
+                );
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!("Contract release qualification failed: {error}");
+                ExitCode::FAILURE
+            }
+        };
+        #[cfg(debug_assertions)]
+        {
+            eprintln!("Contract release qualification requires a release executable");
+            return ExitCode::FAILURE;
+        }
+    }
+
     if std::env::args_os().nth(1).as_deref() == Some(OsStr::new("--qualify-x402-release")) {
         return match x402_release_qualification::run() {
             Ok(()) => ExitCode::SUCCESS,

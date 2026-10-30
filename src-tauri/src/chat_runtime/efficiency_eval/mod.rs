@@ -5,8 +5,10 @@
 
 mod provider;
 mod recording;
+mod tool_scope;
 mod trials;
 mod workspace;
+pub(crate) use tool_scope::tool_denial;
 
 use std::{error::Error, fs, path::PathBuf, sync::Arc};
 
@@ -63,6 +65,8 @@ pub(crate) fn run() -> EvalResult<()> {
     let mut context = crate::app_context();
     context.config_mut().app.windows.clear();
     let app = tauri::Builder::default()
+        .manage(Arc::clone(&core))
+        .manage(tool_scope::RestrictedTools::new())
         .manage(
             WalletControl::initialize(directory.join("wallets"), None)
                 .map_err(|error| error.to_string())?,

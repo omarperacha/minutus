@@ -43,7 +43,13 @@
       "binaries/zeta-computation-broker",
       "binaries/zeta-computation-runner"
     ],
-    "resources": ["ollama-runtime", "computation-service", "speech-runtime", "../LICENSE"],
+    "resources": [
+      "ollama-runtime",
+      "computation-service",
+      "speech-runtime",
+      "../LICENSE",
+      "third-party-notices"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

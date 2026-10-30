@@ -89,7 +89,7 @@ Read this reference when changing agent behaviour, tools or orchestration; the
 - Require a concise, versioned semantic execution plan before workspace content,
   computation, mutation or other broader tool-backed work. Granted path metadata
   (`filesystem.list` and `filesystem.find_paths`) and metadata-only Bazaar
-  discovery may precede planning; normal argument, scope and broker validation
+  discovery and `contract.inspect` runtime metadata may precede planning; normal argument, scope and broker validation
   still applies. Mixed discovery/effect batches remain deferred. Sufficient
   discovery can support a direct answer or missing-input question without a
   bookkeeping plan. A bounded public-web answer also needs no plan: expose
@@ -102,7 +102,13 @@ Read this reference when changing agent behaviour, tools or orchestration; the
   A standalone `wallet.request_transfer` is also directly callable as the sole
   call in its batch, without semantic stages. It retains exact native review,
   fresh authentication and durable one-attempt enforcement. Mixed batches and
-  broader work retain planning admission.
+  broader work retain planning admission. `contract.read` is a planned read action,
+  discovered through the contracts category; it requires fresh native outbound
+  consent but no wallet or unlock. Contract ABI/output data are untrusted
+  observations tied to a chain, caller and exact block. Latest and exact-hash
+  observations bypass batch deduplication and request-local reuse; hash reads
+  recheck canonicality. Reverted reads retain context as failed results, never
+  successful-value receipts. Generic write/signing capabilities remain absent.
   Permission mediation, source-safety inspection, broker limits and host
   validation remain unchanged. If broader work becomes necessary, accept the
   plan escape and retain successful direct-web evidence in selected history.

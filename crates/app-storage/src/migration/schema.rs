@@ -21,3 +21,12 @@ pub(super) use v19::MIGRATION_19;
 
 mod v21;
 pub(super) use v21::MIGRATION_21;
+
+mod v22;
+pub(super) use v22::MIGRATION_22;
+
+mod v23;
+pub(super) use v23::MIGRATION_23;
+
+mod v24;
+pub(super) use v24::MIGRATION_24;

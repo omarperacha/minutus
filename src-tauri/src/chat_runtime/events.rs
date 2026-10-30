@@ -31,6 +31,10 @@ pub(crate) fn tool_activity(call_id: &str, tool_name: &str) -> TaskActivity {
             "Retrieved an approved web resource",
         ),
         "web.search" => (TaskActivityKind::Search, "Searched the public web"),
+        "contract.inspect" | "contract.read" => (
+            TaskActivityKind::Search,
+            "Observed an unsigned contract call or runtime",
+        ),
         "wallet.request_transfer" => (
             TaskActivityKind::TransactionPreparation,
             "Requested a native-reviewed wallet transfer",

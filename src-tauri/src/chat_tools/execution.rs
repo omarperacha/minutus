@@ -168,6 +168,9 @@ pub(super) fn prepare_chat_tool(
             | "web.search"
             | "x402.request"
             | "wallet.request_transfer"
+            | "contract.inspect"
+            | "contract.read"
+            | "contract.request_workflow"
     ) {
         None
     } else {
@@ -207,6 +210,60 @@ pub(super) fn execute_prepared_chat_tool(
         workspace,
         mut activity,
     } = prepared;
+    #[cfg(debug_assertions)]
+    if let Some(error) = crate::chat_runtime::evaluation_tool_denial(app, &call.name) {
+        activity.status = TaskActivityStatus::Failed;
+        return ChatToolExchange {
+            request: request.clone(),
+            result: ToolResult {
+                call_id: request.call_id,
+                outcome: ToolOutcome::Failed { error },
+            },
+            activity,
+            workspace_grant_id: None,
+            undo_changes: Vec::new(),
+            inspected_asset_id: None,
+            computation_reuse_digest: None,
+        };
+    }
+    if matches!(
+        call.name.as_str(),
+        "contract.inspect" | "contract.read" | "contract.request_workflow"
+    ) {
+        let outcome = if call.name == "contract.request_workflow" {
+            super::contracts::execute_write(app, conversation, &call, cancellation_requested)
+        } else {
+            super::contracts::execute(app, &call, cancellation_requested)
+        }
+        .unwrap_or_else(|mut error| {
+            error.retryable = false;
+            ToolOutcome::Failed { error }
+        });
+        activity.status = match &outcome {
+            ToolOutcome::Completed { .. } => TaskActivityStatus::Completed,
+            ToolOutcome::Failed { .. } => TaskActivityStatus::Failed,
+        };
+        activity.detail = Some(
+            if call.name == "contract.request_workflow" {
+                "Qualified fixed workflow · independent native approval per write"
+            } else {
+                "Unsigned RPC · separate native outbound review · unverified ABI"
+            }
+            .into(),
+        );
+        return ChatToolExchange {
+            request: request.clone(),
+            result: ToolResult {
+                call_id: request.call_id,
+                outcome,
+            },
+            activity,
+            workspace_grant_id: None,
+            undo_changes: Vec::new(),
+            inspected_asset_id: None,
+            computation_reuse_digest: None,
+        };
+    }
     if call.name == "wallet.request_transfer" {
         let outcome =
             super::wallet_transfer::execute(app, core, conversation, &call, cancellation_requested)

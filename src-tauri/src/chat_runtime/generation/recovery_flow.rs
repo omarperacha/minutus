@@ -246,7 +246,11 @@ pub(super) fn is_direct_discovery_call_batch(calls: &[ParsedToolCall]) -> bool {
             }
             matches!(
                 call.name.as_str(),
-                "web.search" | "web.retrieve" | "filesystem.list" | "filesystem.find_paths"
+                "web.search"
+                    | "web.retrieve"
+                    | "filesystem.list"
+                    | "filesystem.find_paths"
+                    | "contract.inspect"
             )
         })
 }
