@@ -3,6 +3,8 @@
 mod authorization;
 mod balance;
 mod broadcast;
+mod execution_fees;
+mod fee_budget;
 mod network;
 mod rpc;
 mod signing_payload;
@@ -22,8 +24,9 @@ pub use balance::{
 pub use broadcast::{
     BroadcastError, BroadcastReceipt, TransactionHash, TransactionLifecycle,
     TransactionObservation, broadcast_signed_transaction,
-    broadcast_signed_transaction_with_admission, monitor_transaction,
+    broadcast_signed_transaction_with_admission, monitor_transaction, signed_transaction_hash,
 };
+pub use fee_budget::{FeeBudgetError, TransferFeeBudget, execution_fee_cap_covers};
 pub use network::{
     BASE_MAINNET_BLOCK_EXPLORER_URL, BASE_MAINNET_CHAIN_ID, BASE_MAINNET_DEFAULT_RPC_URL,
     BASE_SEPOLIA_BLOCK_EXPLORER_URL, BASE_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_DEFAULT_RPC_URL,
@@ -46,8 +49,9 @@ pub use simulation::{
 };
 pub use token_transfer::{
     DecodedTokenTransfer, TokenTransferCandidate, TokenTransferError, TokenTransferRequest,
-    decode_token_transfer, prepare_token_transfer,
+    decode_token_transfer, prepare_token_transfer, refresh_token_transfer,
 };
 pub use transfer::{
     NativeTransferCandidate, NativeTransferError, NativeTransferRequest, prepare_native_transfer,
+    refresh_native_transfer,
 };

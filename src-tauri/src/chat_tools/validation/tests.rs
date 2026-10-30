@@ -293,7 +293,7 @@ fn planned_mutations_do_not_override_workspace_permission_or_scope() -> Result<(
     );
     let mut read_only_workspaces = workspaces.clone();
     read_only_workspaces[0].permission_level = WorkspacePermissionLevel::ReadOnly;
-    assert_eq!(chat_tool_definitions(&read_only_workspaces)?.len(), 18);
+    assert_eq!(chat_tool_definitions(&read_only_workspaces)?.len(), 19);
     for mutation in [&write, &replace] {
         let Err(error) = validated_chat_tool_request(mutation, &read_only_workspaces) else {
             return Err(IpcError::internal());

@@ -36,6 +36,8 @@ use sha2::{Digest as _, Sha256};
 use time::OffsetDateTime;
 
 mod budget;
+#[cfg(test)]
+mod direct_transfer_tests;
 mod dispatch;
 mod images;
 mod plan_pending;
@@ -320,7 +322,7 @@ pub(super) fn execute_chat_generation(
     executable: &Path,
     request_id: &RequestId,
     conversation: &Conversation,
-    cancellation_requested: &AtomicBool,
+    cancellation_requested: &Arc<AtomicBool>,
     sequence: &mut u32,
     model_passes: &mut Vec<TaskActivity>,
     settings: ChatGenerationSettings,
@@ -356,7 +358,7 @@ fn execute_chat_generation_inner(
     executable: &Path,
     request_id: &RequestId,
     conversation: &Conversation,
-    cancellation_requested: &AtomicBool,
+    cancellation_requested: &Arc<AtomicBool>,
     sequence: &mut u32,
     model_passes: &mut Vec<TaskActivity>,
     telemetry: &mut RequestExecutionTelemetry,

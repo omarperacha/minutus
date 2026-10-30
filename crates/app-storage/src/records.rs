@@ -206,6 +206,17 @@ pub struct PublicWalletMetadata {
     pub updated_at: String,
 }
 
+/// Durable host dispatch facts; never signing or retry authority.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StoredEvmDispatchPhase {
+    /// No worker may send without atomically advancing this reservation.
+    Reserved,
+    /// May have reached the network; absence is not proof of non-payment.
+    Dispatched,
+    /// A native user decision permits a separate newly reviewed request.
+    Acknowledged,
+}
+
 /// Persisted public lifecycle for a submitted EVM transaction.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StoredEvmTransactionState {

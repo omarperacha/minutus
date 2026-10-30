@@ -2,6 +2,8 @@
 
 mod admission;
 mod contract;
+mod direct_transfer;
+pub(super) use direct_transfer::is_standalone_transfer;
 mod forecast;
 mod parsing;
 mod projection;

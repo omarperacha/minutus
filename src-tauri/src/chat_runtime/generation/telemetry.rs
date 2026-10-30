@@ -668,6 +668,14 @@ pub(super) fn trace_tool_exchanges(
                     "outcome": if matches!(exchange.result.outcome, ToolOutcome::Completed { .. }) { "completed" } else { "failed" }
                 }));
             }
+            Ok(exchange) if exchange.request.name == ipc_types::ToolName::WalletRequestTransfer => {
+                core.record_development_tool_trace(&serde_json::json!({
+                    "event":"tool_call_finished", "requestId":request_id.0,
+                    "conversationId":conversation.id.0, "round":round,
+                    "callId":exchange.request.call_id, "tool":"wallet.request_transfer",
+                    "outcome":if matches!(exchange.result.outcome, ToolOutcome::Completed {..}) {"completed"} else {"failed"}
+                }));
+            }
             Ok(exchange) if exchange.request.name == ipc_types::ToolName::X402Request => {
                 core.record_development_tool_trace(&serde_json::json!({
                     "event": "tool_call_finished",
@@ -703,6 +711,9 @@ pub(super) fn trace_tool_exchanges(
 
 #[cfg(debug_assertions)]
 fn diagnostic_tool_arguments(call: &ParsedToolCall) -> serde_json::Value {
+    if call.name == "wallet.request_transfer" {
+        return serde_json::json!({"fieldNames":call.arguments.keys().collect::<Vec<_>>()});
+    }
     if call.name != "x402.request" {
         return serde_json::json!(call.arguments);
     }
@@ -954,3 +965,7 @@ pub(super) struct ChatGenerationRound {
     #[cfg(debug_assertions)]
     pub(super) timing: RoundTiming,
 }
+
+#[cfg(all(test, debug_assertions))]
+#[path = "wallet_transfer_trace_tests.rs"]
+mod wallet_transfer_trace_tests;

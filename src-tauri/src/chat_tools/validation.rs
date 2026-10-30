@@ -49,6 +49,14 @@ pub(crate) fn validated_chat_tool_request(
             matches!(key.as_str(), "quote" | "request")
                 || expected.binary_search(&key.as_str()).is_ok()
         })
+    } else if call.name == "wallet.request_transfer" {
+        ["amount", "asset", "network", "recipient"]
+            .iter()
+            .all(|key| call.arguments.contains_key(*key))
+            && call
+                .arguments
+                .keys()
+                .all(|key| expected.binary_search(&key.as_str()).is_ok())
     } else if matches!(
         call.name.as_str(),
         "web.search" | "orchestration.complete_stage" | "orchestration.search_tools"
@@ -87,6 +95,7 @@ pub(crate) fn validated_chat_tool_request(
             | ToolName::WebRetrieve
             | ToolName::WebSearch
             | ToolName::X402Request
+            | ToolName::WalletRequestTransfer
     ) {
         if name == ToolName::OrchestrationRecall {
             super::recall::arguments(call)?;
@@ -96,6 +105,8 @@ pub(crate) fn validated_chat_tool_request(
             web::validate_call(call)?;
         } else if name == ToolName::WebSearch {
             web_search::validate_call(call)?;
+        } else if name == ToolName::WalletRequestTransfer {
+            super::wallet_transfer::validate_call(call)?;
         } else if name == ToolName::X402Request {
             super::x402::validate_call(call)?;
         }
@@ -260,6 +271,10 @@ pub(super) fn chat_tool_contract(name: &str) -> Option<(ToolName, &'static [&'st
         "web.search" => (
             ToolName::WebSearch,
             &["count", "country", "freshness", "query", "searchLanguage"][..],
+        ),
+        "wallet.request_transfer" => (
+            ToolName::WalletRequestTransfer,
+            &["amount", "asset", "network", "reason", "recipient"][..],
         ),
         "x402.request" => (
             ToolName::X402Request,

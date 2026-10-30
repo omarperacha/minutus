@@ -11,7 +11,7 @@ pub(in crate::chat_runtime::generation) fn execute_advisory_task_segment(
     tool_state: &mut GenerationToolState,
     calls: &[ParsedToolCall],
     remaining_image_slots: &mut usize,
-    cancellation_requested: &AtomicBool,
+    cancellation_requested: &std::sync::Arc<AtomicBool>,
 ) -> Vec<Result<ChatToolExchange, IpcError>> {
     if calls.is_empty() {
         return Vec::new();
@@ -171,7 +171,7 @@ pub(in crate::chat_runtime::generation) fn recover_rejected_plan_admission(
     tool_state: &mut GenerationToolState,
     telemetry: &mut RequestExecutionTelemetry,
     round: usize,
-    cancellation_requested: &AtomicBool,
+    cancellation_requested: &std::sync::Arc<AtomicBool>,
     error: &IpcError,
     generated: ChatGenerationRound,
 ) -> Option<ChatTerminal> {
@@ -231,7 +231,7 @@ pub(in crate::chat_runtime::generation) fn execute_current_reads_beside_rejected
     workspaces: &[crate::chat_tools::ChatToolWorkspace],
     tool_state: &mut GenerationToolState,
     calls: &[ParsedToolCall],
-    cancellation_requested: &AtomicBool,
+    cancellation_requested: &std::sync::Arc<AtomicBool>,
     plan_error: &IpcError,
 ) -> Option<Vec<Result<ChatToolExchange, IpcError>>> {
     let [plan, operations @ ..] = calls else {

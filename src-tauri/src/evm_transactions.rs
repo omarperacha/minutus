@@ -31,7 +31,7 @@ pub(crate) async fn evm_transactions(
     Ok(projected)
 }
 
-async fn refresh_record(
+pub(crate) async fn refresh_record(
     core: &AppCore,
     mut record: StoredEvmTransaction,
 ) -> Result<EvmTrackedTransaction, IpcError> {

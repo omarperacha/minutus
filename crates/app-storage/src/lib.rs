@@ -16,8 +16,8 @@ pub use records::{
     AssetFileReference, AssetReference, AuditEvent, AuditEventKind, AuditFilesystemTool,
     AuditOutcome, AuditPermissionDecision, ModelCompanionMetadata, ModelMetadata, Project,
     ProjectWorkspace, PublicWalletMetadata, SettingKey, SettingValue, StoredApprovalFinalization,
-    StoredApprovalFinalizationOutcome, StoredEvmTransaction, StoredEvmTransactionState, Theme,
-    WorkspaceGrant,
+    StoredApprovalFinalizationOutcome, StoredEvmDispatchPhase, StoredEvmTransaction,
+    StoredEvmTransactionState, Theme, WorkspaceGrant,
 };
 pub use store::ApplicationStore;
 pub use store::external_models::{ExternalModelFile, ExternalModelRegistration};

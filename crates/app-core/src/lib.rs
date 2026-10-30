@@ -90,7 +90,7 @@ use execution_context::WorkingPromptAdapterContext;
 pub use execution_context::*;
 
 mod evm_transactions;
-pub use app_storage::{StoredEvmTransaction, StoredEvmTransactionState};
+pub use app_storage::{StoredEvmDispatchPhase, StoredEvmTransaction, StoredEvmTransactionState};
 
 mod wallet_metadata;
 pub use app_storage::PublicWalletMetadata;

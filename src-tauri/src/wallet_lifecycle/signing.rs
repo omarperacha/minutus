@@ -36,16 +36,16 @@ impl WalletControl {
         core: &AppCore,
         network: chain_evm::EvmNetwork,
     ) -> Result<x402_client::ActiveX402WalletAccount, IpcError> {
+        let address = self.ensure_account_ready(core).await?;
+        x402_client::ActiveX402WalletAccount::new(&address, network)
+            .map_err(|_| wallet_error("The selected account is unavailable", false))
+    }
+    pub(crate) async fn ensure_account_ready(&self, core: &AppCore) -> Result<String, IpcError> {
         if self.public_state()?.availability != ipc_types::WalletAvailability::Ready {
             self.unlock_native(self.app()?).await?;
             super::persist_public(core, self)?;
         }
-        let state = self.public_state()?;
-        x402_client::ActiveX402WalletAccount::new(
-            state.address.as_deref().ok_or_else(IpcError::internal)?,
-            network,
-        )
-        .map_err(|_| wallet_error("The selected account is unavailable", false))
+        self.selected_address()
     }
     async fn prepare_sign(&self) -> Result<PreparedSign, IpcError> {
         let job = self.begin()?;
@@ -79,6 +79,7 @@ impl WalletControl {
         commitment: &ApprovalCommitment,
         prepared: PreparedSign,
         binding: transaction_policy::ApprovalBindingInput<'_>,
+        cancelled: impl Fn() -> bool,
     ) -> Result<WalletSigned, IpcError> {
         let started = unix_now()?;
         let PreparedSign {
@@ -112,7 +113,8 @@ impl WalletControl {
                         Instant::now(),
                         job.check().is_ok()
                             && !self.revoked.load(Ordering::Acquire)
-                            && native::application_is_active_after_authorization(),
+                            && native::application_is_active_after_authorization()
+                            && !cancelled(),
                     )
                 });
             if result.is_ok() && job.check().is_ok() && !self.revoked.load(Ordering::Acquire) {
@@ -124,7 +126,7 @@ impl WalletControl {
             Ok(())
         });
         owned.map_err(password_error)?;
-        if self.revoked.load(Ordering::Acquire) || job.check().is_err() {
+        if self.revoked.load(Ordering::Acquire) || job.check().is_err() || cancelled() {
             return Err(cancelled_error());
         }
         let signature = outcome
@@ -146,9 +148,18 @@ impl WalletControl {
         core: &AppCore,
         commitment: &ApprovalCommitment,
         evidence: &crate::evm_approval::presentation::ApprovalEvidence,
+        cancellation: &super::TransferCancellation,
+        revalidate: impl std::future::Future<Output = Result<(), IpcError>>,
     ) -> Result<WalletSigned, IpcError> {
         let result = match self.prepare_sign().await {
-            Ok(prepared) => self.finish_sign(core, commitment, prepared, evidence.binding_input()),
+            Ok(prepared) => match revalidate.await {
+                Ok(()) => {
+                    self.finish_sign(core, commitment, prepared, evidence.binding_input(), || {
+                        cancellation.is_cancelled()
+                    })
+                }
+                Err(error) => Err(error),
+            },
             Err(error) => Err(error),
         };
         if result.is_err() {
@@ -173,7 +184,7 @@ impl WalletControl {
         } else {
             match self.prepare_sign().await {
                 Ok(_) if cancelled() => Err(cancelled_error()),
-                Ok(prepared) => self.finish_sign(core, commitment, prepared, binding),
+                Ok(prepared) => self.finish_sign(core, commitment, prepared, binding, cancelled),
                 Err(error) => Err(error),
             }
         };

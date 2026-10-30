@@ -77,7 +77,7 @@ pub(crate) fn execute_chat_tool_batch(
     operation_ledger: &OperationLedger,
     path_references: &mut PathReferenceLedger,
     remaining_image_slots: &mut usize,
-    cancellation_requested: &AtomicBool,
+    cancellation_requested: &std::sync::Arc<AtomicBool>,
 ) -> Vec<Result<ChatToolExchange, IpcError>> {
     let prepared = calls
         .iter()
@@ -143,7 +143,7 @@ fn execute_plan(
     plan: &BatchPlan,
     operation_ledger: &OperationLedger,
     remaining_image_slots: &mut usize,
-    cancellation_requested: &AtomicBool,
+    cancellation_requested: &std::sync::Arc<AtomicBool>,
     max_elapsed: Duration,
 ) -> Vec<Option<Result<ChatToolExchange, IpcError>>> {
     let started = Instant::now();
@@ -322,7 +322,11 @@ fn plan_batch(prepared: &[PreparedChatTool]) -> BatchPlan {
             }
         } else if matches!(
             tool.call.name.as_str(),
-            "computation.run" | "computation.run_project" | "web.retrieve" | "web.search"
+            "computation.run"
+                | "computation.run_project"
+                | "web.retrieve"
+                | "web.search"
+                | "wallet.request_transfer"
         ) {
             execution_order.push(index);
         } else if let Some(first) = first_by_key.get(&key) {
@@ -370,7 +374,7 @@ fn execute_with_retry(
     conversation: &Conversation,
     prepared: &PreparedChatTool,
     image_slot_available: bool,
-    cancellation_requested: &AtomicBool,
+    cancellation_requested: &std::sync::Arc<AtomicBool>,
 ) -> Result<ChatToolExchange, IpcError> {
     let may_retry = is_concurrent_read(&prepared.call);
     for attempt in 0..=MAX_TRANSIENT_RETRIES {
@@ -601,9 +605,11 @@ fn estimated_output_bytes(call: &ParsedToolCall) -> usize {
         | "filesystem.replace_text"
         | "filesystem.write_delimited_table"
         | "orchestration.transform_artifact" => 1024 * 1024,
-        "computation.run" | "computation.run_project" | "web.retrieve" | "x402.request" => {
-            64 * 1024
-        }
+        "computation.run"
+        | "computation.run_project"
+        | "web.retrieve"
+        | "x402.request"
+        | "wallet.request_transfer" => 64 * 1024,
         "web.search" => 32 * 1024,
         _ => usize::MAX,
     }

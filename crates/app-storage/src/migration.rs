@@ -9,17 +9,20 @@ mod schema;
 use schema::{
     MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
     MIGRATION_8, MIGRATION_9, MIGRATION_10, MIGRATION_11, MIGRATION_12, MIGRATION_13, MIGRATION_14,
-    MIGRATION_15, MIGRATION_16, MIGRATION_17, MIGRATION_18, MIGRATION_19,
+    MIGRATION_15, MIGRATION_16, MIGRATION_17, MIGRATION_18, MIGRATION_19, MIGRATION_20,
+    MIGRATION_21,
 };
 
 /// `SQLite` application identifier for ASCII `ZETA`.
 const APPLICATION_ID: u32 = 0x5A45_5441;
 
 /// Latest schema version understood by this build.
-pub const SCHEMA_VERSION: u32 = 19;
+pub const SCHEMA_VERSION: u32 = 21;
 
-const REQUIRED_TABLES: [&str; 24] = [
+const REQUIRED_TABLES: [&str; 26] = [
     "schema_migrations",
+    "chat_transfer_attempts",
+    "evm_transfer_dispatches",
     "dialogue_continuity_checkpoints",
     "settings",
     "conversations",
@@ -45,7 +48,7 @@ const REQUIRED_TABLES: [&str; 24] = [
     "transaction_approval_replay_events",
 ];
 
-const MIGRATIONS: [&str; 19] = [
+const MIGRATIONS: [&str; 21] = [
     MIGRATION_1,
     MIGRATION_2,
     MIGRATION_3,
@@ -65,6 +68,8 @@ const MIGRATIONS: [&str; 19] = [
     MIGRATION_17,
     MIGRATION_18,
     MIGRATION_19,
+    MIGRATION_20,
+    MIGRATION_21,
 ];
 
 pub(crate) fn initialize(connection: &mut Connection) -> Result<(), StorageError> {

@@ -332,3 +332,22 @@ fn deferred_purchase_keeps_planning_admissible_without_executing_the_attempt() {
     assert_eq!(state.operation_ledger.useful_result_sequence(), 0);
     assert_eq!(state.total_calls, 1);
 }
+
+#[test]
+fn standalone_wallet_transfer_is_not_deferred_but_mixed_effects_are() {
+    let state = GenerationToolState::default();
+    let mut transfer = call("transfer", "unused");
+    transfer.name = "wallet.request_transfer".into();
+    transfer.recipient = transfer.name.clone();
+    transfer.arguments = BTreeMap::new();
+    assert!(!requires_deferral(&state, std::slice::from_ref(&transfer)));
+    let mut second = transfer.clone();
+    second.call_id = "second-transfer".into();
+    assert!(requires_deferral(&state, &[transfer.clone(), second]));
+    assert!(requires_deferral(
+        &state,
+        &[transfer, call("write", "value")]
+    ));
+    assert!(!state.plan_policy.active());
+    assert!(state.plan_pending.is_none());
+}

@@ -20,7 +20,7 @@ fn filesystem_tool_registry_uses_aliases() -> Result<(), Box<dyn std::error::Err
     ];
     let definitions =
         chat_tool_definitions(&workspaces).map_err(|error| std::io::Error::other(error.message))?;
-    assert_eq!(definitions.len(), 22);
+    assert_eq!(definitions.len(), 23);
     assert_eq!(definitions[0].name, "computation.run");
     let encoded = format!("{definitions:?}");
     assert!(encoded.contains("primary"));
@@ -180,7 +180,7 @@ fn read_only_catalogue_leads_with_discovery_but_omits_mutation() -> Result<(), I
         grant_id: WorkspaceGrantId("grant".to_owned()),
         permission_level: WorkspacePermissionLevel::ReadOnly,
     }])?;
-    assert_eq!(definitions.len(), 18);
+    assert_eq!(definitions.len(), 19);
     assert_eq!(definitions[0].name, "computation.run");
     assert!(definitions.iter().all(|tool| {
         !matches!(
@@ -206,6 +206,7 @@ fn projects_without_folders_receive_pure_computation_web_and_planning() -> Resul
             "computation.run",
             "web.retrieve",
             "x402.request",
+            "wallet.request_transfer",
             "web.search",
             "orchestration.submit_plan",
             "orchestration.complete_stage",
@@ -243,6 +244,7 @@ fn projects_without_folders_receive_pure_computation_web_and_planning() -> Resul
             serde_json::json!("computation.run"),
             serde_json::json!("web.retrieve"),
             serde_json::json!("x402.request"),
+            serde_json::json!("wallet.request_transfer"),
             serde_json::json!("web.search")
         ]
     );
@@ -397,7 +399,7 @@ fn category_metadata_drives_provider_neutral_index_projection_and_complete_schem
             ),
             Some("computation") => category == ToolCategory::Computation,
             Some("web") => category == ToolCategory::Web,
-            Some("x402") => category == ToolCategory::Payments,
+            Some("x402" | "wallet") => category == ToolCategory::Payments,
             Some("orchestration") => category == ToolCategory::Orchestration,
             _ => false,
         }

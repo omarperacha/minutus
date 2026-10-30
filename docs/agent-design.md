@@ -99,6 +99,10 @@ Read this reference when changing agent behaviour, tools or orchestration; the
   intent-classification inference. Direct web retrieval uses the ordinary
   call-result-continuation loop, has no semantic stages or `complete_stage`
   calls, and answers as soon as sufficient cited evidence is available.
+  A standalone `wallet.request_transfer` is also directly callable as the sole
+  call in its batch, without semantic stages. It retains exact native review,
+  fresh authentication and durable one-attempt enforcement. Mixed batches and
+  broader work retain planning admission.
   Permission mediation, source-safety inspection, broker limits and host
   validation remain unchanged. If broader work becomes necessary, accept the
   plan escape and retain successful direct-web evidence in selected history.

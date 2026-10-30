@@ -114,3 +114,31 @@ The [contributor checks](../CONTRIBUTING.md) include signed XPC execution and
 containment tests, plus Rust and JavaScript dependency policy. Packaged fixtures
 are ignored by ordinary Cargo runs and must be exercised through their scripts.
 A green unit-test run alone does not qualify the native sandbox.
+
+## Reviewed chat transfers
+
+Chat ETH/native USDC transfers use the same native approval and fresh-password
+signing boundary as Wallet on the four supported Base/Ethereum networks.
+Per-turn durable admission blocks automatic repeat attempts. Known transaction
+hashes are retained before submission so uncertain outcomes can be reconciled
+without rebroadcast. Proven-unsent reservations are retired atomically; uncertain
+submissions require a separate native acknowledgement before further chat
+requests. That acknowledgement retains monitoring and grants no signing authority.
+See [chat transfer boundaries](chat-transfers.md) for
+freshness rules, cancellation and qualification limits. Arbitrary contract calls
+and arbitrary message/typed-data signing remain unavailable.
+
+### Transfer fee budgets
+
+Native ETH and USDC review distinguishes quoted fees from the retained
+pre-submit budget. Base L1/operator quotes receive 50% headroom (rounded up in
+wei) before approval; the budget is bound into exact approval evidence and is
+never increased afterwards. Refresh retains the approved execution cap and tip,
+checks current base-fee coverage, compares raw rollup quotes to the retained
+budget and keeps nonce, balance, intent and simulation checks. Costs above the
+budget require a new candidate and approval. No automatic repricing or retry is
+introduced. Ethereum's Base-fee components remain zero.
+
+The signed EIP-1559 fields cap execution pricing, not Base's separate L1/operator
+charges at inclusion. The native review discloses that the total budget is checked
+before submission and cannot guarantee those future charges.

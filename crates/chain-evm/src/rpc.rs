@@ -350,7 +350,7 @@ impl Uint256 {
     }
 
     #[allow(clippy::cast_possible_truncation)]
-    fn div_small(self, divisor: u8) -> (Self, u8) {
+    pub(crate) fn div_small(self, divisor: u8) -> (Self, u8) {
         let mut output = [0_u64; 4];
         let mut remainder = 0_u128;
         for index in (0..4).rev() {
