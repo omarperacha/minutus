@@ -234,10 +234,7 @@ impl Server {
                         }
                     }
                     "eth_getProof" => {
-                        if parameter == target
-                            && request["params"][2]["blockHash"] == current["hash"]
-                            && request["params"][2]["requireCanonical"] == true
-                        {
+                        if parameter == target && request["params"][2] == current["number"] {
                             account.clone()
                         } else {
                             Value::Null

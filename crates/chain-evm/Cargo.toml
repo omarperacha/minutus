@@ -7,10 +7,13 @@ license.workspace = true
 publish = false
 
 [dependencies]
+solidity-compilation.workspace = true
+rustix.workspace = true
 base-consensus.workspace = true
 evm-simulation.workspace = true
 alloy-primitives.workspace = true
 alloy-consensus.workspace = true
+alloy-eips.workspace = true
 alloy-trie.workspace = true
 alloy-rlp.workspace = true
 alloy-dyn-abi.workspace = true

@@ -318,7 +318,7 @@ pub fn verify_contract_receipt_predicates(
         observations,
     })
 }
-fn verify_inclusion(
+pub(crate) fn verify_inclusion(
     header: &Header,
     payload: &[u8],
     account: &str,

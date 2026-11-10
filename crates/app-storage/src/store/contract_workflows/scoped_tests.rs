@@ -524,3 +524,35 @@ fn fresh_verified_context_cannot_resurrect_a_reorganised_step()
     assert!(store.claim_contract_step(&id)?.is_none());
     Ok(())
 }
+
+#[test]
+fn advertised_sixteen_step_refresh_schedule_fits_bounded_history()
+-> Result<(), Box<dyn std::error::Error>> {
+    let mut store = setup()?;
+    let (id, first, candidate, record) = dispatched(&mut store)?;
+    confirmed(&mut store, &first, &record)?;
+    let mut observed = observation(&candidate, &record)?;
+    assert!(store.apply_verified_contract_step_observation(&first, &observed)?);
+    // One completion, then claim/authentication/dispatch checks for15 successors.
+    for sequence in 1..=45 {
+        observed.state_block_number = (43 + sequence).to_string();
+        observed.state_block_hash = format!("0x{sequence:064x}");
+        observed.proof_commitment = format!("{sequence:064x}");
+        store.refresh_verified_contract_step(&id, 0, first.intent_commitment(), &observed)?;
+    }
+    assert_eq!(store.contract_step_observations(&id, 0)?.len(), 46);
+    for sequence in 46..64 {
+        observed.state_block_number = (43 + sequence).to_string();
+        observed.state_block_hash = format!("0x{sequence:064x}");
+        observed.proof_commitment = format!("{sequence:064x}");
+        store.refresh_verified_contract_step(&id, 0, first.intent_commitment(), &observed)?;
+    }
+    observed.proof_commitment = "a".repeat(64);
+    assert!(
+        store
+            .refresh_verified_contract_step(&id, 0, first.intent_commitment(), &observed)
+            .is_err()
+    );
+    assert_eq!(store.contract_step_observations(&id, 0)?.len(), 64);
+    Ok(())
+}

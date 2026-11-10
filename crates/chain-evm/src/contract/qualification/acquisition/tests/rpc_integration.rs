@@ -1,6 +1,6 @@
 //! Full synthetic loopback JSON-RPC acquisition; never a public RPC or signer.
 use super::*;
-use alloy_consensus::{Signed, TxEip1559};
+use alloy_consensus::{Signed, TxEip1559, TxEnvelope};
 use alloy_primitives::{Signature, TxKind};
 use std::{
     io::{Read, Write},
@@ -22,11 +22,16 @@ enum Fault {
     Large,
     Timeout,
     Cancel,
+    ReceiptsUnsupported,
+    ReceiptBatchRejected,
+    ReceiptBatchMalformed,
+    ReceiptBatchUnordered,
+    AggregateBudget,
 }
 struct Fixture {
     block: Value,
     receipts: Vec<Value>,
-    raw: Vec<Vec<u8>>,
+    transactions: Vec<Value>,
     hashes: Vec<String>,
     changed: Value,
 }
@@ -34,6 +39,7 @@ impl Fixture {
     fn new(count: usize) -> Result<Self, Box<dyn std::error::Error>> {
         let mut raw = Vec::new();
         let mut receipts = Vec::new();
+        let mut transactions = Vec::new();
         for index in 0..count {
             let transaction = TxEip1559 {
                 chain_id: 1,
@@ -51,6 +57,7 @@ impl Fixture {
                 false,
             );
             let signed = Signed::new_unhashed(transaction, signature);
+            transactions.push(serde_json::to_value(TxEnvelope::Eip1559(signed.clone()))?);
             let mut bytes = Vec::new();
             signed.eip2718_encode(&mut bytes);
             raw.push(bytes);
@@ -67,7 +74,7 @@ impl Fixture {
             number: 26_000_000,
             timestamp: 1_793_300_000,
             gas_limit: 30_000_000,
-            gas_used: 1_000_000,
+            gas_used: 21_000 * u64::try_from(count)?,
             base_fee_per_gas: Some(1),
             excess_blob_gas: Some(0),
             transactions_root: alloy_trie::root::ordered_trie_root_encoded(&raw),
@@ -82,6 +89,12 @@ impl Fixture {
         let mut block = serde_json::to_value(&header)?;
         block["hash"] = json!(hash);
         block["transactions"] = json!(hashes);
+        for (index, value) in transactions.iter_mut().enumerate() {
+            value["hash"] = json!(hashes[index]);
+            value["transactionIndex"] = json!(format!("0x{index:x}"));
+            value["blockHash"] = json!(hash);
+            value["blockNumber"] = json!(format!("0x{:x}", header.number));
+        }
         for (index, value) in receipts.iter_mut().enumerate() {
             value["transactionHash"] = json!(hashes[index]);
             value["transactionIndex"] = json!(format!("0x{index:x}"));
@@ -95,7 +108,7 @@ impl Fixture {
         Ok(Self {
             block,
             receipts,
-            raw,
+            transactions,
             hashes,
             changed,
         })
@@ -146,57 +159,9 @@ impl Server {
                 if let Ok(mut requests) = observed.lock() {
                     requests.push(method.to_owned());
                 }
-                let index = request["params"][0]
-                    .as_str()
-                    .and_then(|hash| fixture.hashes.iter().position(|known| known == hash))
-                    .unwrap_or(0);
-                let result = match method {
-                    "eth_chainId" => json!("0x1"),
-                    "eth_getBlockByHash" => {
-                        let mut block = fixture.block.clone();
-                        if matches!(fault, Fault::Large) {
-                            block["transactions"] = json!(vec![fixture.hashes[0].clone(); 65]);
-                        }
-                        block
-                    }
-                    "eth_getBlockByNumber" => {
-                        canonical_reads += 1;
-                        if matches!(fault, Fault::Reorg) && canonical_reads > 1 {
-                            fixture.changed.clone()
-                        } else {
-                            fixture.block.clone()
-                        }
-                    }
-                    "eth_getRawTransactionByHash" => {
-                        if matches!(fault, Fault::Timeout) {
-                            thread::sleep(Duration::from_millis(1200));
-                        }
-                        if matches!(fault, Fault::Cancel) {
-                            cancelled.store(true, Ordering::Release);
-                        }
-                        let bytes = if matches!(fault, Fault::Raw) {
-                            vec![2]
-                        } else {
-                            fixture.raw[index].clone()
-                        };
-                        json!(format!("0x{}", alloy_primitives::hex::encode(bytes)))
-                    }
-                    "eth_getTransactionReceipt" => {
-                        let mut receipt = fixture.receipts[index].clone();
-                        if matches!(fault, Fault::ReceiptIdentity) {
-                            receipt["blockNumber"] = json!("0x1");
-                        }
-                        if matches!(fault, Fault::ReceiptRoot) {
-                            receipt["status"] = json!("0x0");
-                        }
-                        receipt
-                    }
-                    _ => Value::Null,
-                };
-                let _ = respond(
-                    &mut stream,
-                    &json!({"jsonrpc":"2.0","id":1,"result":result}),
-                );
+                let value =
+                    fixture_response(&fixture, fault, &request, &mut canonical_reads, &cancelled);
+                let _ = respond(&mut stream, &value);
             }
         });
         Ok(Self {
@@ -207,6 +172,183 @@ impl Server {
         })
     }
 }
+
+#[test]
+fn standard_batches_cover_more_than_sixty_four_transactions_without_raw_rpc()
+-> Result<(), Box<dyn std::error::Error>> {
+    let fixture = Fixture::new(129)?;
+    let hash = fixture.hashes[128].clone();
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let server = Server::new(fixture, Fault::None, cancelled.clone())?;
+    let proof = acquire_contract_transaction_proof(
+        EvmNetwork::EthereumMainnet,
+        &EvmRpcUrl::loopback_test(server.port),
+        &hash,
+        &cancelled,
+    )?;
+    assert_eq!(proof.transaction_index, 128);
+    let requests = server.requests.lock().map_err(|_| "poisoned")?;
+    assert_eq!(
+        requests
+            .iter()
+            .filter(|method| method.as_str() == "eth_getBlockReceipts")
+            .count(),
+        1
+    );
+    assert_eq!(
+        requests
+            .iter()
+            .filter(|method| method.as_str() == "eth_getTransactionReceipt")
+            .count(),
+        1
+    );
+    assert!(
+        !requests
+            .iter()
+            .any(|method| method == "eth_getRawTransactionByHash")
+    );
+    Ok(())
+}
+
+#[test]
+fn receipt_fallback_requires_explicit_unsupported_and_charges_error_bodies()
+-> Result<(), Box<dyn std::error::Error>> {
+    for fault in [
+        Fault::ReceiptsUnsupported,
+        Fault::ReceiptBatchUnordered,
+        Fault::ReceiptBatchRejected,
+        Fault::ReceiptBatchMalformed,
+        Fault::AggregateBudget,
+    ] {
+        let fixture = Fixture::new(2)?;
+        let hash = fixture.hashes[0].clone();
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let server = Server::new(fixture, fault, cancelled.clone())?;
+        let result = acquire_contract_transaction_proof(
+            EvmNetwork::EthereumMainnet,
+            &EvmRpcUrl::loopback_test(server.port),
+            &hash,
+            &cancelled,
+        );
+        assert_eq!(
+            result.is_ok(),
+            matches!(
+                fault,
+                Fault::ReceiptsUnsupported | Fault::ReceiptBatchUnordered
+            )
+        );
+        let requests = server.requests.lock().map_err(|_| "poisoned")?;
+        assert_eq!(
+            requests
+                .iter()
+                .filter(|method| method.as_str() == "eth_getTransactionReceipt")
+                .count(),
+            if matches!(fault, Fault::ReceiptsUnsupported | Fault::AggregateBudget) {
+                2
+            } else {
+                1
+            }
+        );
+        assert!(
+            !requests
+                .iter()
+                .any(|method| method == "eth_getRawTransactionByHash")
+        );
+        if matches!(fault, Fault::AggregateBudget) {
+            assert!(matches!(
+                result,
+                Err(QualificationError::Simulation(SimulationError::Limit))
+            ));
+        }
+    }
+    Ok(())
+}
+fn fixture_response(
+    fixture: &Fixture,
+    fault: Fault,
+    request: &Value,
+    canonical_reads: &mut u32,
+    cancelled: &AtomicBool,
+) -> Value {
+    let method = request["method"].as_str().unwrap_or("");
+    let index = request["params"][0]
+        .as_str()
+        .and_then(|hash| fixture.hashes.iter().position(|known| known == hash))
+        .unwrap_or(0);
+    if method == "eth_getBlockReceipts"
+        && matches!(
+            fault,
+            Fault::ReceiptsUnsupported | Fault::ReceiptBatchRejected | Fault::AggregateBudget
+        )
+    {
+        let code = if matches!(fault, Fault::ReceiptBatchRejected) {
+            -32000
+        } else {
+            -32601
+        };
+        let padding = if matches!(fault, Fault::AggregateBudget) {
+            "x".repeat(MAX_TOTAL / 2)
+        } else {
+            String::new()
+        };
+        return json!({"jsonrpc":"2.0","id":1,"error":{"code":code,"message":"fixture rejection","data":padding}});
+    }
+    let result = match method {
+        "eth_chainId" => json!("0x1"),
+        "eth_getBlockByHash" => {
+            let mut block = fixture.block.clone();
+            if request["params"][1] == true {
+                if matches!(fault, Fault::Timeout) {
+                    thread::sleep(Duration::from_millis(2200));
+                }
+                if matches!(fault, Fault::Cancel) {
+                    cancelled.store(true, Ordering::Release);
+                }
+                block["transactions"] = json!(fixture.transactions);
+                if matches!(fault, Fault::Raw) {
+                    block["transactions"][0]["input"] = json!("0x01");
+                }
+                if matches!(fault, Fault::Large) {
+                    block["transactions"] = json!(vec![fixture.transactions[0].clone(); 2049]);
+                }
+            }
+            block
+        }
+        "eth_getBlockReceipts" => {
+            if matches!(fault, Fault::ReceiptBatchMalformed) {
+                json!([])
+            } else if matches!(fault, Fault::ReceiptBatchUnordered) {
+                json!(fixture.receipts.iter().rev().collect::<Vec<_>>())
+            } else {
+                json!(fixture.receipts)
+            }
+        }
+        "eth_getBlockByNumber" => {
+            *canonical_reads += 1;
+            if matches!(fault, Fault::Reorg) && *canonical_reads > 1 {
+                fixture.changed.clone()
+            } else {
+                fixture.block.clone()
+            }
+        }
+        "eth_getTransactionReceipt" => {
+            let mut receipt = fixture.receipts[index].clone();
+            if matches!(fault, Fault::AggregateBudget) && index != 0 {
+                receipt["padding"] = json!("x".repeat(MAX_TOTAL / 2));
+            }
+            if matches!(fault, Fault::ReceiptIdentity) {
+                receipt["blockNumber"] = json!("0x1");
+            }
+            if matches!(fault, Fault::ReceiptRoot) {
+                receipt["status"] = json!("0x0");
+            }
+            receipt
+        }
+        _ => Value::Null,
+    };
+    json!({"jsonrpc":"2.0","id":1,"result":result})
+}
+
 fn read_request(stream: &mut TcpStream) -> Result<Value, Box<dyn std::error::Error>> {
     // Darwin accepted sockets inherit O_NONBLOCK from the listener. Switch
     // each stream to bounded blocking IO before reading fragmented HTTP bytes.
@@ -332,14 +474,14 @@ fn transport_timeout_and_cancellation_are_bounded_and_terminal()
             )),
             _ => return Err("invalid timeout fixture".into()),
         }
-        assert!(started.elapsed() < Duration::from_secs(3));
+        assert!(started.elapsed() < Duration::from_secs(4));
         assert_eq!(
             server
                 .requests
                 .lock()
                 .map_err(|_| "poisoned fixture")?
                 .iter()
-                .filter(|method| method.as_str() == "eth_getRawTransactionByHash")
+                .filter(|method| method.as_str() == "eth_getBlockByHash")
                 .count(),
             1
         );

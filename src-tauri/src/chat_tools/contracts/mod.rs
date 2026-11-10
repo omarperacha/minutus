@@ -3,6 +3,8 @@ mod execution;
 mod intent;
 mod review;
 mod schema;
+mod source;
+mod workflow_schema;
 mod write;
 
 pub(super) use execution::execute;

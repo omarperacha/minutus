@@ -64,6 +64,9 @@ impl ProvedState {
     pub(crate) fn slot(&self, address: Address, slot: U256) -> Option<U256> {
         self.slots.get(&(address, slot)).copied()
     }
+    pub(crate) fn account_addresses(&self) -> impl Iterator<Item = Address> + '_ {
+        self.accounts.keys().copied()
+    }
 }
 /// A successful isolated run with exact proof-checked pre-state and canonical
 /// checks, not deserialisable or constructible from a raw observation/digest.

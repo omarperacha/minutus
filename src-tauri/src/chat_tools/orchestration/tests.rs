@@ -737,6 +737,19 @@ fn valid_contract_calls_fit_the_batch_budget_and_remain_serial() -> Result<(), I
 }
 
 #[test]
+fn source_metadata_inspection_reserves_its_complete_bounded_result() -> Result<(), IpcError> {
+    let mut prepared = prepared_contract("contract.inspect")?;
+    assert_eq!(estimated_output_bytes(&prepared.call), 4 * 1024);
+    prepared
+        .call
+        .arguments
+        .insert("includeSource".into(), serde_json::json!(true));
+    assert_eq!(estimated_output_bytes(&prepared.call), 64 * 1024);
+    assert!(!plan_batch(&[prepared]).concurrent_reads);
+    Ok(())
+}
+
+#[test]
 fn contract_result_estimates_never_erase_executed_facts() -> Result<(), IpcError> {
     for name in ["contract.read", "contract.request_workflow"] {
         let prepared = prepared_contract(name)?;

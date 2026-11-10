@@ -1,5 +1,7 @@
 //! Trusted projection from an independently verified candidate to native text.
+mod generic;
 mod qualified;
+pub(super) use generic::generic_approval;
 pub(super) use qualified::qualified_approval;
 
 use std::fmt::Write as _;

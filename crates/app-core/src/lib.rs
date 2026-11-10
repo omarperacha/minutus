@@ -90,10 +90,17 @@ use execution_context::WorkingPromptAdapterContext;
 pub use execution_context::*;
 
 pub use app_storage::{ContractStepState, StoredWorkflowIntent, StoredWorkflowScope};
+pub use app_storage::{
+    StoredDeclaredWorkflowStep, StoredGenericWorkflowEvidence, StoredGenericWorkflowPreparation,
+    StoredWorkflowComparison, StoredWorkflowCondition, StoredWorkflowConditionResult,
+    StoredWorkflowContract, StoredWorkflowDeclaration, StoredWorkflowEvidenceKind,
+    StoredWorkflowRead, StoredWorkflowReceiptAnchor,
+};
 mod contract_workflows;
 pub use contract_workflows::{
-    ContractWorkflowScope, ContractWorkflowSession, ContractWorkflowStepWork,
-    PreparedContractWorkflowStep,
+    ContractWorkflowDeclaration, ContractWorkflowScope, ContractWorkflowSession,
+    ContractWorkflowStepWork, DeclaredContractCompletion, DeclaredContractWorkflowSession,
+    DeclaredContractWorkflowStep, PreparedContractWorkflowStep, PreparedDeclaredContractStep,
 };
 
 mod evm_transactions;

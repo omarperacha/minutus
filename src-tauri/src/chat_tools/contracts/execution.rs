@@ -14,6 +14,11 @@ pub(in crate::chat_tools) fn execute(
 ) -> Result<ToolOutcome, IpcError> {
     let request = request(call)?;
     check_cancelled(cancelled)?;
+    if request.include_source && !super::source::available() {
+        return Err(IpcError::permission_denied(
+            "Packaged local source reproduction is unavailable; plain runtime inspection remains available",
+        ));
+    }
     let endpoint = crate::evm_rpc_settings::resolved(request.network)?;
     check_cancelled(cancelled)?;
     if !super::review::review(app, &request, &endpoint)? {
@@ -22,6 +27,9 @@ pub(in crate::chat_tools) fn execute(
         ));
     }
     check_cancelled(cancelled)?;
+    if request.include_source {
+        return super::source::execute(app, &request, &endpoint, cancelled);
+    }
     let admit = || !cancelled.load(Ordering::Acquire);
     let result = if let Some(call) = request.call {
         serde_json::to_value(

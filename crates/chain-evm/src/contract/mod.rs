@@ -19,6 +19,7 @@ pub use observation::{
     read_declared_contract_with_admission,
 };
 
+pub mod generic;
 mod qualification;
 pub use qualification::{
     AllowanceEffect, ContractAction, ContractPredicate, DeploymentProof, PredicateComparison,

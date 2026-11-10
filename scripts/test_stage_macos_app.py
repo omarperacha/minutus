@@ -21,6 +21,16 @@ class StageMacosAppTests(unittest.TestCase):
         self.maintenance = patch.object(staging, "maintain").start()
         self.addCleanup(patch.stopall)
 
+    def test_failed_process_inventory_cannot_authorise_bundle_replacement(self):
+        with tempfile.TemporaryDirectory(prefix="minutus-stage-process-") as directory:
+            existing = Path(directory) / "existing"
+            existing.touch()
+            with patch.object(staging.subprocess, "run", return_value=subprocess.CompletedProcess([], 2)):
+                with self.assertRaisesRegex(ValueError, "Cannot inspect running"):
+                    staging.process_is_running(existing)
+                with self.assertRaisesRegex(ValueError, "Cannot inspect running"):
+                    staging.bundle_process_is_running(existing)
+
     def test_stage_release_and_hot_reload_use_distinct_identities(self):
         root = staging.REPOSITORY / "src-tauri"
         configs = [json.loads((root / name).read_text()) for name in
@@ -82,6 +92,7 @@ class StageMacosAppTests(unittest.TestCase):
         self.assertEqual(
             run.call_args_list,
             [
+                call([staging.sys.executable, str(staging.REPOSITORY / "scripts/stage_solidity_compiler.py"), "--identity", "A" * 40], cwd=staging.REPOSITORY, check=True),
                 call([staging.sys.executable, str(staging.REPOSITORY / "scripts/stage_evm_workers.py"), "--identity", "A" * 40], cwd=staging.REPOSITORY, check=True),
                 call(
                     ["/opt/pnpm", "tauri", "build", "--debug", "--config", "src-tauri/tauri.stage.conf.json", "--config", "src-tauri/tauri.evm-workers.conf.json", "--no-sign", "--bundles", "app", "--", "--timings"],
@@ -102,6 +113,7 @@ class StageMacosAppTests(unittest.TestCase):
                     check=True,
                 ),
                 call([staging.sys.executable, str(staging.REPOSITORY / "scripts/stage_evm_workers.py"), "--verify-bundle", str(application)], cwd=staging.REPOSITORY, check=True),
+                call([staging.sys.executable, str(staging.REPOSITORY / "scripts/stage_solidity_compiler.py"), "--verify-bundle", str(application)], cwd=staging.REPOSITORY, check=True),
             ],
         )
 
@@ -116,8 +128,8 @@ class StageMacosAppTests(unittest.TestCase):
         ):
             staging.stage()
         commands = [entry.args[0] for entry in run.call_args_list]
-        self.assertEqual(commands[2], ["sh", str(staging.REPOSITORY / "scripts/sign-macos-bundle.sh"), str(staging.APPLICATION), "-"])
-        self.assertEqual(commands[3], ["sh", str(staging.REPOSITORY / "scripts/verify-macos-bundle.sh"), str(staging.APPLICATION)])
+        self.assertEqual(commands[3], ["sh", str(staging.REPOSITORY / "scripts/sign-macos-bundle.sh"), str(staging.APPLICATION), "-"])
+        self.assertEqual(commands[4], ["sh", str(staging.REPOSITORY / "scripts/verify-macos-bundle.sh"), str(staging.APPLICATION)])
         self.assertFalse(any("macos-wallet-signing.py" in str(command) for command in commands))
 
     def test_running_staged_app_stops_before_build(self):

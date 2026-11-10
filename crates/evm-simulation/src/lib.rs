@@ -9,7 +9,12 @@ mod worker_identity;
 pub use worker_identity::{TrustedSimulationWorker, TrustedSimulationWorkers};
 pub mod offline;
 mod protocol;
+mod replay;
 mod resources;
+pub use replay::{
+    NativeTransfer, ReplayCall, ReplayCallKind, TrustedReplayExecution, replay_discover,
+    replay_frozen,
+};
 mod supervisor;
 pub use supervisor::{
     SimulationControl, SimulationStateSource, simulate_in_worker, simulate_with_trusted_worker,

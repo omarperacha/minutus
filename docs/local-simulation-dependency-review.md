@@ -1,6 +1,6 @@
 # Local simulation dependency review
 
-Reviewed on 2026-10-30 for the bounded B1 local execution worker. This is a source,
+Originally reviewed on 2026-10-30; exact pin and native receipt serde scope updated on 2026-11-10. The current Base pin below supersedes the original 1.5.1 pin for the bounded B1 local execution worker. This is a source,
 dependency and applicability review, not an external audit or a claim that an
 upstream vulnerability is fixed. Both package exceptions below require re-review
 before **2027-01-30 UTC**; the dependency check rejects that date and later dates.
@@ -10,8 +10,8 @@ windows.
 ## Exact engine boundary
 
 The selected registry engines are Revm `43.0.3` for Ethereum and `42.0.1` for
-Base. Base uses the native `base-common-evm` `1.5.1` implementation at
-[`5476069f1eb74a56bccb56fdefd4b4bb0e3cda42`](https://github.com/base/base/tree/5476069f1eb74a56bccb56fdefd4b4bb0e3cda42),
+Base. Base uses the native `base-common-evm` `1.5.3` implementation at
+[`35fd079386e8c6ca57e0d354e5cca5a9ad29bf46`](https://github.com/base/base/tree/35fd079386e8c6ca57e0d354e5cca5a9ad29bf46),
 rather than approximating Base with an OP handler. The reviewed features are
 `std`, `portable`, `blst`, `c-kzg` and `memory_limit`, with default features
 disabled. Signature recovery uses upstream's Rust `k256` implementation;
@@ -46,7 +46,7 @@ version or establish constant-time behaviour.
 The older chain is `crypto-bigint 0.5.5` through `elliptic-curve 0.13.8`,
 `ecdsa 0.16.9`, `primeorder 0.13.6`, `k256 0.13.4` and `p256 0.13.2`. Its direct
 outer consumers are the two exact `revm-precompile` versions,
-`base-execution-eip8130 1.5.1`, `alloy-consensus 2.5.0`, `alloy-eip7702 0.6.3`
+`base-execution-eip8130 1.5.3`, `alloy-consensus 2.5.0`, `alloy-eip7702 0.6.3`
 and `alloy-primitives 1.7.3`. Existing Alloy verification types also make the
 older arithmetic reachable from `chain-evm`, `x402-client`, `app-core` and
 `zeta-desktop`; it is not exclusively a child dependency. These owners construct
@@ -114,3 +114,47 @@ run with the existing Python test discovery. An exact advisory ignore in
 `deny.toml` is defensible only with these applicability constraints. It must not
 be described as a vulnerability repair, a blanket advisory waiver or permission
 to expose wallet secrets to the worker.
+
+
+## Native receipt serde and exact Base update, 10 November 2026
+
+The selected Base 1.5.3 commit is 35fd079386e8c6ca57e0d354e5cca5a9ad29bf46.
+Every file in the 12 reachable Base package directories, including Rust code,
+package manifests and bytecode assets, is byte-identical to the earlier 1.5.1
+checkout. The root MIT licence is also identical. Changed optional Reth source
+tags remain outside the admitted feature graph. Registry versions, sources,
+licences and feature sets were preserved exactly across the Base pin update.
+
+Separately, maintained typed Base transaction/receipt decoding requires the
+explicit `base-common-consensus/serde` feature. This forwards serde to the
+existing native Revm 42 generation and existing codec types; Revm 43 retains its
+old feature set. It adds only `dashmap 6.2.1` (MIT, features inline/serde,
+registry SHA-256 e6361d5c062261c78a176addb82d4c821ae42bed6089de0e12603cd25de2059c)
+and `hashbrown 0.14.5` (MIT OR Apache-2.0, features inline-more/raw,
+registry SHA-256 e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1).
+Their exact licence text is preserved in the shipped notice tree, selecting
+Hashbrown's MIT option. The strict guard pins versions/checksums, features,
+licences and the exact `reth-primitives-traits0.6.0 → dashmap → hashbrown` path.
+Mutation tests reject missing serde, spread to Revm 43 and fee-disable features.
+No existing advisory exception, deadline, network boundary or validation switch
+is widened. The refreshed advisory result and the separate SQLite repair below
+supersede the earlier offline-only advisory check. Source access and downloaded
+candidates are not treated as an external security audit.
+
+## Fresh bundled SQLite advisory repair, 10 November 2026
+
+Refreshing RustSec found [RUSTSEC-2026-0459](https://rustsec.org/advisories/RUSTSEC-2026-0459.html),
+issued on 9 November. A crafted database and sibling WAL can expose process
+memory through the vulnerable bundled SQLite versions. The workspace retains
+its `bundled` SQLite configuration and updates only `rusqlite 0.40.2 → 0.41.0`
+and `libsqlite3-sys 0.38.2 → 0.39.1`. The latter bundles SQLite 3.54.1, within
+RustSec's patched range. Both packages retain MIT licensing; no dependency
+feature, source override, advisory ignore or existing exception changes.
+
+The [rusqlite 0.41.0 release](https://github.com/rusqlite/rusqlite/releases/tag/v0.41.0)
+changes some statement metadata APIs, so the storage owner separately checks
+application compatibility. Locked metadata confirms precisely those two package
+replacements. `cargo deny --locked --offline check --hide-inclusion-graph` passes
+advisories, bans, licences and sources against the freshly updated database;
+existing duplicate-version warnings remain. This records a dependency repair,
+not proof that arbitrary database inputs are safe.

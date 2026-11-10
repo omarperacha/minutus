@@ -148,7 +148,7 @@ skip = [
 unknown-registry = "deny"
 unknown-git = "deny"
 # Exact commit/features are additionally enforced by simulation_dependency_policy.py.
-# Reviewed Base v1.5.1 core execution only; no reth/provider/network features.
+# Reviewed Base v1.5.3 core execution only; no reth/provider/network features.
 allow-git = ["https://github.com/base/base"]
 required-git-spec = "rev"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]

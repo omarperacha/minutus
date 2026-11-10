@@ -2,10 +2,13 @@
 
 #[path = "build_support/evm_workers.rs"]
 mod evm_workers;
+#[path = "build_support/solidity_compiler.rs"]
+mod solidity_compiler;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     watch_runtime_sources();
     evm_workers::configure()?;
+    solidity_compiler::configure()?;
     verify_release_computation_runner()?;
     verify_release_ollama_payload()?;
     verify_release_whisper_helper()?;

@@ -179,6 +179,9 @@ pub(super) fn validate_context(
     id: &ContractWorkflowId,
     steps: &[ContractWorkflowStep],
 ) -> Result<(), StorageError> {
+    if super::generic::load_declaration(connection, id)?.is_some() {
+        return super::generic_evidence::validate_context(connection, id, steps);
+    }
     let scoped = load_scope(connection, id)?.is_some();
     for step in steps {
         let candidate = load_candidate(connection, id, step.index)?;

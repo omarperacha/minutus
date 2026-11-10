@@ -102,6 +102,7 @@ WHISPER_SHA256=$(shasum -a 256 "$WHISPER_HELPER" | awk '{print $1}')
 printf '%s  %s\n' "$WHISPER_SHA256" "MacOS/zeta-whisper-helper" > "$SPEECH_SIGNED_MANIFEST"
 chmod 0644 "$SPEECH_SIGNED_MANIFEST"
 python3 "$REPOSITORY_ROOT/scripts/stage_evm_workers.py" --verify-bundle "$APPLICATION"
+python3 "$REPOSITORY_ROOT/scripts/stage_solidity_compiler.py" --verify-bundle "$APPLICATION"
 sign_file "$CONTENTS/MacOS/zeta-desktop"
 
 if [ "$IDENTITY" = "-" ]; then

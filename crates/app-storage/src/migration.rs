@@ -10,16 +10,19 @@ use schema::{
     MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7,
     MIGRATION_8, MIGRATION_9, MIGRATION_10, MIGRATION_11, MIGRATION_12, MIGRATION_13, MIGRATION_14,
     MIGRATION_15, MIGRATION_16, MIGRATION_17, MIGRATION_18, MIGRATION_19, MIGRATION_20,
-    MIGRATION_21, MIGRATION_22, MIGRATION_23, MIGRATION_24,
+    MIGRATION_21, MIGRATION_22, MIGRATION_23, MIGRATION_24, MIGRATION_25,
 };
 
 /// `SQLite` application identifier for ASCII `ZETA`.
 const APPLICATION_ID: u32 = 0x5A45_5441;
 
 /// Latest schema version understood by this build.
-pub const SCHEMA_VERSION: u32 = 24;
+pub const SCHEMA_VERSION: u32 = 25;
 
-const REQUIRED_TABLES: [&str; 33] = [
+const REQUIRED_TABLES: [&str; 36] = [
+    "contract_workflow_declarations",
+    "contract_workflow_preparations",
+    "contract_workflow_evidence",
     "schema_migrations",
     "evm_nonce_claims",
     "evm_nonce_hashes",
@@ -72,14 +75,19 @@ const REQUIRED_NONCE_TRIGGERS: [&str; 12] = [
     "evm_dispatch_requires_fence",
 ];
 
-const REQUIRED_WORKFLOW_TRIGGERS: [&str; 4] = [
+const REQUIRED_WORKFLOW_TRIGGERS: [&str; 9] = [
+    "contract_declaration_immutable",
+    "contract_preparation_immutable",
+    "contract_evidence_immutable",
+    "contract_declaration_excludes_legacy",
+    "contract_scope_excludes_generic",
     "contract_scope_format_immutable",
     "contract_scope_immutable",
     "contract_candidate_immutable",
     "contract_observation_immutable",
 ];
 
-const MIGRATIONS: [&str; 24] = [
+const MIGRATIONS: [&str; 25] = [
     MIGRATION_1,
     MIGRATION_2,
     MIGRATION_3,
@@ -104,6 +112,7 @@ const MIGRATIONS: [&str; 24] = [
     MIGRATION_22,
     MIGRATION_23,
     MIGRATION_24,
+    MIGRATION_25,
 ];
 
 pub(crate) fn initialize(connection: &mut Connection) -> Result<(), StorageError> {

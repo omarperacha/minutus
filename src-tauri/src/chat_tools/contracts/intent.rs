@@ -13,6 +13,8 @@ struct MetadataIntent {
     network: ipc_types::EvmNetwork,
     target: String,
     block: String,
+    #[serde(default, rename = "includeSource")]
+    include_source: bool,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -27,6 +29,7 @@ struct ReadIntent {
 }
 
 pub(super) struct ObservationRequest {
+    pub(super) include_source: bool,
     pub(super) network: EvmNetwork,
     pub(super) target: String,
     pub(super) block: ContractBlock,
@@ -47,6 +50,7 @@ pub(super) fn request(call: &ParsedToolCall) -> Result<ObservationRequest, IpcEr
         "contract.inspect" => {
             let intent: MetadataIntent = parse(call)?;
             Ok(ObservationRequest {
+                include_source: intent.include_source,
                 network: crate::evm_rpc_settings::chain_network(intent.network),
                 target: address(&intent.target)?,
                 block: ContractBlock::new(&intent.block).map_err(contract_error)?,
@@ -64,6 +68,7 @@ pub(super) fn request(call: &ParsedToolCall) -> Result<ObservationRequest, IpcEr
             )
             .map_err(contract_error)?;
             Ok(ObservationRequest {
+                include_source: false,
                 network: crate::evm_rpc_settings::chain_network(intent.network),
                 target: call.target().into(),
                 block: ContractBlock::new(&intent.block).map_err(contract_error)?,

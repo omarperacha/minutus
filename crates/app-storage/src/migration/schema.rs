@@ -30,3 +30,5 @@ pub(super) use v23::MIGRATION_23;
 
 mod v24;
 pub(super) use v24::MIGRATION_24;
+mod v25;
+pub(super) use v25::MIGRATION_25;

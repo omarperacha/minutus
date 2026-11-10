@@ -1,5 +1,10 @@
 # Reviewed contract qualification
 
+This document records the retained version1 bundled-profile path. The separately
+advertised [version2 generic workflow](generic-contract-qualification.md) uses
+locally reproduced arbitrary source and admitted transition relations; neither
+path grants release clearance or bypasses native approval/authentication.
+
 Declared ABI, successful `eth_call`, events, raw simulation JSON and saved
 commitments do not qualify a write. The chain owner constructs non-deserialisable
 candidates from canonical proof-checked state, exact source/artifact/deployment
@@ -88,9 +93,14 @@ old block cannot be minted as a fresh prerequisite. Balance assertions describe
 current goal state; they do not attribute an entire block's balance delta to one
 transaction. Saved results never recreate a live proof certificate.
 
-The first host proof-acquisition path is deliberately bounded to64 transactions
-per block,4MiB aggregate RPC data and the shared15-second deadline. It requires
-raw-transaction RPC support. Unsupported/oversized data leaves the transaction
+The host proof-acquisition path is bounded to2048 transactions per block,4MiB
+of aggregate RPC response bodies and the shared15-second deadline. It reconstructs
+every signed transaction from standard full-block JSON using maintained Alloy/Base
+envelopes, and normally uses `eth_getBlockReceipts`. Only an explicit unsupported
+method response permits individually fetched receipts; error bodies still count
+towards the same byte budget. Both complete trie roots and canonical block identity
+are independently checked. No raw-transaction RPC method is required.
+Unsupported/oversized data leaves the transaction
 confirmed but its goal unverified; it does not authorise another send. Both
 ordinary and native Base deposit receipts use maintained consensus encoders.
 

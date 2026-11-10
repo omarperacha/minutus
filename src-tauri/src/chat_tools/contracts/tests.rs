@@ -137,3 +137,85 @@ fn nested_declared_reads_are_validated_without_new_authority() -> Result<(), Ipc
     assert!(validated_chat_tool_request(&request, &[]).is_err());
     Ok(())
 }
+
+#[test]
+fn source_metadata_is_explicit_unsigned_discovery_and_rejects_authority_inputs()
+-> Result<(), IpcError> {
+    let plain = call("contract.inspect");
+    assert!(!super::intent::request(&plain)?.include_source);
+    let mut source = plain.clone();
+    source.arguments.insert("includeSource".into(), json!(true));
+    validated_chat_tool_request(&source, &[])?;
+    let request = super::intent::request(&source)?;
+    assert!(request.include_source);
+    assert!(request.call.is_none());
+    assert!(request.caller.is_none());
+    assert!(prepare_chat_tool(&[], &source)?.workspace.is_none());
+    for field in [
+        "sourceUrl",
+        "compilerPath",
+        "sourceDigest",
+        "abi",
+        "storageLayout",
+        "approved",
+        "wallet",
+    ] {
+        let mut forged = source.clone();
+        forged.arguments.insert(field.into(), json!("untrusted"));
+        assert!(
+            validated_chat_tool_request(&forged, &[]).is_err(),
+            "{field}"
+        );
+    }
+    source
+        .arguments
+        .insert("includeSource".into(), json!("true"));
+    assert!(validated_chat_tool_request(&source, &[]).is_err());
+    let mut read = call("contract.read");
+    read.arguments.insert("includeSource".into(), json!(true));
+    assert!(validated_chat_tool_request(&read, &[]).is_err());
+    Ok(())
+}
+
+#[test]
+fn version2_workflow_reaches_qualification_gate_through_closed_tool_registry()
+-> Result<(), Box<dyn std::error::Error>> {
+    let arguments = json!({
+        "contractVersion":2,"network":"ethereumSepolia",
+        "contracts":[{"id":"app","address":"0x2222222222222222222222222222222222222222"}],
+        "steps":[{"id":"set","contract":"app","function":"store(uint256)",
+            "arguments":["7"],"valueWei":"0","dependsOn":[],"prerequisites":[],
+            "completion":[]}],"goals":[]
+    });
+    let parsed: crate::evm_approval::contracts::DeclaredWorkflowRequest =
+        serde_json::from_value(arguments.clone())?;
+    parsed.validate().map_err(|error| error.message)?;
+    let request = ParsedToolCall {
+        call_id: "declared-registry".into(),
+        recipient: "contract.request_workflow".into(),
+        name: "contract.request_workflow".into(),
+        arguments: serde_json::from_value(arguments)?,
+    };
+    // A raw development checkout can lack packaged helpers. Its closed outer
+    // envelope must still reach that qualification gate, not reject v2 fields.
+    if let Err(error) = validated_chat_tool_request(&request, &[]) {
+        assert_eq!(
+            error.code,
+            IpcErrorCode::PermissionDenied,
+            "{}",
+            error.message
+        );
+    }
+    for field in ["gas", "nonce", "sourceUrl", "approved"] {
+        let mut forged = request.clone();
+        forged.arguments.insert(field.into(), json!("untrusted"));
+        assert_eq!(
+            validated_chat_tool_request(&forged, &[])
+                .err()
+                .map(|error| error.code),
+            Some(IpcErrorCode::InvalidRequest),
+            "{field}"
+        );
+    }
+    Ok(())
+}

@@ -24,9 +24,13 @@ pub use store::external_models::{ExternalModelFile, ExternalModelRegistration};
 
 pub use store::contract_workflows::{
     ContractStepClaim, ContractStepState, ContractWorkflowId, ContractWorkflowStep,
-    StoredContractObserver, StoredObserverPredicate, StoredObserverResult,
-    StoredPredicateComparison, StoredWorkflowCandidate, StoredWorkflowIntent,
-    StoredWorkflowObservation, StoredWorkflowScope,
+    StoredContractObserver, StoredDeclaredWorkflowStep, StoredGenericWorkflowEvidence,
+    StoredGenericWorkflowPreparation, StoredObserverPredicate, StoredObserverResult,
+    StoredPredicateComparison, StoredWorkflowCandidate, StoredWorkflowComparison,
+    StoredWorkflowCondition, StoredWorkflowConditionResult, StoredWorkflowContract,
+    StoredWorkflowDeclaration, StoredWorkflowEvidenceKind, StoredWorkflowIntent,
+    StoredWorkflowObservation, StoredWorkflowRead, StoredWorkflowReceiptAnchor,
+    StoredWorkflowScope,
 };
 
 pub use store::evm_nonces::EvmNonceClaim;

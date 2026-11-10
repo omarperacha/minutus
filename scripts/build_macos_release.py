@@ -53,6 +53,8 @@ def main():
         raise ValueError('Quit the release app before rebuilding (or check pgrep)')
     OUTPUT.mkdir(parents=True, exist_ok=True)
     with (OUTPUT / 'release-build.log').open('w') as log:
+        run([sys.executable, str(ROOT / 'scripts/stage_solidity_compiler.py'), '--identity',
+             distribution['identity'] if distribution else '-'], log)
         run([sys.executable, str(ROOT / 'scripts/stage_evm_workers.py'), '--identity',
              distribution['identity'] if distribution else '-'], log)
         run([pnpm, 'tauri', 'build', '--config', 'src-tauri/tauri.evm-workers.conf.json', '--target', 'aarch64-apple-darwin',

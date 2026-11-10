@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 RESOURCE_NAME = "third-party-notices"
-MANIFEST_SHA256 = "96e8f3776a96d100c887bac940876a12342f91a1351a9f778fb2c2c07463ddf8"
+MANIFEST_SHA256 = "3edd75dda2a7558ff662360571e31737181a167b80f8803135c034a0354c1c30"
 NOTICES = (
     ('contract-profiles/erc20-oz-5.7.0/OpenZeppelin-MIT.txt',
      'crates/chain-evm/profiles/erc20-oz-5.7.0/OpenZeppelin-MIT.txt',
@@ -23,12 +23,36 @@ NOTICES = (
     ('local-simulation/CC0-1.0.txt',
      'docs/third-party/local-simulation/CC0-1.0.txt',
      'a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499'),
+    ('local-simulation/DashMap-MIT.txt',
+     'docs/third-party/local-simulation/DashMap-MIT.txt',
+     '16692e8cee4aa06e3913787497eba2d47c42002014136f5da67be6ee640e28a3'),
+    ('local-simulation/Hashbrown-MIT.txt',
+     'docs/third-party/local-simulation/Hashbrown-MIT.txt',
+     'ff8f68cb076caf8cefe7a6430d4ac086ce6af2ca8ce2c4e5a2004d4552ef52a2'),
     ('local-simulation/README.md',
      'docs/third-party/local-simulation/README.md',
-     'a490498d6c0268425293a522eeb0daf44fcaa664bfe4f6b8688231e2b860c2ba'),
+     '7c8a507d909dc54a9f593fc80fc611016fda240f5ca3317ac8b8a6ae45db3dc6'),
     ('local-simulation/Revm-MIT.txt',
      'docs/third-party/local-simulation/Revm-MIT.txt',
      '8946bedbf7b19245da61f429ac90b03dd6b6c69e1e2b98988aa1793958c54e2f'),
+    ('solidity-compiler/README.md',
+     'crates/solidity-compilation/notices/README.md',
+     'd9ec899a31d2f06a86761d6b916e72e8021b5af5dfa1d9fb4b7f958d655cc80c'),
+    ('solidity-compiler/Solidity-GPL-3.0.txt',
+     'crates/solidity-compilation/notices/Solidity-GPL-3.0.txt',
+     '0ae0485a5bd37a63e63603596417e4eb0e653334fa6c7f932ca3a0e85d4af227'),
+    ('solidity-compiler/compiler.swift',
+     'crates/solidity-compilation/native/compiler.swift',
+     '88c686da39a76ea4bbf594c4284a59be72d32d63c960f692c403148c00a6d19a'),
+    ('solidity-compiler/build.py',
+     'crates/solidity-compilation/native/build.py',
+     '36345dcb1aefaeaa23ff074901b0575141eadfe0de1be9dbf4ead348cc60ff43'),
+    ('solidity-compiler/SolidityCompiler.entitlements.plist',
+     'crates/solidity-compilation/native/SolidityCompiler.entitlements.plist',
+     '518f9a6c9bd10a1a56073039ddac9a7427745bcb5c470c4b33c814fadfb62d22'),
+    ('solidity-compiler/compiler-catalogue.json',
+     'crates/solidity-compilation/compiler-catalogue.json',
+     '57196e765cc87b6a82a71332fe9dcba140fd55e03000f7b3b347f4fadf818166'),
 )
 
 

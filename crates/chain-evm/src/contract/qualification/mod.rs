@@ -15,6 +15,7 @@ mod material;
 mod profile;
 mod qualified;
 mod receipt;
+pub(crate) use receipt::verify_inclusion as verify_transaction_inclusion;
 mod source;
 pub use qualified::{
     QualifiedContractCandidate, RefreshedQualifiedCandidate, ValidatedContractExecution,

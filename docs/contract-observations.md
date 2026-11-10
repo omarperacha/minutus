@@ -7,8 +7,30 @@ outbound approval. Read the provider origin, network, target, caller and exact
 call bytes before allowing them to leave your Mac. Deny is the default; denying
 sends no RPC request. Provider credentials remain in native settings.
 
+`contract.inspect` also accepts optional `includeSource: true` (default false).
+This mode requires the packaged attested compiler helper and separate explicit
+native disclosure of public Sourcify chain/address lookups and official compiler
+downloads. It reproduces source locally and returns the complete bounded ABI,
+storage layout, method identifiers and source/runtime role graph, without source
+comments or NatSpec. Metadata above64KiB rejects rather than truncating. No
+wallet, password or signature is accessed. Potential implementation roles are
+labelled separately from proved execution roles; these results do not qualify a
+write or establish token/business semantics.
+
+This opt-in result reports `writeAuthorityGranted: false` and
+`effectsQualified: false` for the observation. Those fields do not describe
+whether the host separately advertises a workflow capability. Plain inspection
+and read result contracts retain their existing fields.
+
+Source correspondence retains its own exact requested block snapshot. `latest`
+is resolved before compilation, then that snapshot is rechecked canonical; the
+compiler may outlast a block. The result is historical evidence, with no claim
+about the current tip. Use its canonical function signatures and layout paths to
+form the separately advertised version2 workflow, which independently qualifies
+fresh source, transition relations and execution effects before each approval.
+
 `contract.inspect` returns runtime length and Keccak-256 identity. It can run as
-metadata discovery before planning. Code presence does not verify source, ABI,
+metadata discovery before planning. Plain code presence does not verify source, ABI,
 proxy implementation or safety. `contract.read` requires a semantic plan and is
 available through tool discovery in the contracts category. It performs a
 zero-value `eth_call`, with a fixed gas cap of 1,000,000. Simulated state changes
@@ -55,8 +77,8 @@ Results are untrusted observations, never instructions, verified semantics or
 signing authority. A caller is simulated public context, not proof of control.
 `caller: null` uses the zero address, never the selected wallet account.
 
-Each `latest` request resolves a fresh block. All state calls use that exact hash
-with canonicality required; canonicality is checked again afterwards. Exact hash
+Each `latest` request resolves a fresh block. Unsigned calls and code queries use
+that exact hash with canonicality required; canonicality is checked again afterwards. Exact hash
 requests also recheck canonicality. Missing archive state, unsupported hash
 selectors, malformed returns, wrong chains and detected reorgs fail without a
 provider/latest fallback. Results identify their original block/caller; follow-up
@@ -73,16 +95,18 @@ The configured RPC sees the IP address, target, simulated caller and calldata.
 One-time outbound approval covers those bytes and their chain/block/code checks;
 it does not authorise a new provider, spending or background reuse.
 
-Generic contract writes, token approvals, sequential approve/swap execution,
-swap/bridge routing, account upgrades and atomic batches remain unavailable.
-A write-intent type and dormant workflow journal are groundwork only. No generic
-write tool or new signing route is installed. Write enablement requires qualified
-ABI/source/proxy identity, complete relevant effect coverage, native review,
-per-write authentication, integration with [shared nonce ownership](evm-nonce-ownership.md),
-restart/replay handling and
-independent postcondition qualification. Ordinary call success or a simulated
-transfer event cannot satisfy those gates. Existing bounded Wallet/chat transfers
-and x402 retain their separate approval contracts.
+Unsigned observations authorise no write. Qualification builds can separately
+advertise [declared workflows](generic-contract-qualification.md) for the admitted
+source/compiler/transition subset; release contract writes remain disabled
+pending native interaction and final security review. That integrated route
+independently requires qualified ABI/source/dispatch identity, complete bounded
+effects, native review, fresh authentication for each write,
+[shared nonce ownership](evm-nonce-ownership.md), canonical historical completion
+anchors and separately proved current conditions. Ordinary call success or a
+simulated transfer event cannot satisfy those gates. Arbitrary swap/bridge
+routing, account upgrades, unsupported external calls and atomic batches remain
+unavailable. Existing bounded Wallet/chat transfers and x402 retain their
+separate approval contracts.
 
 For an explicitly requested public read-only source-build probe, run:
 

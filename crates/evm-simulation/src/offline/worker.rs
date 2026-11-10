@@ -91,8 +91,8 @@ pub(super) fn execute(
     let request = &snapshot.request;
     let spec = fees::spec(snapshot)?;
     let engine = match admission::validate(request)? {
-        admission::Rules::BaseCobalt => "base1.5.1/Cobalt",
-        admission::Rules::BaseDenim => "base1.5.1/Denim",
+        admission::Rules::BaseCobalt => "base1.5.3/Cobalt",
+        admission::Rules::BaseDenim => "base1.5.3/Denim",
         _ => return Err(SimulationError::UnsupportedRules),
     };
     let mut cfg = revm_base::context::CfgEnv::new_with_spec(spec);

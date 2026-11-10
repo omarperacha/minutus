@@ -39,6 +39,12 @@ fn base_policy_has_minutus_identity_voice_and_authority_boundaries() -> Result<(
         content.contains("If that workflow is absent, do not claim contract writes are available")
     );
     assert!(content.contains("An earlier allowance can remain"));
+    assert!(content.contains(
+        "Historical completion dependencies do not require old values to remain unchanged"
+    ));
+    assert!(
+        content.contains("source field and event names do not prove token or business semantics")
+    );
     assert!(content.contains("Never automatically retry or clean up a workflow"));
     assert!(content.contains("Current date: 2026-08-17."));
     assert!(!content.contains("FlowZed knowledge foundation"));

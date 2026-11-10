@@ -118,7 +118,7 @@ impl StoredWorkflowScope {
     }
 }
 
-fn argument(value: &Value, depth: usize, nodes: &mut usize) -> Result<(), StorageError> {
+pub(super) fn argument(value: &Value, depth: usize, nodes: &mut usize) -> Result<(), StorageError> {
     *nodes += 1;
     if depth > 4 || *nodes > 256 {
         return invalid("workflow argument tree exceeds limits");

@@ -54,7 +54,9 @@ pub enum ContractStepState {
     Submitted,
     /// Non-reverting execution observed; intended task outcome still unknown.
     ConfirmedUnverified,
-    /// Host separately verified intended effects at a canonical block.
+    /// Host verified declared completion requirements at a canonical block.
+    /// Generic declarations without requirements establish execution only;
+    /// their final business/task goals remain separately undeclared.
     Verified,
     /// Human denied the attempt; terminal.
     Denied,

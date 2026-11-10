@@ -15,6 +15,12 @@ pub struct OfflineMaterialExpectation {
     storage: Vec<StorageChange>,
     logs: Vec<LogObservation>,
     output: String,
+    replay: Option<ReplayExpectation>,
+}
+struct ReplayExpectation {
+    calls: Vec<CallObservation>,
+    commitment: String,
+    gas: [u64; 6],
 }
 impl OfflineMaterialExpectation {
     /// Records independently derived ordered logs, changed words and return bytes.
@@ -40,8 +46,51 @@ impl OfflineMaterialExpectation {
             storage,
             logs,
             output,
+            replay: None,
         })
     }
+    /// Binds general fee-insensitive application effects to a host-generated
+    /// Base replay certificate. No isolated output or arbitrary JSON may mint it.
+    ///
+    /// # Errors
+    /// Rejects a non-Base application certificate or unbounded result material.
+    pub fn from_trusted_replay(
+        replay: &crate::TrustedReplayExecution,
+    ) -> Result<Self, SimulationError> {
+        let observed = replay.observation();
+        if !replay.is_base_application()
+            || observed.status != ExecutionStatus::Succeeded
+            || !replay.native_transfers().is_empty()
+            || serde_json::to_vec(observed)
+                .map_err(|_| SimulationError::Protocol)?
+                .len()
+                .saturating_add(4096)
+                > crate::MAX_FRAME
+        {
+            return Err(SimulationError::UnsupportedExecution);
+        }
+        let mut result = Self::new(
+            observed.storage.clone(),
+            observed.logs.clone(),
+            observed.output.clone(),
+        )?;
+        result.replay = Some(ReplayExpectation {
+            calls: observed.calls.clone(),
+            commitment: observed.request_commitment.clone(),
+            gas: gas(observed),
+        });
+        Ok(result)
+    }
+}
+fn gas(observation: &SimulationObservation) -> [u64; 6] {
+    [
+        observation.gas_used,
+        observation.regular_gas_used,
+        observation.state_gas_used,
+        observation.gas_spent_before_refund,
+        observation.effective_gas_refund,
+        observation.floor_gas,
+    ]
 }
 // No Debug, Serialize, raw output getter, or conversion to online observations.
 /// Opaque tainted signed-run output. It cannot qualify approval or be projected.
@@ -82,8 +131,8 @@ impl OfflineExecution {
         let request = &self.snapshot.request;
         let observation = &self.observation;
         let engine = match admission::validate(request)? {
-            admission::Rules::BaseCobalt => "base1.5.1/Cobalt",
-            admission::Rules::BaseDenim => "base1.5.1/Denim",
+            admission::Rules::BaseCobalt => "base1.5.3/Cobalt",
+            admission::Rules::BaseDenim => "base1.5.3/Denim",
             _ => return Err(SimulationError::UnsupportedRules),
         };
         if observation.request_commitment != crate::protocol::commitment(request)?
@@ -102,7 +151,13 @@ impl OfflineExecution {
             value: "0x0".into(),
             depth: 1,
         };
-        if !same(&observation.calls, &vec![call])?
+        let calls = expected
+            .replay
+            .as_ref()
+            .map_or_else(|| vec![call], |replay| replay.calls.clone());
+        if expected.replay.as_ref().is_some_and(|replay| {
+            replay.commitment != observation.request_commitment || replay.gas != gas(observation)
+        }) || !same(&observation.calls, &calls)?
             || !same(&observation.logs, &expected.logs)?
             || observation.output != expected.output
             || !same(&observation.storage, &expected.storage)?
@@ -199,7 +254,8 @@ fn check_writes(
         let slot = U256::from_be_bytes(admission::hash(&change.slot)?.0);
         let before = U256::from_be_bytes(admission::hash(&change.before)?.0);
         let after = U256::from_be_bytes(admission::hash(&change.after)?.0);
-        if address != admission::address(&snapshot.request.transaction.target)?
+        if (expected.replay.is_none()
+            && address != admission::address(&snapshot.request.transaction.target)?)
             || !seen.insert((address, slot))
             || before == after
             || revm_base::Database::storage(&mut db, address, slot)? != before

@@ -18,7 +18,8 @@ app-core (composition root)
 ├── wallet-core ────────────┐
 ├── transaction-policy <────┴── x402-client
 ├── chain-evm <──────────── x402-client
-│   └── evm-simulation (isolated local execution)
+│   ├── evm-simulation (isolated execution and trusted proof-backed replay)
+│   └── solidity-compilation (isolated exact source reproduction)
 ├── web-retrieval
 └── ipc-types
 ~~~
@@ -36,6 +37,16 @@ the enforceable dependency graph:
   rules from "transaction-policy"; it cannot depend on "wallet-core".
 - "chain-evm" may depend on "evm-simulation" for authority-free local execution
   values and a developer worker API. It owns the concrete RPC/proof adapter.
+- "chain-evm" also owns public source/compiler acquisition and may consume opaque
+  reproduced artifacts from "solidity-compilation". Source/runtime matching,
+  bounded effect admission and workflow evidence remain in the chain owner.
+- "solidity-compilation" owns fixed official compiler pins, bounded input/output,
+  a separately signed Swift/JavaScriptCore helper and opaque compiler artifacts.
+  It cannot depend on network clients, wallet, permissions, application storage,
+  IPC, desktop or simulation crates. Its private native identity/resource FFI is
+  the narrow unsafe-code exception documented in its README. The standalone GPL
+  helper's complete source/build instructions/licence are packaged separately;
+  GPL is not added to the Rust dependency allowlist.
 - "evm-simulation" owns the fixed process protocol, pinned upstream execution
   adapters and one-shot isolated lifecycle. It cannot depend on wallet,
   filesystem grants, permissions, application storage, HTTP clients, desktop UI
@@ -84,6 +95,7 @@ dependency that reverses one of these arrows requires an architecture review.
 | "filesystem-tools" | Handle-relative operations inside active grants | Wallet, inference and network access |
 | "wallet-core" | Encrypted vault, key lifecycle and signing boundary | Broadcasting, RPC, agent and workspace access |
 | "evm-simulation" | Bounded local Revm/Base worker, fixed protocol and isolated one-shot lifecycle | Wallet secrets, signing, submission, network IO, project grants and effect/source qualification |
+| "solidity-compilation" | Exact compiler pins, isolated local compilation and opaque reproduced artifacts | Network acquisition, wallet, signing, simulation, approval and effect qualification |
 | "chain-evm" | EVM types, construction, decoding and simulation interfaces | Private-key storage and UI approval |
 | "transaction-policy" | Candidate binding, approval lifecycle and transaction rules | Key access and broadcasting |
 | "x402-client" | Bounded x402 v2 HTTP protocol and payment construction | Direct signing and autonomous payment |

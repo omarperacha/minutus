@@ -20,4 +20,6 @@ const MAX_ENVELOPE: usize = 8_512;
 #[cfg(test)]
 mod profile_tests;
 #[cfg(test)]
+mod replay_tests;
+#[cfg(test)]
 mod tests;

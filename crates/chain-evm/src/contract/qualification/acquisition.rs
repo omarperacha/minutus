@@ -1,7 +1,10 @@
 //! Bounded host acquisition of public included transaction/receipt MPT evidence.
 //! Provider claims are checked against both complete canonical header roots.
-use super::{DeploymentProof, QualificationError, deployment::hex};
-use crate::{EvmNetwork, EvmRpcUrl, local_simulation, rpc::RpcClient};
+use super::{DeploymentProof, QualificationError};
+use crate::{
+    EvmNetwork, EvmRpcUrl,
+    rpc::{RpcClient, RpcError},
+};
 use alloy_consensus::{Header, Receipt, ReceiptWithBloom};
 use alloy_primitives::{B256, Bytes, keccak256};
 use alloy_trie::{
@@ -12,8 +15,11 @@ use evm_simulation::{SimulationControl, SimulationError};
 use serde_json::{Value, json};
 use std::{str::FromStr, sync::atomic::AtomicBool, time::Duration};
 
-const MAX_TRANSACTIONS: usize = 64;
-const MAX_RAW: usize = 32_768;
+mod receipts;
+mod transactions;
+
+const MAX_TRANSACTIONS: usize = 2048;
+const MAX_RAW: usize = 256 * 1024;
 const MAX_TOTAL: usize = 4 * 1024 * 1024;
 struct Acquisition<'a, 'b> {
     rpc: RpcClient<'a>,
@@ -21,33 +27,83 @@ struct Acquisition<'a, 'b> {
     bytes: usize,
 }
 impl Acquisition<'_, '_> {
-    fn call(&mut self, method: &str, params: &Value) -> Result<Value, QualificationError> {
-        let value = self
+    fn optional(
+        &mut self,
+        method: &str,
+        params: &Value,
+    ) -> Result<Option<Value>, QualificationError> {
+        let remaining = MAX_TOTAL
+            .checked_sub(self.bytes)
+            .filter(|remaining| *remaining > 0)
+            .ok_or(SimulationError::Limit)?;
+        let (result, charged) = self
             .rpc
-            .value_result_with_timeout(
+            .value_result_with_limit(
                 method,
                 params,
-                self.control.remaining()?.min(Duration::from_secs(1)),
+                self.control.remaining()?.min(Duration::from_secs(2)),
+                u64::try_from(remaining).map_err(|_| SimulationError::Limit)?,
             )
-            .map_err(|_| SimulationError::StateUnavailable)?;
-        self.control.remaining()?;
+            .map_err(|error| match error {
+                RpcError::ResponseTooLarge => SimulationError::Limit,
+                _ => SimulationError::StateUnavailable,
+            })?;
         self.bytes = self
             .bytes
-            .checked_add(value.to_string().len())
+            .checked_add(charged)
             .ok_or(SimulationError::Limit)?;
         if self.bytes > MAX_TOTAL {
             return Err(SimulationError::Limit.into());
         }
-        Ok(value)
+        self.control.remaining()?;
+        match result {
+            Ok(value) => Ok(Some(value)),
+            Err(RpcError::Rejected(-32601)) => Ok(None),
+            Err(_) => Err(SimulationError::StateUnavailable.into()),
+        }
+    }
+    fn call(&mut self, method: &str, params: &Value) -> Result<Value, QualificationError> {
+        self.optional(method, params)?
+            .ok_or_else(|| SimulationError::StateUnavailable.into())
+    }
+    fn canonical_block(
+        &mut self,
+        network: EvmNetwork,
+        expected: B256,
+        full: bool,
+    ) -> Result<(Header, Value), QualificationError> {
+        let chain = self.call("eth_chainId", &json!([]))?;
+        network
+            .validate_rpc_chain_id(chain.as_str().ok_or(QualificationError::SnapshotMismatch)?)
+            .map_err(|_| QualificationError::SnapshotMismatch)?;
+        let block = self.call(
+            "eth_getBlockByHash",
+            &json!([format!("{expected:#x}"), full]),
+        )?;
+        let header = checked_header(&block, expected)?;
+        let repeated = self.call(
+            "eth_getBlockByNumber",
+            &json!([format!("0x{:x}", header.number), false]),
+        )?;
+        checked_header(&repeated, expected)?;
+        Ok((header, block))
     }
 }
+fn checked_header(value: &Value, expected: B256) -> Result<Header, QualificationError> {
+    let header: Header =
+        serde_json::from_value(value.clone()).map_err(|_| QualificationError::SnapshotMismatch)?;
+    if hash(value, "hash")? != expected || header.hash_slow() != expected {
+        return Err(QualificationError::SnapshotMismatch);
+    }
+    Ok(header)
+}
 /// Acquires public inclusion evidence from the selected configured RPC after a
-/// transaction is mined. No new provider or hosted simulator is contacted. This
-/// deliberately bounded first path requires raw-transaction RPC support and a
-/// block of at most64 transactions; unsupported data stays unverified.
+/// transaction is mined. No new provider or hosted simulator is contacted. Standard full-block transaction and batch-receipt RPCs supply bounded public
+/// data; maintained Alloy/Base codecs reconstruct every trie leaf. At most2048
+/// transactions and4MiB of aggregate RPC bodies are accepted in15 seconds.
 ///
 /// # Errors
-/// Pending/replaced/unknown transactions, unsupported raw RPC, large blocks,
+/// Pending/replaced/unknown transactions, unsupported envelopes, large blocks,
 /// malformed receipts, root mismatches, reorgs, deadline or cancellation reject.
 pub fn acquire_contract_transaction_proof(
     network: EvmNetwork,
@@ -69,70 +125,28 @@ pub fn acquire_contract_transaction_proof(
     }
     let block_hash = hash(&own, "blockHash")?;
     let index = quantity(&own, "transactionIndex")?;
-    let header = local_simulation::canonical_header(
-        endpoint,
-        network,
-        &format!("{block_hash:#x}"),
-        &control,
-    )?;
-    let block = reader.call(
-        "eth_getBlockByHash",
-        &json!([format!("{block_hash:#x}"), false]),
-    )?;
-    let decoded: Header =
-        serde_json::from_value(block.clone()).map_err(|_| QualificationError::SnapshotMismatch)?;
-    if decoded.hash_slow() != header.hash_slow() || hash(&block, "hash")? != block_hash {
+    let (header, block) = reader.canonical_block(network, block_hash, true)?;
+    if quantity(&own, "blockNumber")? != header.number {
         return Err(QualificationError::SnapshotMismatch);
     }
-    let hashes = block
-        .get("transactions")
-        .and_then(Value::as_array)
-        .filter(|v| !v.is_empty() && v.len() <= MAX_TRANSACTIONS)
-        .ok_or(SimulationError::Limit)?;
+    let transactions =
+        transactions::block_transactions(network, &block, block_hash, header.number)?;
     let selected = usize::try_from(index).map_err(|_| QualificationError::SnapshotMismatch)?;
-    if hashes
-        .get(selected)
-        .and_then(Value::as_str)
-        .and_then(|v| B256::from_str(v).ok())
-        != Some(expected)
-    {
+    if transactions.get(selected).map(keccak256) != Some(expected) {
         return Err(QualificationError::SnapshotMismatch);
     }
-    let mut transactions = Vec::with_capacity(hashes.len());
-    let mut receipts = Vec::with_capacity(hashes.len());
-    for (position, claimed) in hashes.iter().enumerate() {
-        let claimed = claimed
-            .as_str()
-            .ok_or(QualificationError::SnapshotMismatch)?;
-        let tx_hash = B256::from_str(claimed).map_err(|_| QualificationError::SnapshotMismatch)?;
-        let raw = reader.call("eth_getRawTransactionByHash", &json!([claimed]))?;
-        let raw = hex(
-            raw.as_str().ok_or(QualificationError::SnapshotMismatch)?,
-            MAX_RAW,
-            false,
-        )?;
-        if keccak256(&raw) != tx_hash {
-            return Err(QualificationError::SnapshotMismatch);
-        }
-        let receipt = if position == selected {
-            own.clone()
-        } else {
-            reader.call("eth_getTransactionReceipt", &json!([claimed]))?
-        };
-        if hash(&receipt, "transactionHash")? != tx_hash
-            || hash(&receipt, "blockHash")? != block_hash
-            || quantity(&receipt, "transactionIndex")?
-                != u64::try_from(position).map_err(|_| SimulationError::Limit)?
-            || quantity(&receipt, "blockNumber")? != header.number
-        {
-            return Err(QualificationError::SnapshotMismatch);
-        }
-        receipts.push(receipt_bytes(network, &raw, &receipt)?);
-        transactions.push(raw);
-    }
+    let receipts = receipts::block_receipts(
+        &mut reader,
+        network,
+        block_hash,
+        header.number,
+        &transactions,
+        selected,
+        &own,
+    )?;
     let transaction_proof = trie_proof(&transactions, index, header.transactions_root)?;
     let receipt_proof = trie_proof(&receipts, index, header.receipts_root)?;
-    local_simulation::canonical_header(endpoint, network, &format!("{block_hash:#x}"), &control)?;
+    reader.canonical_block(network, block_hash, false)?;
     let proof = DeploymentProof {
         block_hash: format!("{block_hash:#x}"),
         transaction_index: index,

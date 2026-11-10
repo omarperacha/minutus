@@ -57,6 +57,8 @@ def process_is_running(executable):
         check=False,
         capture_output=True,
     )
+    if result.returncode not in (0, 1):
+        raise ValueError("Cannot inspect running Minutus processes; staging stopped.")
     return result.returncode == 0
 
 
@@ -69,6 +71,8 @@ def bundle_process_is_running(application=APPLICATION):
         check=False,
         capture_output=True,
     )
+    if result.returncode not in (0, 1):
+        raise ValueError("Cannot inspect running Minutus processes; staging stopped.")
     return result.returncode == 0
 
 
@@ -92,6 +96,7 @@ def stage(identity="-", profile=None, application=APPLICATION):
 
 def build_and_sign(pnpm, identity, profile, application):
     """Keep signed app verification complete before trimming compiler artifacts."""
+    subprocess.run([sys.executable, str(REPOSITORY / "scripts/stage_solidity_compiler.py"), "--identity", identity], cwd=REPOSITORY, check=True)
     subprocess.run([sys.executable, str(REPOSITORY / "scripts/stage_evm_workers.py"), "--identity", identity], cwd=REPOSITORY, check=True)
     started = time.monotonic()
     print("Building frontend and native app (Cargo timing report enabled)…", flush=True)
@@ -119,6 +124,7 @@ def build_and_sign(pnpm, identity, profile, application):
             cwd=REPOSITORY, check=True,
         )
     subprocess.run([sys.executable, str(REPOSITORY / "scripts/stage_evm_workers.py"), "--verify-bundle", str(application)], cwd=REPOSITORY, check=True)
+    subprocess.run([sys.executable, str(REPOSITORY / "scripts/stage_solidity_compiler.py"), "--verify-bundle", str(application)], cwd=REPOSITORY, check=True)
     finished = time.monotonic()
     print(
         f"Signing and verification: {finished - built:.1f}s. "

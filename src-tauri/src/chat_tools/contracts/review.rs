@@ -25,7 +25,7 @@ pub(super) fn review(
             let alert = NSAlert::new(mtm);
             alert.setMessageText(&NSString::from_str("Allow unsigned contract observation?"));
             alert.setInformativeText(&NSString::from_str(
-                "Review the provider, target, caller and exact calldata below. These bytes will leave your Mac and may contain private data. This is one-time outbound permission, not transaction approval. No wallet unlock or signing.",
+                "Review the provider, target, caller, exact calldata and any requested source/compiler origins below. This is one-time outbound permission, not transaction approval. No wallet unlock or signing.",
             ));
             alert.addButtonWithTitle(&NSString::from_str("Deny"));
             alert.addButtonWithTitle(&NSString::from_str("Allow once"));
@@ -73,13 +73,19 @@ fn review_text(request: &ObservationRequest, endpoint: &EvmRpcUrl) -> String {
     let call = request.call.as_ref().map_or_else(||"Runtime code metadata only; no calldata.".into(),|call|format!(
         "Simulated caller: {}\nFunction (unverified): {}\nArguments: {}\nExact calldata: {}\nValue: 0 wei; gas cap: 1,000,000",
         request.caller.as_deref().unwrap_or("0x0000000000000000000000000000000000000000"),call.signature(),crate::web_approval::review_json(&serde_json::Value::Array(call.arguments().to_vec())),call.calldata()));
+    let source = if request.include_source {
+        "\n\nSOURCE CORRESPONDENCE REQUESTED\nPublic source service: https://sourcify.dev\nOfficial compiler downloads: https://binaries.soliditylang.org\nThe source service receives only public chain/address lookups, including proof-derived implementation dependencies. Compiler downloads reveal compiler versions. Source is reproduced locally and compared with proof-checked runtime at the requested snapshot. No transaction calldata, signatures or wallet secrets are sent to these services. ABI/layout/source identifiers are returned only as unsigned metadata, with no docs/comments, write authority or economic-safety claim."
+    } else {
+        ""
+    };
     format!(
-        "Allow this one-time outbound request to the configured RPC?\n\nNetwork: {}\nProvider origin: {}\nTarget: {}\nBlock: {}\n{}\n\nThe provider sees your IP address and these public addresses/call bytes. Arguments may contain sensitive data: deny if you do not intend to share them. This permission covers the displayed call and its chain/block/code checks only.\n\nNo wallet, password, signature or transaction. Simulated state changes are discarded. ABI and provider data are unverified; code presence and call success do not establish safety or effects.",
+        "Allow this one-time outbound observation?\n\nNetwork: {}\nProvider origin: {}\nTarget: {}\nBlock: {}\n{}{}\n\nThe provider sees your IP address and these public addresses/call bytes. Arguments may contain sensitive data: deny if you do not intend to share them. This permission covers the displayed call, chain/block/code checks and only the explicitly requested source/compiler acquisition above.\n\nNo wallet, password, signature or transaction. Simulated state changes are discarded. Caller-declared ABI and provider data remain untrusted; separately reproduced source correspondence does not establish economic safety or qualify effects.",
         request.network.descriptor().display_name(),
         endpoint.public_origin(),
         request.target,
         block,
-        call
+        call,
+        source
     )
 }
 
@@ -97,6 +103,7 @@ mod tests {
         )?;
         let calldata = call.calldata().to_owned();
         let request = ObservationRequest {
+            include_source: false,
             network: chain_evm::EvmNetwork::BaseSepolia,
             target: call.target().into(),
             block: ContractBlock::Latest,
@@ -111,6 +118,33 @@ mod tests {
         assert!(text.contains(&calldata));
         for secret in ["user:secret", "private-key", "credential"] {
             assert!(!text.contains(secret));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn source_compiler_origins_require_the_explicit_source_mode()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let endpoint =
+            EvmRpcUrl::new("https://user:secret@provider.example/key?token=credential".into())?;
+        let mut request = ObservationRequest {
+            include_source: false,
+            network: chain_evm::EvmNetwork::EthereumSepolia,
+            target: "0x1111111111111111111111111111111111111111".into(),
+            block: ContractBlock::Hash(format!("0x{}", "a".repeat(64))),
+            call: None,
+            caller: None,
+        };
+        let plain = review_text(&request, &endpoint);
+        assert!(!plain.contains("https://sourcify.dev"));
+        request.include_source = true;
+        let source = review_text(&request, &endpoint);
+        assert!(source.contains("https://sourcify.dev"));
+        assert!(source.contains("https://binaries.soliditylang.org"));
+        assert!(source.contains("No transaction calldata, signatures or wallet secrets"));
+        assert!(source.contains(&format!("0x{}", "a".repeat(64))));
+        for secret in ["user:secret", "token=credential", "/key?"] {
+            assert!(!source.contains(secret));
         }
         Ok(())
     }
@@ -130,6 +164,7 @@ mod dynamic_text_tests {
             &[],
         )?;
         let request = ObservationRequest {
+            include_source: false,
             network: chain_evm::EvmNetwork::EthereumMainnet,
             target: call.target().into(),
             block: ContractBlock::Latest,

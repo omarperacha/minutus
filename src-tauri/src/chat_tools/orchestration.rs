@@ -601,6 +601,11 @@ fn estimated_output_bytes(call: &ParsedToolCall) -> usize {
     // retained and charged at their actual serialized size. In particular, a
     // bounded ABI read can exceed its reservation after JSON escaping.
     match call.name.as_str() {
+        "contract.inspect"
+            if call.arguments.get("includeSource") == Some(&serde_json::json!(true)) =>
+        {
+            64 * 1024
+        }
         "filesystem.stat" | "filesystem.inspect_image" | "contract.inspect" => 4 * 1024,
         "filesystem.list" | "filesystem.find_paths" | "filesystem.scan" => 128 * 1024,
         "filesystem.search" => 512 * 1024,

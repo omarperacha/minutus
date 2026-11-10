@@ -1,0 +1,240 @@
+{
+  "builds": [
+    {
+      "longVersion": "0.8.0+commit.c7dfd78e",
+      "path": "solc-emscripten-wasm32-v0.8.0+commit.c7dfd78e.js",
+      "sha256": "0xc596765f9b3dce486cf596ea35676f37124d54f3ada0fcbc02f094c392066a59",
+      "version": "0.8.0"
+    },
+    {
+      "longVersion": "0.8.1+commit.df193b15",
+      "path": "solc-emscripten-wasm32-v0.8.1+commit.df193b15.js",
+      "sha256": "0xf77f141e5fed9594b28342e2c630ac6d48f2a724e4383a457881acd7fa62b1cf",
+      "version": "0.8.1"
+    },
+    {
+      "longVersion": "0.8.2+commit.661d1103",
+      "path": "solc-emscripten-wasm32-v0.8.2+commit.661d1103.js",
+      "sha256": "0x015e83fb0b72ccdafb0c217961b21a0321adb2d3f2ad992f5e79635c2086e6dd",
+      "version": "0.8.2"
+    },
+    {
+      "longVersion": "0.8.3+commit.8d00100c",
+      "path": "solc-emscripten-wasm32-v0.8.3+commit.8d00100c.js",
+      "sha256": "0xb5cedfa8de5f9421fbdaccf9fd5038652c2632344b3b68e5278de81e9aeac210",
+      "version": "0.8.3"
+    },
+    {
+      "longVersion": "0.8.4+commit.c7e474f2",
+      "path": "solc-emscripten-wasm32-v0.8.4+commit.c7e474f2.js",
+      "sha256": "0x4a14c7bcaf0d988a829db2174b8f7731898aa8633216490603ad74bff64eca3c",
+      "version": "0.8.4"
+    },
+    {
+      "longVersion": "0.8.5+commit.a4f2e591",
+      "path": "solc-emscripten-wasm32-v0.8.5+commit.a4f2e591.js",
+      "sha256": "0x4af595f976235d33a22ffe223e9e3210b4ca510f6a93f153b3daed60f2b11fbc",
+      "version": "0.8.5"
+    },
+    {
+      "longVersion": "0.8.6+commit.11564f7e",
+      "path": "solc-emscripten-wasm32-v0.8.6+commit.11564f7e.js",
+      "sha256": "0x06a671efd8865a6ecc0ad648076177b35abcd06a7059888ea65111272e33a57f",
+      "version": "0.8.6"
+    },
+    {
+      "longVersion": "0.8.7+commit.e28d00a7",
+      "path": "solc-emscripten-wasm32-v0.8.7+commit.e28d00a7.js",
+      "sha256": "0x663ba99f7c7ee907f0f03227502d48a78256c3c292ace3b79a5d3eb510665306",
+      "version": "0.8.7"
+    },
+    {
+      "longVersion": "0.8.8+commit.dddeac2f",
+      "path": "solc-emscripten-wasm32-v0.8.8+commit.dddeac2f.js",
+      "sha256": "0x534b7d4079d13bb4cd10b7559dc105c2adec625df4105f20ebce47e6da60bfda",
+      "version": "0.8.8"
+    },
+    {
+      "longVersion": "0.8.9+commit.e5eed63a",
+      "path": "solc-emscripten-wasm32-v0.8.9+commit.e5eed63a.js",
+      "sha256": "0x5b25f987aae32a0275fdc6c1be36cc47cf126024a04dafd8e4be39a1d1d1422c",
+      "version": "0.8.9"
+    },
+    {
+      "longVersion": "0.8.10+commit.fc410830",
+      "path": "solc-emscripten-wasm32-v0.8.10+commit.fc410830.js",
+      "sha256": "0x5eaee3240a06891abf5ac70c75caf9a0c33ebe9a2736abdaa22a337f86c22933",
+      "version": "0.8.10"
+    },
+    {
+      "longVersion": "0.8.11+commit.d7f03943",
+      "path": "solc-emscripten-wasm32-v0.8.11+commit.d7f03943.js",
+      "sha256": "0x64117d4b13bfc5bc6e5f80823519b140e753a0c09e99edd756772dc3029bc1f8",
+      "version": "0.8.11"
+    },
+    {
+      "longVersion": "0.8.12+commit.f00d7308",
+      "path": "solc-emscripten-wasm32-v0.8.12+commit.f00d7308.js",
+      "sha256": "0xc2c4738c96ad329cbb9baea615ed50ffb5a53d93fed8e00785e47242581d3c60",
+      "version": "0.8.12"
+    },
+    {
+      "longVersion": "0.8.13+commit.abaa5c0e",
+      "path": "solc-emscripten-wasm32-v0.8.13+commit.abaa5c0e.js",
+      "sha256": "0x387343bcf8f2b77fe4cdcddcaa84361fabf8e1c3508f874fbbcbb9c313542f56",
+      "version": "0.8.13"
+    },
+    {
+      "longVersion": "0.8.14+commit.80d49f37",
+      "path": "solc-emscripten-wasm32-v0.8.14+commit.80d49f37.js",
+      "sha256": "0x7c3b3d0066fd381283b1d8d9a86153b2ddb5c01da14a1ae015c05cfa484e81b6",
+      "version": "0.8.14"
+    },
+    {
+      "longVersion": "0.8.15+commit.e14f2714",
+      "path": "solc-emscripten-wasm32-v0.8.15+commit.e14f2714.js",
+      "sha256": "0x71135e459d691767ce3453bab4564ef4a640dd50182da36517cbc1f96c1d4c7c",
+      "version": "0.8.15"
+    },
+    {
+      "longVersion": "0.8.16+commit.07a7930e",
+      "path": "solc-emscripten-wasm32-v0.8.16+commit.07a7930e.js",
+      "sha256": "0x27b2820ef93805a65c76b7945a49432582d306fd17a28985709a51e6403677c2",
+      "version": "0.8.16"
+    },
+    {
+      "longVersion": "0.8.17+commit.8df45f5f",
+      "path": "solc-emscripten-wasm32-v0.8.17+commit.8df45f5f.js",
+      "sha256": "0x617828e63be485c7cc2dbcbdd5a22b582b40fafaa41016ad595637b83c90656c",
+      "version": "0.8.17"
+    },
+    {
+      "longVersion": "0.8.18+commit.87f61d96",
+      "path": "solc-emscripten-wasm32-v0.8.18+commit.87f61d96.js",
+      "sha256": "0xd82bdcba2c386d60b33aca148a9cfdf097551f68c5e45d8ec01aebbafacf5075",
+      "version": "0.8.18"
+    },
+    {
+      "longVersion": "0.8.19+commit.7dd6d404",
+      "path": "solc-emscripten-wasm32-v0.8.19+commit.7dd6d404.js",
+      "sha256": "0xe0b74e0a16e783a35169f74d1a615ecb48d07c30f97346b83cd587949268681e",
+      "version": "0.8.19"
+    },
+    {
+      "longVersion": "0.8.20+commit.a1b79de6",
+      "path": "solc-emscripten-wasm32-v0.8.20+commit.a1b79de6.js",
+      "sha256": "0x5c509f760dc110a695c8b39bbc21e08c17dee431aa14d606f59e623d7c3cc657",
+      "version": "0.8.20"
+    },
+    {
+      "longVersion": "0.8.21+commit.d9974bed",
+      "path": "solc-emscripten-wasm32-v0.8.21+commit.d9974bed.js",
+      "sha256": "0x45bea352b41d04039e19439962ddef1d3e10cf2bc9526feba39f2cc79e3c5a17",
+      "version": "0.8.21"
+    },
+    {
+      "longVersion": "0.8.22+commit.4fc1097e",
+      "path": "solc-emscripten-wasm32-v0.8.22+commit.4fc1097e.js",
+      "sha256": "0x92d283c545395b91a656fa1ec94d567a464bca55aebcdbb99debf42b43026845",
+      "version": "0.8.22"
+    },
+    {
+      "longVersion": "0.8.23+commit.f704f362",
+      "path": "solc-emscripten-wasm32-v0.8.23+commit.f704f362.js",
+      "sha256": "0x9c681b165c8647867589c0a5ecdc8692637a935928a2b1bbea2ff4a1f4976985",
+      "version": "0.8.23"
+    },
+    {
+      "longVersion": "0.8.24+commit.e11b9ed9",
+      "path": "solc-emscripten-wasm32-v0.8.24+commit.e11b9ed9.js",
+      "sha256": "0x11b054b55273ec55f6ab3f445eb0eb2c83a23fed43d10079d34ac3eabe6ed8b1",
+      "version": "0.8.24"
+    },
+    {
+      "longVersion": "0.8.25+commit.b61c2a91",
+      "path": "solc-emscripten-wasm32-v0.8.25+commit.b61c2a91.js",
+      "sha256": "0xf8c9554471ff2db3843167dffb7a503293b5dc728c8305b044ef9fd37d626ca7",
+      "version": "0.8.25"
+    },
+    {
+      "longVersion": "0.8.26+commit.8a97fa7a",
+      "path": "solc-emscripten-wasm32-v0.8.26+commit.8a97fa7a.js",
+      "sha256": "0xdb85e5396f523cc1a53c4c4d742e204f6dcba1a05842623d73be946809e11cd6",
+      "version": "0.8.26"
+    },
+    {
+      "longVersion": "0.8.27+commit.40a35a09",
+      "path": "solc-emscripten-wasm32-v0.8.27+commit.40a35a09.js",
+      "sha256": "0xd91c08277f801321af4e80958015aea18b41c01d2c6a38310a23014485b0e51c",
+      "version": "0.8.27"
+    },
+    {
+      "longVersion": "0.8.28+commit.7893614a",
+      "path": "solc-emscripten-wasm32-v0.8.28+commit.7893614a.js",
+      "sha256": "0x72ef580a6ec5943130028e5294313f24e9435520acc89f8c9dbfd0139d9ae146",
+      "version": "0.8.28"
+    },
+    {
+      "longVersion": "0.8.29+commit.ab55807c",
+      "path": "solc-emscripten-wasm32-v0.8.29+commit.ab55807c.js",
+      "sha256": "0x87616a5fc7ab3551f4133bbd2c3e1be123eae219facc2a56f8f3a4366520c67b",
+      "version": "0.8.29"
+    },
+    {
+      "longVersion": "0.8.30+commit.73712a01",
+      "path": "solc-emscripten-wasm32-v0.8.30+commit.73712a01.js",
+      "sha256": "0x81475c98b6d2094a821fd9d7b6278556d8095ccc23e0b8a1029b1c08a89cd4b2",
+      "version": "0.8.30"
+    },
+    {
+      "longVersion": "0.8.31+commit.fd3a2265",
+      "path": "solc-emscripten-wasm32-v0.8.31+commit.fd3a2265.js",
+      "sha256": "0x3aff685785055588b03e1c0786ee92cada7f4068a65c7aed3a8a868c43253ee0",
+      "version": "0.8.31"
+    },
+    {
+      "longVersion": "0.8.32+commit.ebbd65e5",
+      "path": "solc-emscripten-wasm32-v0.8.32+commit.ebbd65e5.js",
+      "sha256": "0xd9216e6d578f67e1afd54ecb931b9db6a053ff2522d2e21eca3b61b337a9199c",
+      "version": "0.8.32"
+    },
+    {
+      "longVersion": "0.8.33+commit.64118f21",
+      "path": "solc-emscripten-wasm32-v0.8.33+commit.64118f21.js",
+      "sha256": "0x5dd4eecfc699edb05b004b998cb4de7c70c22e94baa0c75881a2192f10ffa7c0",
+      "version": "0.8.33"
+    },
+    {
+      "longVersion": "0.8.34+commit.80d5c536",
+      "path": "solc-emscripten-wasm32-v0.8.34+commit.80d5c536.js",
+      "sha256": "0xc8649f8d57f81b3244c7d2dd662efc0620d1ae296f623b347a2c616a6cfd11d8",
+      "version": "0.8.34"
+    },
+    {
+      "longVersion": "0.8.35+commit.47b9dedd",
+      "path": "solc-emscripten-wasm32-v0.8.35+commit.47b9dedd.js",
+      "sha256": "0xecabf2b0bf0c3ab0c6bb9cebd309900bd3b5e80c833d2bc68a330fa5508398f5",
+      "version": "0.8.35"
+    },
+    {
+      "longVersion": "0.8.36+commit.8a079791",
+      "path": "solc-emscripten-wasm32-v0.8.36+commit.8a079791.js",
+      "sha256": "0x704877a592467d7de651ec5377ea6e3c676ae71d31f325401957d41bedfaa0d8",
+      "version": "0.8.36"
+    },
+    {
+      "longVersion": "0.8.37+commit.f401782d",
+      "path": "solc-emscripten-wasm32-v0.8.37+commit.f401782d.js",
+      "sha256": "0xd73fead3cbc860438f56f4d1723677499cdef212d0f8890241748d2d5afc1c5f",
+      "version": "0.8.37"
+    },
+    {
+      "longVersion": "0.8.38+commit.1835d247",
+      "path": "solc-emscripten-wasm32-v0.8.38+commit.1835d247.js",
+      "sha256": "0x6c74ffba0ea4cf9521e78b16052a98208770bb7677616de08ced239f4312d390",
+      "version": "0.8.38"
+    }
+  ],
+  "source": "https://binaries.soliditylang.org/emscripten-wasm32/list.json",
+  "sourceSha256": "f776feb21233e63c6fbccf722063d7debfadba225943f664882d83f3e572efb2"
+}

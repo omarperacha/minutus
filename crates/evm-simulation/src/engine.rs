@@ -8,7 +8,7 @@ use std::io::{Read, Write};
 
 mod adapter;
 pub(crate) mod base;
-mod ethereum;
+pub(crate) mod ethereum;
 
 pub(crate) fn execute<R: Read, W: Write>(
     request: &SimulationRequest,

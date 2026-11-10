@@ -76,7 +76,19 @@ impl<R: StateRpc> StateSource<R> {
         slots: &[String],
         control: &SimulationControl<'_>,
     ) -> Result<Value, SimulationError> {
-        self.rpc("eth_getProof",&json!([format!("{address:#x}"),slots,{"blockHash":format!("{:#x}",self.hash),"requireCanonical":true}]),control)
+        // EIP-1186 specifies a numeric block QUANTITY. Transport selection is
+        // not proof authority: account/storage MPT verification below still
+        // requires the exact pinned header roots, and canonical() retains the
+        // exact final hash check. No latest tag or error fallback is permitted.
+        self.rpc(
+            "eth_getProof",
+            &json!([
+                format!("{address:#x}"),
+                slots,
+                format!("0x{:x}", self.header.number)
+            ]),
+            control,
+        )
     }
     fn load_account(
         &mut self,
@@ -104,6 +116,42 @@ impl<R: StateRpc> StateSource<R> {
     pub(super) fn into_proved_state(self) -> super::record::ProvedState {
         super::record::ProvedState::new(self.accounts, self.slots)
     }
+    pub(super) fn frozen_facts(&self) -> Vec<(StateQuery, StateValue)> {
+        let mut facts = Vec::new();
+        for (address, (exists, account, code)) in &self.accounts {
+            facts.push((
+                StateQuery::Account {
+                    address: format!("{address:#x}"),
+                },
+                StateValue::Account {
+                    exists: *exists,
+                    balance: format!("{:#x}", account.balance),
+                    nonce: account.nonce,
+                    code: format!("{code:#x}"),
+                },
+            ));
+        }
+        for ((address, slot), value) in &self.slots {
+            facts.push((
+                StateQuery::Storage {
+                    address: format!("{address:#x}"),
+                    slot: format!("{slot:#066x}"),
+                },
+                StateValue::Storage {
+                    value: format!("{value:#066x}"),
+                },
+            ));
+        }
+        for (number, header) in &self.ancestors {
+            facts.push((
+                StateQuery::BlockHash { number: *number },
+                StateValue::BlockHash {
+                    hash: format!("{:#x}", header.hash_slow()),
+                },
+            ));
+        }
+        facts
+    }
     pub(super) fn canonical(
         &mut self,
         control: &SimulationControl<'_>,
@@ -124,6 +172,7 @@ impl<R: StateRpc> StateSource<R> {
         Ok(())
     }
 }
+
 impl<R: StateRpc> SimulationStateSource for StateSource<R> {
     fn query(
         &mut self,
@@ -192,3 +241,6 @@ impl<R: StateRpc> SimulationStateSource for StateSource<R> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

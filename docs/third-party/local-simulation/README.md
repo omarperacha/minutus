@@ -1,7 +1,7 @@
 # Additional local simulation notices
 
-The exact Base 1.5.1 source at commit
-`5476069f1eb74a56bccb56fdefd4b4bb0e3cda42` is MIT licensed. Its complete
+The exact Base 1.5.3 source at commit
+`35fd079386e8c6ca57e0d354e5cca5a9ad29bf46` is MIT licensed. Its complete
 upstream copyright/licence notice is preserved in [Base-MIT.txt](Base-MIT.txt).
 
 `aurora-engine-modexp 1.3.0`, registry archive SHA-256
@@ -45,3 +45,17 @@ contract profile. Release contract writes remain disabled pending native
 interaction qualification and final human security review. Remaining registry
 dependencies retain their own packaged licences; no global licence or advisory
 waiver is granted.
+
+
+## Native receipt serde support, 10 November 2026
+
+The native Base transaction/receipt serde feature adds `dashmap 6.2.1` (MIT)
+and `hashbrown 0.14.5` (MIT OR Apache-2.0). The unchanged complete packaged
+MIT notices are preserved in [DashMap-MIT.txt](DashMap-MIT.txt) and
+[Hashbrown-MIT.txt](Hashbrown-MIT.txt), selecting Hashbrown's MIT option.
+Exact registry archives are respectively
+`e6361d5c062261c78a176addb82d4c821ae42bed6089de0e12603cd25de2059c`
+and `e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1`.
+The source/feature/checksum guard pins their exact native serde paths. This
+adds no key/signing API or validation-disable feature and grants no broader
+licence/advisory exception.

@@ -9,6 +9,7 @@ use serde_json::{Value, json};
 use crate::EvmRpcUrl;
 
 const MAX_RPC_RESPONSE_BYTES: u64 = 64 * 1024;
+const MAX_RPC_HEADER_RESPONSE_BYTES: u64 = 512 * 1024;
 const RPC_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const RPC_REQUEST_TIMEOUT: Duration = Duration::from_secs(12);
 
@@ -53,6 +54,26 @@ impl<'a> RpcClient<'a> {
         response.result.ok_or(RpcError::MalformedResponse)
     }
 
+    /// Host-only bounded batch acquisition. The outer result covers transport,
+    /// decoding and size faults; RPC errors retain their received byte charge so
+    /// an explicitly unsupported batch cannot reset the aggregate IO budget.
+    pub(crate) fn value_result_with_limit(
+        &self,
+        method: &str,
+        params: &Value,
+        timeout: Duration,
+        max_response_bytes: u64,
+    ) -> Result<(Result<Value, RpcError>, usize), RpcError> {
+        let (response, charge) =
+            self.bounded_response(method, params, timeout, max_response_bytes)?;
+        let result = if let Some(error) = response.error {
+            Err(RpcError::Rejected(error.code))
+        } else {
+            response.result.ok_or(RpcError::MalformedResponse)
+        };
+        Ok((result, charge))
+    }
+
     pub(crate) fn call_outcome(&self, params: &Value) -> Result<RpcCallOutcome, RpcError> {
         let response = self.response("eth_call", params)?;
         if let Some(error) = response.error {
@@ -89,6 +110,32 @@ impl<'a> RpcClient<'a> {
         params: &Value,
         timeout: Duration,
     ) -> Result<RpcResponse, RpcError> {
+        // Standard false/fullTransactions block responses still contain every
+        // transaction hash. Bound those public headers separately; this is not
+        // a proof or a caller-selected limit, and full bodies retain 64 KiB.
+        let limit = if matches!(method, "eth_getBlockByNumber" | "eth_getBlockByHash")
+            && params
+                .as_array()
+                .is_some_and(|values| matches!(values.as_slice(), [_, Value::Bool(false)]))
+        {
+            MAX_RPC_HEADER_RESPONSE_BYTES
+        } else {
+            MAX_RPC_RESPONSE_BYTES
+        };
+        self.bounded_response(method, params, timeout, limit)
+            .map(|(response, _)| response)
+    }
+
+    fn bounded_response(
+        &self,
+        method: &str,
+        params: &Value,
+        timeout: Duration,
+        max_response_bytes: u64,
+    ) -> Result<(RpcResponse, usize), RpcError> {
+        if max_response_bytes == 0 || max_response_bytes > 4 * 1024 * 1024 {
+            return Err(RpcError::ResponseTooLarge);
+        }
         let request = json!({
             "jsonrpc": "2.0",
             "id": 1,
@@ -107,22 +154,25 @@ impl<'a> RpcClient<'a> {
         }
         if response
             .content_length()
-            .is_some_and(|length| length > MAX_RPC_RESPONSE_BYTES)
+            .is_some_and(|length| length > max_response_bytes)
         {
             return Err(RpcError::ResponseTooLarge);
         }
         let mut bytes = Vec::new();
         response
             .by_ref()
-            .take(MAX_RPC_RESPONSE_BYTES + 1)
+            .take(max_response_bytes + 1)
             .read_to_end(&mut bytes)
             .map_err(|_| RpcError::Transport)?;
-        if bytes.len() as u64 > MAX_RPC_RESPONSE_BYTES {
+        if bytes.len() as u64 > max_response_bytes {
             return Err(RpcError::ResponseTooLarge);
         }
-        decode_response(&bytes)
+        Ok((decode_response(&bytes)?, bytes.len()))
     }
 }
+
+#[cfg(test)]
+mod header_response_tests;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

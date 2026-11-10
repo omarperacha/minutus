@@ -52,6 +52,13 @@ class WorkerPinTests(unittest.TestCase):
             path = Path(directory) / "host"
             path.write_bytes(header + segment + section + text)
             self.assertEqual(workers.embedded_manifest(path), text.decode().splitlines())
+            with self.assertRaises(ValueError):
+                workers.embedded_manifest(path, section_name=b"__solc_worker")
+            custom_section = struct.pack("<16s16sQQIIIIIIII", b"__solc_worker", b"__TEXT", 0, len(text), 184, 0, 0, 0, 0, 0, 0, 0)
+            path.write_bytes(header + segment + custom_section + text)
+            self.assertEqual(workers.embedded_manifest(path, section_name=b"__solc_worker"), text.decode().splitlines())
+            with self.assertRaises(ValueError):
+                workers.embedded_manifest(path)
             for malformed in (b"", header + segment + section, b"bad!" + (header + segment + section + text)[4:]):
                 path.write_bytes(malformed)
                 with self.assertRaises(ValueError):

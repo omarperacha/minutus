@@ -22,6 +22,21 @@ pub struct FrozenBaseRequest {
     pub(super) commitment: String,
 }
 impl FrozenBaseRequest {
+    pub(crate) fn from_replay_facts(
+        request: &SimulationRequest,
+        facts: &[(StateQuery, StateValue)],
+    ) -> Result<Self, SimulationError> {
+        Self::from_facts(
+            request.clone(),
+            facts
+                .iter()
+                .map(|(query, value)| Fact {
+                    query: query.clone(),
+                    value: value.clone(),
+                })
+                .collect(),
+        )
+    }
     /// Acquires exactly a bounded, host-selected closed state manifest. Neither
     /// the manifest nor source may come from a model's assertion of verification.
     /// The source must verify every answer against the request's header/state root.

@@ -358,11 +358,21 @@ pub(crate) fn tool_has_bulk_arguments(name: &str) -> bool {
 pub(super) fn tool_search_aliases(name: &str) -> &'static [&'static str] {
     match name {
         "contract.request_workflow" => &[
+            "contract workflow",
+            "source qualified ABI call",
+            "declared contract conditions",
             "qualified token transfer",
             "self allowance",
             "dependent token pull",
         ],
-        "contract.inspect" => &["contract metadata", "runtime code", "ABI provenance"],
+        "contract.inspect" => &[
+            "contract metadata",
+            "runtime code",
+            "ABI provenance",
+            "compiled ABI",
+            "storage layout",
+            "source fields",
+        ],
         "contract.read" => &[
             "read contract",
             "allowance",

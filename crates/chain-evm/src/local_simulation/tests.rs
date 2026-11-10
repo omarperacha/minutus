@@ -139,7 +139,11 @@ fn cancellation_reorg_and_invalid_proof_never_issue_fallback_or_later_code_fetch
     let fixture = Fixture {
         responses: RefCell::new(VecDeque::from([(
             "eth_getProof",
-            json!([format!("{address:#x}"),[],{"blockHash":format!("{hash:#x}"),"requireCanonical":true}]),
+            json!([
+                format!("{address:#x}"),
+                [],
+                format!("0x{:x}", header.number)
+            ]),
             Value::Null,
         )])),
     };

@@ -1,6 +1,60 @@
 use super::*;
 use alloy_consensus::Eip658Value;
 use alloy_primitives::Log;
+mod public_rpc;
+#[test]
+fn maintained_envelopes_reconstruct_ethereum_and_base_neighbors_exactly()
+-> Result<(), Box<dyn std::error::Error>> {
+    use alloy_consensus::{
+        Signed, TxEip1559, TxEip2930, TxEip4844, TxEip7702, TxEnvelope, TxLegacy,
+    };
+    use alloy_eips::eip2718::Encodable2718;
+    use alloy_primitives::{Bytes, Sealable, Signature};
+    let signature =
+        Signature::from_scalars_and_parity(B256::repeat_byte(1), B256::repeat_byte(2), false);
+    let ethereum = vec![
+        TxEnvelope::Legacy(Signed::new_unhashed(TxLegacy::default(), signature)),
+        TxEnvelope::Eip2930(Signed::new_unhashed(TxEip2930::default(), signature)),
+        TxEnvelope::Eip1559(Signed::new_unhashed(TxEip1559::default(), signature)),
+        TxEnvelope::Eip4844(Signed::new_unhashed(TxEip4844::default().into(), signature)),
+        TxEnvelope::Eip7702(Signed::new_unhashed(TxEip7702::default(), signature)),
+    ];
+    for envelope in ethereum {
+        let mut value = serde_json::to_value(&envelope)?;
+        value["hash"] = json!(format!("{:#x}", keccak256(envelope.encoded_2718())));
+        assert_eq!(
+            transactions::encode(EvmNetwork::EthereumMainnet, &value)
+                .map_err(|error| format!("ethereum {:?}: {error}", envelope.tx_type()))?,
+            envelope.encoded_2718()
+        );
+        if envelope.as_eip4844().is_some() {
+            assert!(transactions::encode(EvmNetwork::BaseMainnet, &value).is_err());
+        }
+    }
+    let base = vec![
+        base_consensus::BaseTxEnvelope::Deposit(base_consensus::TxDeposit::default().seal_slow()),
+        base_consensus::BaseTxEnvelope::Eip8130(base_consensus::Eip8130Signed::new(
+            base_consensus::TxEip8130::default(),
+            Bytes::new(),
+            Bytes::new(),
+        )),
+    ];
+    for envelope in base {
+        let mut value = serde_json::to_value(&envelope)?;
+        value["hash"] = json!(format!("{:#x}", keccak256(envelope.encoded_2718())));
+        assert_eq!(
+            transactions::encode(EvmNetwork::BaseMainnet, &value)
+                .map_err(|error| format!("base {:?}: {error}", envelope.tx_type()))?,
+            envelope.encoded_2718()
+        );
+        assert!(transactions::encode(EvmNetwork::EthereumMainnet, &value).is_err());
+    }
+    let envelope = TxEnvelope::Eip1559(Signed::new_unhashed(TxEip1559::default(), signature));
+    let mut value = serde_json::to_value(envelope)?;
+    value["hash"] = json!(format!("0x{}", "a".repeat(64)));
+    assert!(transactions::encode(EvmNetwork::EthereumMainnet, &value).is_err());
+    Ok(())
+}
 
 #[test]
 fn proofs_cover_rlp_index_boundaries_and_every_neighbor() -> Result<(), QualificationError> {

@@ -61,7 +61,7 @@ def stage(signing_identity="-"):
     temporary.replace(directory / "manifest.txt")
 
 
-def embedded_manifest(executable):
+def embedded_manifest(executable, section_name=b"__evm_workers"):
     """Read the host's exact bounded arm64 Mach-O manifest, not a sidecar pin."""
     with executable.open("rb") as stream:
         header = stream.read(32)
@@ -87,7 +87,7 @@ def embedded_manifest(executable):
                 for index in range(sections):
                     section = offset + 72 + index * 80
                     name, segment = struct.unpack_from("<16s16s", commands, section)
-                    if name.rstrip(b"\0") == b"__evm_workers" and segment.rstrip(b"\0") == b"__TEXT":
+                    if name.rstrip(b"\0") == section_name and segment.rstrip(b"\0") == b"__TEXT":
                         amount, location = struct.unpack_from("<QI", commands, section + 40)
                         if not 0 < amount <= 1024:
                             raise ValueError("Invalid host worker manifest size")

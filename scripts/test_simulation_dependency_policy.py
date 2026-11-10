@@ -7,8 +7,8 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from simulation_dependency_policy import (
-    APPLICABILITY_DEADLINE, BASE_FEATURES, BASE_PACKAGES, BASE_RESOLVED_FEATURES, BASE_REVISION, BASE_SOURCE,
-    REGISTRY, REVIEWED_CHECKSUMS, REVIEWED_PARENTS, validate_simulation_dependencies,
+    APPLICABILITY_DEADLINE, BASE_FEATURES, BASE_CONSENSUS_FEATURES, BASE_PACKAGES, BASE_RESOLVED_FEATURES, BASE_REVISION, BASE_SOURCE,
+    REGISTRY, REVIEWED_CHECKSUMS, REVIEWED_PARENTS, RECEIPT_SERDE_PACKAGES, validate_simulation_dependencies,
 )
 
 
@@ -22,10 +22,10 @@ class SimulationDependencyPolicyTests(unittest.TestCase):
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
         self.manifest = {
-            'base-consensus': {'package': 'base-common-consensus', 'version': '=1.5.1',
+            'base-consensus': {'package': 'base-common-consensus', 'version': '=1.5.3',
                                'git': 'https://github.com/base/base', 'rev': BASE_REVISION,
-                               'default-features': False, 'features': ['std']},
-            'base-evm': {'package': 'base-common-evm', 'version': '=1.5.1',
+                               'default-features': False, 'features': BASE_CONSENSUS_FEATURES.copy()},
+            'base-evm': {'package': 'base-common-evm', 'version': '=1.5.3',
                          'git': 'https://github.com/base/base', 'rev': BASE_REVISION,
                          'default-features': False, 'features': BASE_FEATURES.copy()},
             'revm': {'version': '=43.0.3', 'default-features': False, 'features': BASE_FEATURES.copy()},
@@ -35,25 +35,33 @@ class SimulationDependencyPolicyTests(unittest.TestCase):
         self.metadata = {'packages': [], 'workspace_members': [], 'resolve': {'nodes': []}}
         self.lock = []
         for (name, version), checksum in REVIEWED_CHECKSUMS.items():
-            self.add_package(name, version, REGISTRY, 'CC0-1.0' if name == 'aurora-engine-modexp' else 'MIT')
+            licence = RECEIPT_SERDE_PACKAGES.get((name, version), ('CC0-1.0' if name == 'aurora-engine-modexp' else 'MIT', set()))[0]
+            self.add_package(name, version, REGISTRY, licence)
+            if (name, version) in RECEIPT_SERDE_PACKAGES:
+                self.node(name, version)['features'] = sorted(RECEIPT_SERDE_PACKAGES[(name, version)][1])
             self.lock.append({'name': name, 'version': version, 'source': REGISTRY, 'checksum': checksum})
         for name in sorted(BASE_PACKAGES):
-            self.add_package(name, '1.5.1', BASE_SOURCE)
-            self.node(name, '1.5.1')['features'] = sorted(BASE_RESOLVED_FEATURES[name])
+            self.add_package(name, '1.5.3', BASE_SOURCE)
+            self.node(name, '1.5.3')['features'] = sorted(BASE_RESOLVED_FEATURES[name])
         for version in ['42.0.1', '43.0.3']:
             self.node('revm', version)['features'] = BASE_FEATURES.copy()
+            if version == '42.0.1':
+                self.node('revm', version)['features'].append('serde')
             self.node('revm-precompile', version)['features'] = ['std', 'portable', 'blst', 'c-kzg']
             self.edge(('revm', version), ('revm-precompile', version))
         for name in ['evm-simulation', 'chain-evm', 'x402-client', 'app-core', 'zeta-desktop', 'wallet-core']:
             self.add_package(name, '0.1.0', None)
             self.metadata['workspace_members'].append(package_id(name, '0.1.0'))
+        self.add_package('reth-primitives-traits', '0.6.0', REGISTRY)
         for child, parents in REVIEWED_PARENTS.items():
             for parent in parents:
                 self.edge(parent, child)
         self.edge(('evm-simulation', '0.1.0'), ('revm', '43.0.3'))
-        self.edge(('evm-simulation', '0.1.0'), ('base-common-evm', '1.5.1'))
-        self.edge(('base-common-evm', '1.5.1'), ('revm', '42.0.1'))
-        self.edge(('base-common-evm', '1.5.1'), ('base-execution-eip8130', '1.5.1'))
+        self.edge(('evm-simulation', '0.1.0'), ('base-common-evm', '1.5.3'))
+        self.edge(('base-common-evm', '1.5.3'), ('revm', '42.0.1'))
+        self.edge(('base-common-evm', '1.5.3'), ('base-execution-eip8130', '1.5.3'))
+        self.edge(('base-common-evm', '1.5.3'), ('base-common-consensus', '1.5.3'))
+        self.edge(('base-common-consensus', '1.5.3'), ('reth-primitives-traits', '0.6.0'))
         self.edge(('chain-evm', '0.1.0'), ('alloy-consensus', '2.5.0'))
         self.edge(('x402-client', '0.1.0'), ('chain-evm', '0.1.0'))
         self.edge(('app-core', '0.1.0'), ('x402-client', '0.1.0'))
@@ -104,7 +112,8 @@ class SimulationDependencyPolicyTests(unittest.TestCase):
                                   ('base-evm', 'default-features', True),
                                   ('revm', 'version', '=44.0.0'), ('revm-base', 'features', ['std']),
                                   ('base-consensus', 'rev', 'main'),
-                                  ('base-consensus', 'features', ['std', 'serde']),
+                                  ('base-consensus', 'features', ['std']),
+                                  ('base-consensus', 'features', ['std', 'serde', 'reth']),
                                   ('base-consensus', 'default-features', True),
                                   ('base-consensus', 'package', 'base-common-evm'),
                                   ('base-consensus', 'version', '=1.5.2')]:
@@ -118,11 +127,11 @@ class SimulationDependencyPolicyTests(unittest.TestCase):
         for field, value in [('source', BASE_SOURCE.replace(BASE_REVISION, '0' * 40)),
                               ('version', '1.5.2'), ('license', 'Apache-2.0')]:
             self.metadata = deepcopy(original)
-            self.package('base-common-evm', '1.5.1')[field] = value
+            self.package('base-common-evm', '1.5.3')[field] = value
             with self.subTest(field=field), self.assertRaisesRegex(ValueError, 'Git package'):
                 self.validate()
         self.metadata = deepcopy(original)
-        self.add_package('base-unreviewed', '1.5.1', BASE_SOURCE)
+        self.add_package('base-unreviewed', '1.5.3', BASE_SOURCE)
         with self.assertRaisesRegex(ValueError, 'Git package'):
             self.validate()
 
@@ -139,6 +148,17 @@ class SimulationDependencyPolicyTests(unittest.TestCase):
             with self.subTest(package=key), self.assertRaisesRegex(ValueError, 'native secp256k1|unreviewed features'):
                 self.validate()
             self.node(*key)['features'] = original
+
+    def test_receipt_serde_stays_on_reviewed_generation_without_relaxed_fees(self):
+        original = deepcopy(self.metadata)
+        for version, features in [
+                ('42.0.1', BASE_FEATURES.copy()),
+                ('42.0.1', BASE_FEATURES + ['serde', 'optional_fee_charge']),
+                ('43.0.3', BASE_FEATURES + ['serde'])]:
+            self.metadata = deepcopy(original)
+            self.node('revm', version)['features'] = features
+            with self.subTest(version=version, features=features), self.assertRaisesRegex(ValueError, 'unreviewed features'):
+                self.validate()
 
     def test_child_cannot_acquire_host_or_network_authority(self):
         bridge = self.add_package('innocent-bridge', '1.0.0', REGISTRY)
@@ -194,7 +214,7 @@ class SimulationDependencyPolicyTests(unittest.TestCase):
                 self.validate()
 
     def test_existing_direct_parent_version_drift_is_rejected(self):
-        self.package('base-execution-eip8130', '1.5.1')['name'] = 'other-base-package'
+        self.package('base-execution-eip8130', '1.5.3')['name'] = 'other-base-package'
         with self.assertRaises(ValueError):
             self.validate()
 

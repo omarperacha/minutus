@@ -47,6 +47,8 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 mod app_state;
 mod chat_runtime;
 mod chat_tools;
+#[cfg(debug_assertions)]
+mod contract_qualification;
 mod error_mapping;
 mod evm_approval;
 mod evm_authorizations;
@@ -361,6 +363,21 @@ fn shutdown_app(app: &tauri::AppHandle) {
 }
 
 fn main() -> ExitCode {
+    if std::env::args_os().nth(1).as_deref() == Some(OsStr::new("--qualify-generic-contract")) {
+        #[cfg(debug_assertions)]
+        return match contract_qualification::run(&std::env::args_os().skip(2).collect::<Vec<_>>()) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("Read-only generic contract qualification failed: {error}");
+                ExitCode::FAILURE
+            }
+        };
+        #[cfg(not(debug_assertions))]
+        {
+            eprintln!("Generic contract qualification requires a debug executable");
+            return ExitCode::FAILURE;
+        }
+    }
     if std::env::args_os().nth(1).as_deref() == Some(OsStr::new("--contract-approval-preview")) {
         #[cfg(all(debug_assertions, target_os = "macos"))]
         return match evm_approval::preview_contract_approval() {

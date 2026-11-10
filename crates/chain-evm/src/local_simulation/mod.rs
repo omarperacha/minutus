@@ -8,10 +8,12 @@ mod header;
 mod observation;
 mod proof;
 mod provenance;
-pub(crate) use observation::read_proved;
+pub(crate) use observation::{ProvedReader, read_proved};
 mod record;
 pub(crate) use provenance::{canonical_header, latest_header};
 mod source;
+mod trusted;
+pub(crate) use trusted::{TrustedReplay, replay_proved};
 
 pub(crate) use execution::run_proved;
 pub use execution::simulate_contract_with_worker;

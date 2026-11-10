@@ -13,7 +13,7 @@ fn filesystem_tool_registry_uses_aliases() -> Result<(), Box<dyn std::error::Err
         },
         ChatToolWorkspace {
             alias: "additional-1".to_owned(),
-            display_name: "docs".to_owned(),
+            display_name: "private-secondary-workspace-label".to_owned(),
             grant_id: WorkspaceGrantId("another-secret-id".to_owned()),
             permission_level: WorkspacePermissionLevel::ReadOnly,
         },
@@ -26,7 +26,7 @@ fn filesystem_tool_registry_uses_aliases() -> Result<(), Box<dyn std::error::Err
     assert!(encoded.contains("primary"));
     assert!(encoded.contains("additional-1"));
     assert!(!encoded.contains("zeta-dev"));
-    assert!(!encoded.contains("docs"));
+    assert!(!encoded.contains("private-secondary-workspace-label"));
     assert!(!encoded.contains("secret-grant-id"));
     assert!(!encoded.contains("another-secret-id"));
 

@@ -11,7 +11,9 @@ pub(crate) enum Rules {
 }
 // A maintenance deadline, not a prediction of the next network upgrade. Extend
 // only after source/fork review; never default to "latest" EVM semantics.
-const REVIEW_EXPIRES: u64 = 1_793_491_200; // 2026-11-01 UTC
+// Reviewed 2026-11-10 against official Geth chain specs, Base v1.5.3 source
+// and the live Denim activation notice. See the dated rules review in docs.
+const REVIEW_EXPIRES: u64 = 1_796_083_200; // 2026-12-01 UTC
 pub(crate) fn rules(network: SimulationNetwork, timestamp: u64) -> Result<Rules, SimulationError> {
     if timestamp >= REVIEW_EXPIRES {
         return Err(SimulationError::UnsupportedRules);
@@ -24,11 +26,15 @@ pub(crate) fn rules(network: SimulationNetwork, timestamp: u64) -> Result<Rules,
             Ok(Rules::Osaka)
         }
         SimulationNetwork::EthereumSepolia if timestamp >= 1_791_294_816 => Ok(Rules::Amsterdam),
-        SimulationNetwork::BaseMainnet if timestamp >= 1_790_791_200 => Ok(Rules::BaseCobalt),
+        SimulationNetwork::BaseMainnet if (1_790_791_200..1_793_901_600).contains(&timestamp) => {
+            Ok(Rules::BaseCobalt)
+        }
+        SimulationNetwork::BaseMainnet if timestamp >= 1_793_901_600 => Ok(Rules::BaseDenim),
         SimulationNetwork::BaseSepolia if timestamp >= 1_792_605_600 => Ok(Rules::BaseDenim),
         _ => Err(SimulationError::UnsupportedRules),
     }
 }
+
 pub(crate) fn validate(request: &SimulationRequest) -> Result<Rules, SimulationError> {
     let rules = rules(request.network, request.block.timestamp)?;
     let tx = &request.transaction;
@@ -151,5 +157,49 @@ pub(crate) fn blob_fraction(network: SimulationNetwork, timestamp: u64) -> u64 {
         8_346_193
     } else {
         5_007_716
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn current_four_networks_and_mainnet_denim_boundary_are_explicit() {
+        assert_eq!(
+            rules(SimulationNetwork::BaseMainnet, 1_793_901_599),
+            Ok(Rules::BaseCobalt)
+        );
+        assert_eq!(
+            rules(SimulationNetwork::BaseMainnet, 1_793_901_600),
+            Ok(Rules::BaseDenim)
+        );
+        assert_eq!(
+            rules(SimulationNetwork::BaseSepolia, 1_792_605_599),
+            Err(SimulationError::UnsupportedRules)
+        );
+        assert_eq!(
+            rules(SimulationNetwork::BaseSepolia, 1_792_605_600),
+            Ok(Rules::BaseDenim)
+        );
+        assert_eq!(
+            rules(SimulationNetwork::EthereumMainnet, 1_794_268_800),
+            Ok(Rules::Osaka)
+        );
+        assert_eq!(
+            rules(SimulationNetwork::EthereumSepolia, 1_794_268_800),
+            Ok(Rules::Amsterdam)
+        );
+        for network in [
+            SimulationNetwork::EthereumMainnet,
+            SimulationNetwork::EthereumSepolia,
+            SimulationNetwork::BaseMainnet,
+            SimulationNetwork::BaseSepolia,
+        ] {
+            assert!(rules(network, REVIEW_EXPIRES - 1).is_ok());
+            assert_eq!(
+                rules(network, REVIEW_EXPIRES),
+                Err(SimulationError::UnsupportedRules)
+            );
+        }
     }
 }

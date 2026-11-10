@@ -2,9 +2,14 @@
 from datetime import date, datetime, timezone
 import tomllib
 
-BASE_REVISION = '5476069f1eb74a56bccb56fdefd4b4bb0e3cda42'
+BASE_REVISION = '35fd079386e8c6ca57e0d354e5cca5a9ad29bf46'
 BASE_SOURCE = f'git+https://github.com/base/base?rev={BASE_REVISION}#{BASE_REVISION}'
 BASE_FEATURES = ['std', 'portable', 'blst', 'c-kzg', 'memory_limit']
+BASE_CONSENSUS_FEATURES = ['std', 'serde']
+RECEIPT_SERDE_PACKAGES = {
+    ('dashmap', '6.2.1'): ('MIT', {'inline', 'serde'}),
+    ('hashbrown', '0.14.5'): ('MIT OR Apache-2.0', {'inline-more', 'raw'}),
+}
 BASE_PACKAGES = {
     'base-common-evm', 'base-common-chains', 'base-common-consensus',
     'base-common-eip8130', 'base-common-flz', 'base-common-genesis',
@@ -18,6 +23,8 @@ REGISTRY = 'registry+https://github.com/rust-lang/crates.io-index'
 # Re-review on this UTC date, including whether upstream verification libraries migrated.
 APPLICABILITY_DEADLINE = date(2027, 1, 30)
 REVIEWED_CHECKSUMS = {
+    ('dashmap', '6.2.1'): 'e6361d5c062261c78a176addb82d4c821ae42bed6089de0e12603cd25de2059c',
+    ('hashbrown', '0.14.5'): 'e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1',
     ('alloy-consensus', '2.5.0'): '727016fed834c2392d014dd697ea473f3e47bcec31ba31ccffa9c1d18ed904e5',
     ('alloy-eip7702', '0.6.3'): '2919c5a56a1007492da313e7a3b6d45ef5edc5d33416fdec63c0d7a2702a0d20',
     ('alloy-primitives', '1.7.3'): 'd5e9dbd49258ac3ab893a481d46be29b58be7f734dcac46cd80b6b13ee36566c',
@@ -44,16 +51,18 @@ EXTRA_PASTE_PARENTS = {('alloy-primitives', '1.7.3'), ('syn-solidity', '1.7.3'),
 BASE_RESOLVED_FEATURES = {name: {'std'} for name in BASE_PACKAGES}
 BASE_RESOLVED_FEATURES.update({
     'base-common-chains': {'default', 'std'},
-    'base-common-consensus': {'evm', 'k256', 'std'},
+    'base-common-consensus': {'evm', 'k256', 'std', 'serde'},
     'base-common-evm': set(BASE_FEATURES) | {'base-precompile-storage'},
     'base-common-precompiles': set(BASE_FEATURES),
     'base-execution-eip8130': set(), 'base-precompile-macros': set(),
 })
 PRECOMPILES = {('revm-precompile', '42.0.1'), ('revm-precompile', '43.0.3')}
-BASE_VERIFIER = ('base-execution-eip8130', '1.5.1')
+BASE_VERIFIER = ('base-execution-eip8130', '1.5.3')
 # Direct parents deliberately include the existing Alloy callers outside the worker.
 # This is public signature recovery/verification, not a claim that all calldata is public.
 REVIEWED_PARENTS = {
+    ('dashmap', '6.2.1'): {('reth-primitives-traits', '0.6.0')},
+    ('hashbrown', '0.14.5'): {('dashmap', '6.2.1')},
     ('crypto-bigint', '0.5.5'): {('elliptic-curve', '0.13.8')},
     ('elliptic-curve', '0.13.8'): {('ecdsa', '0.16.9'), ('k256', '0.13.4'),
                                 ('p256', '0.13.2'), ('primeorder', '0.13.6')},
@@ -96,6 +105,10 @@ def _validate_applicability(metadata, root, packages, nodes, today):
                            ('aurora-engine-modexp', {'1.3.0'})]:
         if {item['version'] for item in packages.values() if item['name'] == name} != versions:
             raise ValueError(f'Reviewed {name} versions changed; applicability review required')
+    for key, (licence, features) in RECEIPT_SERDE_PACKAGES.items():
+        package = packages[selected[key]]
+        if package.get('license') != licence or set(nodes[selected[key]]['features']) != features:
+            raise ValueError('Reviewed native receipt serde support licence/features changed')
     aurora = packages[selected[('aurora-engine-modexp', '1.3.0')]]
     if aurora.get('license') != 'CC0-1.0':
         raise ValueError('Aurora licence changed; exact package licence review required')
@@ -129,17 +142,17 @@ def validate_simulation_dependencies(metadata, root, today=None):
     dependencies = manifest['workspace']['dependencies']
     base = dependencies['base-evm']
     if (base.get('git') != 'https://github.com/base/base'
-            or base.get('rev') != BASE_REVISION or base.get('version') != '=1.5.1'
+            or base.get('rev') != BASE_REVISION or base.get('version') != '=1.5.3'
             or base.get('package') != 'base-common-evm'
             or base.get('default-features') is not False
             or set(base.get('features', [])) != set(BASE_FEATURES)):
         raise ValueError('Base source/features changed; exact local-engine review required')
     consensus = dependencies.get('base-consensus', {})
     if (consensus.get('git') != 'https://github.com/base/base'
-            or consensus.get('rev') != BASE_REVISION or consensus.get('version') != '=1.5.1'
+            or consensus.get('rev') != BASE_REVISION or consensus.get('version') != '=1.5.3'
             or consensus.get('package') != 'base-common-consensus'
             or consensus.get('default-features') is not False
-            or consensus.get('features') != ['std']):
+            or consensus.get('features') != BASE_CONSENSUS_FEATURES):
         raise ValueError('Base receipt codec source/features changed; exact review required')
     for name, version in [('revm', '=43.0.3'), ('revm-base', '=42.0.1')]:
         selected = dependencies[name]
@@ -150,7 +163,7 @@ def validate_simulation_dependencies(metadata, root, today=None):
     nodes = {item['id']: item for item in metadata['resolve']['nodes']}
     git = [item for item in packages.values() if (item.get('source') or '').startswith('git+')]
     if len(git) != len(BASE_PACKAGES) or {item['name'] for item in git} != BASE_PACKAGES or any(
-            item['source'] != BASE_SOURCE or item['version'] != '1.5.1' or item.get('license') != 'MIT'
+            item['source'] != BASE_SOURCE or item['version'] != '1.5.3' or item.get('license') != 'MIT'
             for item in git):
         raise ValueError('Git package/revision/licence graph changed; Base review required')
     engines = [item for item in packages.values() if item['name'] == 'revm']
@@ -161,6 +174,10 @@ def validate_simulation_dependencies(metadata, root, today=None):
         features = set(nodes[item['id']]['features'])
         allowed = (BASE_RESOLVED_FEATURES[item['name']] if item in git else
                    set(BASE_FEATURES) - ({'memory_limit'} if item in precompiles else set()))
+        # Native typed public transaction/receipt decoding forwards serde into
+        # Base's optional Revm42 edge. No validation-disable feature is admitted.
+        if item['name'] == 'revm' and item['version'] == '42.0.1':
+            allowed = allowed | {'serde'}
         if features != allowed:
             raise ValueError('Local engine acquired relaxed validation or unreviewed features')
     child = next(item for item in packages.values() if item['name'] == 'evm-simulation')

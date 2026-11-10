@@ -238,7 +238,9 @@ fn insert_observation(
         return Ok(false);
     }
     let count:u32=connection.query_row("SELECT count(*) FROM contract_workflow_observations WHERE workflow_id=?1 AND step_index=?2",params![claim.workflow.0,claim.index],|row|row.get(0))?;
-    if count >= 32 {
+    // Sixteen ordered steps can refresh the first step three times for each
+    // successor (claim, post-authentication and dispatch): 1 + 3 * 15 = 46.
+    if count >= 64 {
         return scope::invalid("workflow observation history limit reached");
     }
     Ok(connection.execute("INSERT INTO contract_workflow_observations(workflow_id,step_index,evidence_commitment,observation_json) VALUES (?1,?2,?3,?4)",params![claim.workflow.0,claim.index,commitment,json])?==1)
@@ -248,13 +250,13 @@ pub(super) fn load_observations(
     id: &ContractWorkflowId,
     index: u8,
 ) -> Result<Vec<StoredWorkflowObservation>, StorageError> {
-    let mut query=connection.prepare("SELECT evidence_commitment,observation_json FROM contract_workflow_observations WHERE workflow_id=?1 AND step_index=?2 ORDER BY id LIMIT 33")?;
+    let mut query=connection.prepare("SELECT evidence_commitment,observation_json FROM contract_workflow_observations WHERE workflow_id=?1 AND step_index=?2 ORDER BY id LIMIT 65")?;
     let mut rows = query.query(params![id.0, index])?;
     let mut result = Vec::new();
     while let Some(row) = rows.next()? {
         let commitment: String = row.get(0)?;
         let json: String = row.get(1)?;
-        if json.len() > scope::MAX_CONTEXT_BYTES || result.len() >= 32 {
+        if json.len() > scope::MAX_CONTEXT_BYTES || result.len() >= 64 {
             return Err(StorageError::CorruptDatabase);
         }
         let observation: StoredWorkflowObservation =

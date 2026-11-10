@@ -35,3 +35,19 @@ This is a developer API, not yet a packaged chat simulation or signing route.
 Every observation has `effects_qualified=false`. The native Base handler's full
 envelope requirement remains unpassed. See [execution policy and qualification
 limits](../../docs/local-evm-simulation.md) and [dependency review](../../docs/local-simulation-dependency-review.md).
+
+
+`replay/` is the separately reviewed host execution TCB. It runs the maintained
+engine over frozen values and privately constructs an execution certificate;
+proof provenance and material semantics remain with chain-evm. Its pre-signature
+discovery callback only acquires missing proof facts; final frozen replay has no
+callback. Detailed traces preserve restored/reverted SSTORE attempts, KECCAK256
+preimages and real native transfers separately from apparent delegate value.
+
+Host replay has fixed gas/steps/memory and cooperative cancellation. It is not a
+killable process. Standard native precompiles and Base's maintained static and
+dynamic precompile lookup are rejected before application dispatch. Base
+application-frame mode is explicitly partial: zero-value fee-independent material
+execution with conservative prepayment, followed by a mandatory genuine-envelope
+native offline comparison. It never fabricates an envelope or projects signed
+child data. See the execution policy for the proof and admission exclusions.

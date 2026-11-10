@@ -198,7 +198,7 @@ fn chain_variant_and_maintenance_gates_do_not_fall_back_to_latest_eth() {
         ));
     }
     req.network = SimulationNetwork::EthereumMainnet;
-    req.block.timestamp = 1_793_491_200;
+    req.block.timestamp = 1_796_083_200;
     assert!(matches!(
         run(&req, &mut source("0x00")),
         Err(SimulationError::UnsupportedRules)

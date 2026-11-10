@@ -127,7 +127,48 @@ requests. That acknowledgement retains monitoring and grants no signing authorit
 permission to reuse a possible-send nonce. Wallet/chat share a durable
 [nonce owner](evm-nonce-ownership.md) before fresh authentication.
 See [chat transfer boundaries](chat-transfers.md) for
-freshness rules, cancellation and qualification limits. Qualification builds passing packaged isolated-worker admission can separately advertise [source-qualified contract workflows](contract-qualification.md), limited to the bundled compiled token profile and three exact declared functions. Release availability remains disabled until native interaction qualification and final human security review pass; packaging pins alone cannot promote this write capability. Every scope requires outbound consent before RPC, every write requires independent native review and fresh password, and dependent writes require fresh receipt/state predicate proofs. Endpoint, account, ordered semantics and profile are fixed; nonce and possible-send fences are shared with Wallet. Unknown source/proxies/functions, swaps/bridges, account upgrades and arbitrary message/typed-data signing remain unsupported. Prior allowances may remain after later failure; no automatic cleanup or retry is authorised.
+freshness rules, cancellation and qualification limits.
+
+### Source-qualified contract workflows
+
+Qualification builds passing packaged compiler and isolated-worker admission can
+separately advertise [version 2 declared contract workflows](generic-contract-qualification.md).
+Release availability remains disabled pending native interaction qualification
+and final human security review. Packaging pins alone cannot promote this
+capability. The earlier bundled-profile API remains compatible.
+
+Version 2 binds arbitrary ABI declarations to locally reproduced source and
+proof-checked current runtime/dispatch. A pinned official Solidity compiler runs
+in a separate bounded helper. Supported compiler versions and AST features are
+restricted: complete typed snapshot effects must also have an independently
+checked bounded source-field transition envelope. Unsupported state-dependent
+effects, opaque external calls and mutable proxy dispatch reject. This is a
+generic analysed subset, not support for every EVM function. Source labels,
+function names, logs and return values do not establish token, authority or
+business semantics. The host does not offer a warning override for missing proof.
+
+Each scope requires native outbound consent before RPC or public-source/compiler
+acquisition. Every write requires independent exact native review and a fresh
+password. Endpoint, account, ordered declarations and qualified source identities
+are bound throughout the request. Historical completion evidence is distinct
+from current prerequisites, so later actions may consume an earlier value without
+erasing its history. Dependencies require declared completion conditions; final
+goals are checked separately. A successful receipt without declared final goals
+reports execution confirmed, not business-goal success. Observations describe
+their proved blocks, not finality, later state or transaction causation.
+
+The durable journal is wired to the native controller and shares Wallet/chat
+turn tombstones and nonce ownership. Its final workflow and nonce admission
+commit atomically. Stored history cannot reconstruct fresh approval or proof
+capabilities. Restart, cancellation, ambiguous send or reorganisation never
+authorise automatic resume, nonce reuse, cleanup or retry. Earlier allowance or
+other authority may remain after a later step fails. Account upgrades and
+arbitrary message/typed-data signing remain unsupported.
+
+Before the first write, the host also bounds the complete historical, goal and
+residual report against its 64 KiB output reservation. This includes actual
+declared paths and worst-case typed values and JSON escaping. Oversized workflows
+reject before submission; evidence is not truncated after a send.
 
 ### Unsigned contract observations
 
@@ -138,16 +179,11 @@ canonical hash-pinned state with strict bounded ABI decoding with resource prefl
 and provider data are untrusted. Canonicality is rechecked, never treated as
 finality. Latest reads bypass request and batch reuse. Cancellation gates each
 RPC dispatch. Missing methods/state, wrong chains and unknown ABI layouts fail
-without fallback. There is no generic write tool: runtime identity and eth_call
-success cannot qualify effects, proxy/source provenance or signing safety.
-
-The dormant sequential workflow journal stores host-owned ordered commitments
-and public state only. It shares turn tombstones with standalone transfers,
-requires separately recorded postconditions before dependent claims, preserves
-uncertain sends, retires pending steps on restart and never stores approval or
-signing authority. It is not wired to execution. Wallet/chat now use shared
-nonce ownership; workflow integration with that owner and native per-write
-lifecycle qualification remain requirements.
+without weaker proof. Optional `includeSource` inspection separately discloses
+public source/compiler acquisition and returns bounded locally reproduced ABI,
+layout and source identities without comments or documentation. These unsigned
+snapshot observations grant no signing authority. Runtime identity or eth_call
+success alone cannot qualify a workflow's effects or inclusion-time safety.
 
 ### Transfer fee budgets
 
@@ -165,10 +201,21 @@ charges at inclusion. The native review discloses that the total budget is check
 before submission and cannot guarantee those future charges.
 
 
-The developer [local EVM worker](local-evm-simulation.md) runs pinned upstream
-engines in a separate mandatory macOS sandbox. The host binds RPC account/storage
-proofs and code to one header/state root; provider chain identity remains trusted.
-No secret/signing/network capability enters the child, and every output remains
-unqualified for arbitrary effects. Amsterdam Sepolia now has exact header/context
-and synthetic gas qualification;
-current Base full-envelope fees remain an unpassed gate. This API is not wired to packaged chat or write approval.
+### Execution trust
+
+The [local EVM workers](local-evm-simulation.md) run pinned upstream engines in
+mandatory macOS sandboxes. The host binds acquired account/storage proofs and
+code to one header/state root; provider chain identity remains trusted. Worker
+JSON is untrusted discovery data and cannot mint a qualified candidate. Generic
+qualification independently replays the frozen proved state with maintained
+Revm in the host. That replay engine and the pinned compiler are explicit trusted
+components; helper image attestation alone does not prove their correctness.
+
+Base material preview excludes fee-sensitive application behaviour and labels
+native balances as conservative maximum prepayment rather than exact settlement.
+Exact signed Base execution then runs in the sealed offline handler over frozen
+state. The signed bytes cannot direct new online acquisition, and post-input
+worker failures collapse to one rejection without child-controlled diagnostics.
+These checks are integrated into the qualification-only native workflow; their
+automated tests do not replace the remaining native interaction and release
+security gates.
