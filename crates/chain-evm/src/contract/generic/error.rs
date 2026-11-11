@@ -10,7 +10,9 @@ pub enum GenericError {
     SourceMismatch,
     /// A required account, slot or code identity is absent from the witness.
     MissingState,
-    /// Source, call, context, envelope or canonical snapshot changed.
+    /// A coherent source, call, context, envelope or canonical snapshot could
+    /// not be established, including unavailable acquisition. This error alone
+    /// does not establish that source code changed.
     SnapshotMismatch,
     /// An executed effect has no complete supported structural interpretation.
     OpaqueEffects,

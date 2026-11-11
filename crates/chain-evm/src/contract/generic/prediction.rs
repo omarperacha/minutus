@@ -2,10 +2,11 @@
 //! before native approval. This is neither inclusion nor business causation.
 use super::{
     GenericCondition, GenericContractCandidate, GenericContractIdentity, GenericError,
+    candidate_read::CandidateStateReader,
     completion::{condition_artifact, satisfies},
     layout,
 };
-use crate::{EvmRpcUrl, local_simulation};
+use crate::EvmRpcUrl;
 use alloy_primitives::{Address, U256};
 use evm_simulation::{SimulationControl, StateQuery};
 use std::{collections::BTreeMap, str::FromStr, sync::atomic::AtomicBool};
@@ -39,20 +40,13 @@ pub fn verify_predicted_generic_conditions(
         return Err(GenericError::SourceMismatch);
     }
     let network = candidate.intent().network();
-    let block = candidate.block_hash();
-    let mut reader = local_simulation::ProvedReader::new(endpoint, network, block, &control)
-        .map_err(|_| GenericError::MissingState)?;
-    if reader.block_number() != candidate.block_number() {
-        return Err(GenericError::SnapshotMismatch);
-    }
+    let mut reader = CandidateStateReader::from_candidate(endpoint, candidate)?;
     for identity in identities {
         if identity.network() != network {
             return Err(GenericError::SnapshotMismatch);
         }
         for query in identity.state_queries() {
-            reader
-                .query(&query, &control)
-                .map_err(|_| GenericError::MissingState)?;
+            reader.query(&query, &control)?;
         }
     }
     let changed = changed_slots(candidate)?;
@@ -89,9 +83,8 @@ pub fn verify_predicted_generic_conditions(
                 if reads.len() >= 128 {
                     return Err(GenericError::Limit);
                 }
-                let evm_simulation::StateValue::Storage { value } = reader
-                    .query(&query, &control)
-                    .map_err(|_| GenericError::MissingState)?
+                let evm_simulation::StateValue::Storage { value } =
+                    reader.query(&query, &control)?
                 else {
                     return Err(GenericError::MissingState);
                 };
@@ -105,9 +98,7 @@ pub fn verify_predicted_generic_conditions(
             break;
         }
     }
-    let state = reader
-        .finish(&control)
-        .map_err(|_| GenericError::SnapshotMismatch)?;
+    let state = reader.finish(&control)?;
     for identity in identities {
         identity.verify_state(&state)?;
     }

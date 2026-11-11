@@ -126,6 +126,9 @@ impl<R: StateRpc> StateSource<R> {
     pub(super) fn into_proved_state(self) -> super::record::ProvedState {
         super::record::ProvedState::new(self.accounts, self.slots)
     }
+    pub(super) fn snapshot(&self) -> super::record::ProvedState {
+        super::record::ProvedState::new(self.accounts.clone(), self.slots.clone())
+    }
     pub(super) fn frozen_facts(&self) -> Vec<(StateQuery, StateValue)> {
         let mut facts = Vec::new();
         for (address, (exists, account, code)) in &self.accounts {

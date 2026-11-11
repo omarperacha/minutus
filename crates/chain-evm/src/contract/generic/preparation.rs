@@ -13,6 +13,8 @@ use alloy_primitives::{Address, U256};
 use evm_simulation::{SimulationControl, StateQuery, TrustedSimulationWorkers};
 use serde_json::Value;
 use std::{str::FromStr, sync::atomic::AtomicBool};
+mod reader;
+mod source_graph;
 
 /// Locally reproduces every source needed for a bounded current target identity.
 /// It creates no effect, approval, freshness or signing authority. Exact minimal
@@ -346,18 +348,12 @@ pub fn prepare_generic_contract_in_scope(
     cancelled: &AtomicBool,
     business: &[String],
 ) -> Result<GenericContractCandidate, GenericError> {
-    let allowed = business
-        .iter()
-        .map(|v| Address::from_str(v))
-        .collect::<Result<std::collections::BTreeSet<_>, _>>()
-        .map_err(|_| GenericError::InvalidAbi)?;
-    let entry = Address::from_str(intent.call().target()).map_err(|_| GenericError::InvalidAbi)?;
-    if allowed.is_empty()
-        || allowed.len() != business.len()
-        || allowed.len() > 16
-        || !allowed.contains(&entry)
-    {
-        return Err(GenericError::InvalidAbi);
+    let (entry, allowed) = business_scope(intent, business)?;
+    if matches!(block, ContractBlock::Latest) {
+        let cohort = super::select_generic_live_cohort(endpoint, intent.network(), cancelled)?;
+        return prepare_generic_contract_at_cohort(
+            workers, endpoint, intent, &cohort, fees, sources, cancelled, business,
+        );
     }
     let (root, _, hash) = qualify_source_at(
         intent.network(),
@@ -418,6 +414,41 @@ pub fn prepare_generic_contract_in_scope(
     Ok(candidate)
 }
 
+/// Prepares only at an opaque live selection; all acquisition and replay retain
+/// its original age. An explicit historical hash cannot mint this capability.
+///
+/// # Errors
+/// Rejects stale, foreign or reorganised cohorts and all ordinary preparation failures.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Explicit host cohort and business scope remain separate authority inputs"
+)]
+pub fn prepare_generic_contract_at_cohort(
+    workers: &TrustedSimulationWorkers,
+    endpoint: &EvmRpcUrl,
+    intent: &UnsignedContractIntent,
+    cohort: &super::GenericLiveCohort,
+    fees: SimulationFeeFacts,
+    sources: &mut GenericSourceProvider,
+    cancelled: &AtomicBool,
+    business: &[String],
+) -> Result<GenericContractCandidate, GenericError> {
+    if cohort.network() != intent.network() {
+        return Err(GenericError::SnapshotMismatch);
+    }
+    if !cohort.is_fresh() {
+        return Err(GenericError::Expired);
+    }
+    let mut candidate = reader::prepare(
+        workers, endpoint, intent, cohort, fees, sources, cancelled, business,
+    )?;
+    // Preparation already rechecks this exact canonical anchor after replay.
+    // The later condition/binding gates independently sample a nonregressed
+    // head; no redundant latest acquisition is needed to retain this clock.
+    candidate.bind_live_cohort(cohort)?;
+    Ok(candidate)
+}
+
 fn relation_queries(
     endpoint: &EvmRpcUrl,
     identity: &GenericContractIdentity,
@@ -430,9 +461,20 @@ fn relation_queries(
     let mut reader =
         local_simulation::ProvedReader::new(endpoint, intent.network(), hash, &control)
             .map_err(state_error)?;
+    let queries = relation_queries_in_reader(&mut reader, identity, envelope, &control)?;
+    reader.finish(&control).map_err(state_error)?;
+    Ok(queries)
+}
+
+fn relation_queries_in_reader(
+    reader: &mut local_simulation::ProvedReader<'_>,
+    identity: &GenericContractIdentity,
+    envelope: &super::GenericEffectEnvelope,
+    control: &SimulationControl<'_>,
+) -> Result<Vec<StateQuery>, GenericError> {
     let mut queries = identity.state_queries();
     for query in &queries {
-        reader.query(query, &control).map_err(state_error)?;
+        reader.query(query, control).map_err(state_error)?;
     }
     for relation in envelope.relations() {
         let address =
@@ -452,7 +494,7 @@ fn relation_queries(
                     return Err(GenericError::Limit);
                 }
                 let evm_simulation::StateValue::Storage { value } =
-                    reader.query(&query, &control).map_err(state_error)?
+                    reader.query(&query, control).map_err(state_error)?
                 else {
                     return Err(GenericError::MissingState);
                 };
@@ -464,8 +506,27 @@ fn relation_queries(
             },
         )?;
     }
-    reader.finish(&control).map_err(state_error)?;
     Ok(queries)
+}
+
+fn business_scope(
+    intent: &UnsignedContractIntent,
+    business: &[String],
+) -> Result<(Address, std::collections::BTreeSet<Address>), GenericError> {
+    let allowed = business
+        .iter()
+        .map(|v| Address::from_str(v))
+        .collect::<Result<std::collections::BTreeSet<_>, _>>()
+        .map_err(|_| GenericError::InvalidAbi)?;
+    let entry = Address::from_str(intent.call().target()).map_err(|_| GenericError::InvalidAbi)?;
+    if allowed.is_empty()
+        || allowed.len() != business.len()
+        || allowed.len() > 16
+        || !allowed.contains(&entry)
+    {
+        return Err(GenericError::InvalidAbi);
+    }
+    Ok((entry, allowed))
 }
 fn account_controls(address: Address) -> Vec<StateQuery> {
     let mut queries = vec![StateQuery::Account {

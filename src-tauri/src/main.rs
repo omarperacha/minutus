@@ -50,6 +50,7 @@ mod chat_tools;
 #[cfg(debug_assertions)]
 mod contract_qualification;
 mod contract_source_qualification;
+mod contract_workflow_qualification;
 mod error_mapping;
 mod evm_approval;
 mod evm_authorizations;
@@ -363,8 +364,28 @@ fn shutdown_app(app: &tauri::AppHandle) {
     }
 }
 
+fn guardian_mode(mut arguments: std::iter::Skip<std::env::ArgsOs>) -> ExitCode {
+    let Some(executable) = arguments.next() else {
+        eprintln!("Minutus's Ollama guardian is missing its executable");
+        return ExitCode::FAILURE;
+    };
+    if arguments.next().is_some() {
+        eprintln!("Minutus's Ollama guardian received unexpected arguments");
+        return ExitCode::FAILURE;
+    }
+    match run_ollama_guardian(Path::new(&executable)) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("Minutus's Ollama guardian failed: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 fn main() -> ExitCode {
-    if let Some(result) = contract_source_qualification::dispatch() {
+    if let Some(result) =
+        contract_workflow_qualification::dispatch().or_else(contract_source_qualification::dispatch)
+    {
         return result;
     }
     if std::env::args_os().nth(1).as_deref() == Some(OsStr::new("--qualify-generic-contract")) {
@@ -442,21 +463,7 @@ fn main() -> ExitCode {
     }
     let mut arguments = std::env::args_os().skip(1);
     if arguments.next().as_deref() == Some(OsStr::new(OLLAMA_GUARDIAN_ARGUMENT)) {
-        let Some(executable) = arguments.next() else {
-            eprintln!("Minutus's Ollama guardian is missing its executable");
-            return ExitCode::FAILURE;
-        };
-        if arguments.next().is_some() {
-            eprintln!("Minutus's Ollama guardian received unexpected arguments");
-            return ExitCode::FAILURE;
-        }
-        return match run_ollama_guardian(Path::new(&executable)) {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(error) => {
-                eprintln!("Minutus's Ollama guardian failed: {error}");
-                ExitCode::FAILURE
-            }
-        };
+        return guardian_mode(arguments);
     }
 
     match run() {

@@ -15,7 +15,7 @@ mod rpc_budget;
 pub(crate) use provenance::{canonical_header, latest_header};
 mod source;
 mod trusted;
-pub(crate) use trusted::{TrustedReplay, replay_proved};
+pub(crate) use trusted::{TrustedReplay, replay_prepared_reader, replay_proved};
 
 pub(crate) use execution::run_proved;
 pub use execution::simulate_contract_with_worker;

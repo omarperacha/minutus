@@ -20,7 +20,15 @@ pub(super) fn decode(
     if expected.is_some_and(|expected| expected != hash) || header.hash_slow() != hash {
         return Err(SimulationError::InconsistentState);
     }
-    let block = SimulationBlock {
+    let block = block(&header, hash)?;
+    Ok((header, block))
+}
+
+pub(super) fn block(header: &Header, hash: B256) -> Result<SimulationBlock, SimulationError> {
+    if header.hash_slow() != hash {
+        return Err(SimulationError::InconsistentState);
+    }
+    Ok(SimulationBlock {
         hash: format!("{hash:#x}"),
         state_root: format!("{:#x}", header.state_root),
         number: header.number,
@@ -38,6 +46,5 @@ pub(super) fn decode(
         excess_blob_gas: header
             .excess_blob_gas
             .ok_or(SimulationError::UnsupportedRules)?,
-    };
-    Ok((header, block))
+    })
 }

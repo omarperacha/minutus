@@ -11,6 +11,8 @@ mod scope_review;
 mod signing;
 mod submission;
 
+#[cfg(debug_assertions)]
+pub(crate) use declared::qualify_preparation;
 pub(crate) use declared::{
     DeclaredWorkflowRequest, available as generic_available, execute as execute_declared,
 };

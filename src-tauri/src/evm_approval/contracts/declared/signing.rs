@@ -1,7 +1,7 @@
 //! Consumed approval and exact signed validation precede durable send admission.
 use super::{
     context::{Context, error as chain_error},
-    observation::{CompletedStep, prerequisites},
+    observation::CompletedStep,
 };
 use crate::{
     evm_approval::{
@@ -96,9 +96,8 @@ pub(super) async fn review_and_send(
     context.check(wallet, cancel)?;
     // Refresh a second time immediately before actual transport, retaining the
     // exact approved body; no caller may replace fees/nonce or widen authority.
-    let fresh = refresh(context, step).await?;
+    let (fresh, proofs) = refresh(context, step, completed).await?;
     let final_check = validate(context, fresh, bytes).await?;
-    let proofs = prerequisites(context, step, completed).await?;
     context.check(wallet, cancel)?;
     if final_check.evidence_block_hash() != proofs.conditions().block_hash() {
         return Err(IpcError::invalid_request(
@@ -133,8 +132,23 @@ pub(super) async fn review_and_send(
 async fn refresh(
     context: &Context,
     step: &PreparedDeclaredContractStep,
-) -> Result<RefreshedGenericCandidate, IpcError> {
-    context.refresh(step).await
+    completed: &[CompletedStep],
+) -> Result<
+    (
+        RefreshedGenericCandidate,
+        chain_evm::contract::generic::VerifiedGenericPrerequisites,
+    ),
+    IpcError,
+> {
+    context
+        .refresh(
+            step,
+            &completed
+                .iter()
+                .map(|step| Arc::clone(&step.completion))
+                .collect::<Vec<_>>(),
+        )
+        .await
 }
 async fn validate(
     context: &Context,
@@ -223,8 +237,7 @@ async fn authorize(
             {
                 return Err(IpcError::invalid_request("Nonce ownership was retired"));
             }
-            let proofs = prerequisites(context, step, completed).await?;
-            let fresh = refresh(context, step).await?;
+            let (fresh, proofs) = refresh(context, step, completed).await?;
             context.check(wallet, cancel)?;
             if unix_now()? >= expiry || !fresh.is_fresh() {
                 return Err(IpcError::invalid_request(

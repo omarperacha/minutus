@@ -49,3 +49,18 @@ fn production_binary_rejects_source_qualification_before_native_settings()
     );
     Ok(())
 }
+
+#[test]
+fn production_binary_rejects_workflow_preparation_before_native_settings()
+-> Result<(), Box<dyn std::error::Error>> {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_zeta-desktop"))
+        .arg("--qualify-contract-preparation")
+        .output()?;
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8(output.stderr)?.trim(),
+        "Contract preparation qualification requires a debug executable"
+    );
+    Ok(())
+}

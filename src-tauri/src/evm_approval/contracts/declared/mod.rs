@@ -2,6 +2,11 @@
 mod context;
 mod execution;
 mod observation;
+#[cfg(debug_assertions)]
+mod qualification;
+#[cfg(debug_assertions)]
+pub(crate) use qualification::run as qualify_preparation;
+mod qualification_stage;
 mod report_budget;
 mod reporting;
 mod request;

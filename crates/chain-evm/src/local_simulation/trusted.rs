@@ -81,13 +81,42 @@ pub(crate) fn replay_proved(
     control: &SimulationControl<'_>,
 ) -> Result<TrustedReplay, SimulationError> {
     let prepared_at = Instant::now();
-    let (request, mut source) = context::prepare(endpoint, intent, block, fees, control)?;
+    let (request, source) = context::prepare(endpoint, intent, block, fees, control)?;
+    replay_source(workers, request, source, preload, control, prepared_at)
+}
+
+/// Consumes the original proof/cache/header owner; no bare state can seed replay.
+pub(crate) fn replay_prepared_reader(
+    workers: &TrustedSimulationWorkers,
+    reader: super::ProvedReader<'_>,
+    intent: &UnsignedContractIntent,
+    fees: SimulationFeeFacts,
+    preload: &[StateQuery],
+    control: &SimulationControl<'_>,
+) -> Result<TrustedReplay, SimulationError> {
+    let prepared_at = Instant::now();
+    let (request, source) = context::from_reader(reader, intent, fees, control)?;
+    replay_source(workers, request, source, preload, control, prepared_at)
+}
+
+fn replay_source(
+    workers: &TrustedSimulationWorkers,
+    request: SimulationRequest,
+    mut source: super::source::StateSource<crate::rpc::RpcClient<'_>>,
+    preload: &[StateQuery],
+    control: &SimulationControl<'_>,
+    prepared_at: Instant,
+) -> Result<TrustedReplay, SimulationError> {
     for query in preload {
         source.query(query, control)?;
     }
     // Discovery output is intentionally discarded. A lying/compromised worker
     // can at most omit required state and cause the independent replay to reject.
-    let base_network = intent.network().is_base();
+    let base_network = matches!(
+        request.network,
+        evm_simulation::SimulationNetwork::BaseMainnet
+            | evm_simulation::SimulationNetwork::BaseSepolia
+    );
     if base_network {
         for query in evm_simulation::offline::base_native_manifest(&request)? {
             source.query(&query, control)?;

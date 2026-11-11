@@ -2,7 +2,7 @@
 //! These private-field certificates cannot be recreated from persisted JSON.
 use super::{
     GenericComparison, GenericCondition, GenericContractCandidate, GenericContractIdentity,
-    GenericError, layout,
+    GenericError, candidate_read::CandidateStateReader, layout,
 };
 use crate::{
     EvmNetwork, EvmRpcUrl,
@@ -207,18 +207,69 @@ pub fn verify_generic_conditions(
     conditions: &[GenericCondition],
     cancelled: &AtomicBool,
 ) -> Result<VerifiedGenericConditions, GenericError> {
+    let cohort = super::select_generic_live_cohort(endpoint, network, cancelled)?;
+    verify_generic_conditions_at_cohort(endpoint, &cohort, identities, conditions, cancelled)
+}
+
+/// Proves current requirements at the exact host-selected live cohort without
+/// selecting another latest block or resetting the selection clock.
+///
+/// # Errors
+/// Rejects expired, foreign, reorganised or unsatisfied proof cohorts.
+pub fn verify_generic_conditions_at_cohort(
+    endpoint: &EvmRpcUrl,
+    cohort: &super::GenericLiveCohort,
+    identities: &[&GenericContractIdentity],
+    conditions: &[GenericCondition],
+    cancelled: &AtomicBool,
+) -> Result<VerifiedGenericConditions, GenericError> {
     if identities.is_empty() || identities.len() > 32 || conditions.len() > 16 {
         return Err(GenericError::Limit);
     }
-    let control = SimulationControl::start(cancelled);
-    let latest = local_simulation::latest_header(endpoint, network, &control)
-        .map_err(|_| GenericError::SnapshotMismatch)?;
-    let block_hash = format!("{:#x}", latest.hash_slow());
-    let mut reader = local_simulation::ProvedReader::new(endpoint, network, &block_hash, &control)
-        .map_err(|_| GenericError::MissingState)?;
-    if reader.block_number() != latest.number {
-        return Err(GenericError::SnapshotMismatch);
+    if !cohort.is_fresh() {
+        return Err(GenericError::Expired);
     }
+    let control = SimulationControl::start(cancelled);
+    let reader = CandidateStateReader::at_cohort(endpoint, cohort, &control)?;
+    prove_conditions(cohort, identities, conditions, &control, reader)
+}
+
+/// Proves current requirements using only the candidate's sealed same-cohort
+/// beforestate, with independent exact-hash proof acquisition for missing facts.
+/// Existing zero values remain distinct from unavailable records.
+///
+/// # Errors
+/// Rejects historical, stale or mismatched candidates, unavailable proofs,
+/// changed source/control identities and unsatisfied current conditions.
+pub fn verify_generic_candidate_conditions(
+    endpoint: &EvmRpcUrl,
+    candidate: &GenericContractCandidate,
+    identities: &[&GenericContractIdentity],
+    conditions: &[GenericCondition],
+    cancelled: &AtomicBool,
+) -> Result<VerifiedGenericConditions, GenericError> {
+    let cohort = super::candidate_read::live_candidate_cohort(candidate)?;
+    require_candidate_identity(candidate, identities)?;
+    let control = SimulationControl::start(cancelled);
+    let reader = CandidateStateReader::from_candidate(endpoint, candidate)?;
+    prove_conditions(cohort, identities, conditions, &control, reader)
+}
+
+fn prove_conditions(
+    cohort: &super::GenericLiveCohort,
+    identities: &[&GenericContractIdentity],
+    conditions: &[GenericCondition],
+    control: &SimulationControl<'_>,
+    mut reader: CandidateStateReader<'_>,
+) -> Result<VerifiedGenericConditions, GenericError> {
+    if identities.is_empty() || identities.len() > 32 || conditions.len() > 16 {
+        return Err(GenericError::Limit);
+    }
+    if !cohort.is_fresh() {
+        return Err(GenericError::Expired);
+    }
+    let network = cohort.network();
+    let block_hash = cohort.block_hash().to_owned();
     let mut source_commitments = Vec::with_capacity(identities.len());
     for identity in identities {
         if identity.network() != network {
@@ -229,9 +280,7 @@ pub fn verify_generic_conditions(
             return Err(GenericError::Limit);
         }
         for query in queries {
-            reader
-                .query(&query, &control)
-                .map_err(|_| GenericError::MissingState)?;
+            reader.query(&query, control)?;
         }
         source_commitments.push(identity.commitment().into());
     }
@@ -266,9 +315,8 @@ pub fn verify_generic_conditions(
                 if reads.len() >= 128 {
                     return Err(GenericError::Limit);
                 }
-                let evm_simulation::StateValue::Storage { value } = reader
-                    .query(&query, &control)
-                    .map_err(|_| GenericError::MissingState)?
+                let evm_simulation::StateValue::Storage { value } =
+                    reader.query(&query, control)?
                 else {
                     return Err(GenericError::MissingState);
                 };
@@ -284,23 +332,23 @@ pub fn verify_generic_conditions(
             value: observed.value,
         });
     }
-    let state = reader
-        .finish(&control)
-        .map_err(|_| GenericError::SnapshotMismatch)?;
+    let state = reader.finish_live(cohort, control)?;
     for identity in identities {
         identity.verify_state(&state)?;
     }
-    current_tip(endpoint, network, &block_hash, &control)?;
+    if !cohort.is_fresh() {
+        return Err(GenericError::Expired);
+    }
     if !satisfied {
         return Err(GenericError::ConditionUnsatisfied);
     }
     let material = serde_json::json!({"domain":"minutus-generic-condition-proof-v1","network":network.descriptor().caip2_id(),"sources":source_commitments,"block":block_hash,"observations":observations});
     let proof_commitment = commitment(&material)?;
     Ok(VerifiedGenericConditions {
-        observed_at: Instant::now(),
+        observed_at: cohort.selected_at,
         network,
         source_commitments,
-        block_number: latest.number,
+        block_number: cohort.block_number(),
         block_hash,
         proof_commitment,
         observations,
@@ -343,7 +391,16 @@ pub fn verify_generic_completion(
     }
     local_simulation::canonical_header(endpoint, network, &inclusion.block_hash, &control)
         .map_err(|_| GenericError::SnapshotMismatch)?;
-    current_tip(endpoint, network, observed.block_hash(), &control)?;
+    current_anchor(
+        endpoint,
+        network,
+        observed.block_hash(),
+        observed.block_number(),
+        &control,
+    )?;
+    if !observed.is_fresh() {
+        return Err(GenericError::Expired);
+    }
     Ok(VerifiedGenericCompletion {
         candidate_digest: candidate.candidate_digest().into(),
         account: candidate.intent().account().into(),
@@ -369,13 +426,12 @@ pub fn verify_generic_prerequisites(
     cancelled: &AtomicBool,
 ) -> Result<VerifiedGenericPrerequisites, GenericError> {
     require_candidate_identity(candidate, identities)?;
-    let observed = verify_generic_conditions(
-        endpoint,
-        candidate.intent().network(),
-        identities,
-        conditions,
-        cancelled,
-    )?;
+    let cohort = candidate
+        .live_cohort
+        .as_ref()
+        .ok_or(GenericError::SnapshotMismatch)?;
+    let observed =
+        verify_generic_conditions_at_cohort(endpoint, cohort, identities, conditions, cancelled)?;
     bind_generic_prerequisites(endpoint, candidate, historical, observed, cancelled)
 }
 
@@ -392,13 +448,85 @@ pub fn bind_generic_prerequisites(
     observed: VerifiedGenericConditions,
     cancelled: &AtomicBool,
 ) -> Result<VerifiedGenericPrerequisites, GenericError> {
+    let cohort = candidate
+        .live_cohort
+        .as_ref()
+        .ok_or(GenericError::SnapshotMismatch)?;
+    bind_at_cohort(
+        endpoint,
+        candidate,
+        candidate.candidate_digest(),
+        cohort,
+        historical,
+        observed,
+        cancelled,
+    )
+}
+
+/// Proves requirements at the refresh's sealed current cohort, retaining the
+/// original approved body binding through the separate material-equivalence proof.
+///
+/// # Errors
+/// Rejects stale, foreign, reorganised or unsatisfied current evidence.
+pub fn verify_refreshed_generic_conditions(
+    endpoint: &EvmRpcUrl,
+    refreshed: &super::RefreshedGenericCandidate,
+    identities: &[&GenericContractIdentity],
+    conditions: &[GenericCondition],
+    cancelled: &AtomicBool,
+) -> Result<VerifiedGenericConditions, GenericError> {
+    require_candidate_identity(refreshed.fresh(), identities)?;
+    verify_generic_candidate_conditions(
+        endpoint,
+        refreshed.fresh(),
+        identities,
+        conditions,
+        cancelled,
+    )
+}
+
+/// Binds fresh conditions to a material-equivalent refreshed execution while
+/// preserving the exact original approved candidate digest for the core gate.
+///
+/// # Errors
+/// Rejects a different cohort, stale evidence, missing source or reorganised history.
+pub fn bind_refreshed_generic_prerequisites(
+    endpoint: &EvmRpcUrl,
+    refreshed: &super::RefreshedGenericCandidate,
+    historical: &[&VerifiedGenericCompletion],
+    observed: VerifiedGenericConditions,
+    cancelled: &AtomicBool,
+) -> Result<VerifiedGenericPrerequisites, GenericError> {
+    bind_at_cohort(
+        endpoint,
+        refreshed.fresh(),
+        &refreshed.approved_digest,
+        &refreshed.cohort,
+        historical,
+        observed,
+        cancelled,
+    )
+}
+
+fn bind_at_cohort(
+    endpoint: &EvmRpcUrl,
+    candidate: &GenericContractCandidate,
+    approved_digest: &str,
+    cohort: &super::GenericLiveCohort,
+    historical: &[&VerifiedGenericCompletion],
+    observed: VerifiedGenericConditions,
+    cancelled: &AtomicBool,
+) -> Result<VerifiedGenericPrerequisites, GenericError> {
     if historical.len() > 15 {
         return Err(GenericError::Limit);
     }
     let control = SimulationControl::start(cancelled);
     let network = candidate.intent().network();
-    if !observed.is_fresh()
+    require_condition_cohort(cohort, &observed)?;
+    if candidate.block_hash() != cohort.block_hash()
+        || candidate.block_number() != cohort.block_number()
         || observed.network != network
+        || cohort.network() != network
         || !observed
             .source_commitments
             .iter()
@@ -448,12 +576,18 @@ pub fn bind_generic_prerequisites(
         )
         .map_err(|_| GenericError::SnapshotMismatch)?;
     }
-    current_tip(endpoint, network, observed.block_hash(), &control)?;
+    current_anchor(
+        endpoint,
+        network,
+        observed.block_hash(),
+        observed.block_number(),
+        &control,
+    )?;
     if !observed.is_fresh() {
         return Err(GenericError::Expired);
     }
     Ok(VerifiedGenericPrerequisites {
-        candidate_digest: candidate.candidate_digest().into(),
+        candidate_digest: approved_digest.into(),
         historical: transactions,
         conditions: observed,
     })
@@ -513,7 +647,16 @@ pub fn verify_generic_goals(
         return Err(GenericError::SnapshotMismatch);
     }
     anchors()?;
-    current_tip(endpoint, network, observed.block_hash(), &control)?;
+    current_anchor(
+        endpoint,
+        network,
+        observed.block_hash(),
+        observed.block_number(),
+        &control,
+    )?;
+    if !observed.is_fresh() {
+        return Err(GenericError::Expired);
+    }
     Ok(VerifiedGenericGoals {
         account,
         historical: historical
@@ -537,24 +680,30 @@ fn require_candidate_identity(
         Err(GenericError::SourceMismatch)
     }
 }
-fn current_tip(
-    endpoint: &EvmRpcUrl,
-    network: EvmNetwork,
-    expected: &str,
-    control: &SimulationControl<'_>,
+fn require_condition_cohort(
+    cohort: &super::GenericLiveCohort,
+    observed: &VerifiedGenericConditions,
 ) -> Result<(), GenericError> {
-    local_simulation::canonical_header(endpoint, network, expected, control)
-        .map_err(|_| GenericError::SnapshotMismatch)?;
-    if format!(
-        "{:#x}",
-        local_simulation::latest_header(endpoint, network, control)
-            .map_err(|_| GenericError::SnapshotMismatch)?
-            .hash_slow()
-    ) != expected
+    if !observed.is_fresh() || !cohort.is_fresh() {
+        return Err(GenericError::Expired);
+    }
+    if observed.observed_at != cohort.selected_at
+        || observed.block_hash != cohort.block_hash()
+        || observed.block_number != cohort.block_number()
+        || observed.network != cohort.network()
     {
         return Err(GenericError::SnapshotMismatch);
     }
     Ok(())
+}
+fn current_anchor(
+    endpoint: &EvmRpcUrl,
+    network: EvmNetwork,
+    expected: &str,
+    number: u64,
+    control: &SimulationControl<'_>,
+) -> Result<(), GenericError> {
+    super::cohort::canonical_live_anchor(endpoint, network, expected, number, control)
 }
 fn commitment(value: &impl Serialize) -> Result<String, GenericError> {
     Ok(format!(
@@ -646,6 +795,60 @@ fn compare(comparison: GenericComparison, ordering: std::cmp::Ordering) -> bool 
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn condition_binding_requires_original_live_selection_not_only_equal_height()
+    -> Result<(), GenericError> {
+        let cohort = super::super::GenericLiveCohort {
+            network: EvmNetwork::EthereumSepolia,
+            block_hash: "original".into(),
+            block_number: 10,
+            selected_at: Instant::now(),
+        };
+        let mut observed = VerifiedGenericConditions {
+            network: cohort.network(),
+            block_hash: cohort.block_hash().into(),
+            block_number: 10,
+            observed_at: cohort.selected_at,
+            source_commitments: vec![],
+            proof_commitment: String::new(),
+            observations: vec![],
+        };
+        assert!(require_condition_cohort(&cohort, &observed).is_ok());
+        observed.block_hash = "other".into();
+        assert_eq!(
+            require_condition_cohort(&cohort, &observed),
+            Err(GenericError::SnapshotMismatch)
+        );
+        observed.block_hash = cohort.block_hash().into();
+        observed.block_number = 11;
+        assert_eq!(
+            require_condition_cohort(&cohort, &observed),
+            Err(GenericError::SnapshotMismatch)
+        );
+        observed.block_number = 10;
+        observed.network = EvmNetwork::EthereumMainnet;
+        assert_eq!(
+            require_condition_cohort(&cohort, &observed),
+            Err(GenericError::SnapshotMismatch)
+        );
+        observed.network = cohort.network();
+        observed.observed_at = cohort
+            .selected_at
+            .checked_sub(Duration::from_millis(1))
+            .ok_or(GenericError::Limit)?;
+        assert_eq!(
+            require_condition_cohort(&cohort, &observed),
+            Err(GenericError::SnapshotMismatch)
+        );
+        observed.observed_at = Instant::now()
+            .checked_sub(Duration::from_secs(31))
+            .ok_or(GenericError::Limit)?;
+        assert_eq!(
+            require_condition_cohort(&cohort, &observed),
+            Err(GenericError::Expired)
+        );
+        Ok(())
+    }
     #[test]
     fn typed_comparison_rejects_coercion_and_preserves_signed_ordering() -> Result<(), GenericError>
     {

@@ -38,6 +38,7 @@ pub struct GenericContractCandidate {
     maximum_fee_wei: String,
     maximum_total_debit_wei: String,
     prepared_at: Instant,
+    pub(super) live_cohort: Option<super::GenericLiveCohort>,
     business_scope: Vec<String>,
 }
 impl GenericContractCandidate {
@@ -139,12 +140,30 @@ impl GenericContractCandidate {
             maximum_fee_wei: fee.to_string(),
             maximum_total_debit_wei: total.to_string(),
             prepared_at,
+            live_cohort: None,
             business_scope: {
                 let mut scope = business.to_vec();
                 scope.sort();
                 scope
             },
         })
+    }
+    pub(super) fn bind_live_cohort(
+        &mut self,
+        cohort: &super::GenericLiveCohort,
+    ) -> Result<(), GenericError> {
+        if self.intent().network() != cohort.network()
+            || self.block_hash() != cohort.block_hash()
+            || self.block_number() != cohort.block_number()
+        {
+            return Err(GenericError::SnapshotMismatch);
+        }
+        if !cohort.is_fresh() {
+            return Err(GenericError::Expired);
+        }
+        self.prepared_at = cohort.selected_at;
+        self.live_cohort = Some(cohort.retained());
+        Ok(())
     }
     /// Exact canonical invocation selected by the user-scoped workflow.
     #[must_use]

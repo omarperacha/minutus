@@ -1,16 +1,14 @@
 //! Fresh material equivalence preserves the original unsigned body and budget.
 //! Signed Base data goes only to the sealed offline native handler; child errors
 //! never acquire detailed diagnostics or online acquisition authority.
+mod diagnostics;
 use super::{
     GenericContractCandidate, GenericError, GenericSourceProvider, envelope,
-    preparation::prepare_generic_contract_in_scope,
+    preparation::prepare_generic_contract_at_cohort,
 };
-use crate::{
-    EvmRpcUrl,
-    contract::ContractBlock,
-    local_simulation::{self, SimulationFeeFacts},
-};
+use crate::{EvmRpcUrl, local_simulation::SimulationFeeFacts};
 use alloy_primitives::U256;
+use diagnostics::{Mismatch, reject};
 use evm_simulation::{SimulationControl, TrustedSimulationWorkers};
 use std::{
     sync::atomic::AtomicBool,
@@ -21,7 +19,8 @@ use std::{
 /// Validation consumes it; no deserialisation or approval constructor exists.
 pub struct RefreshedGenericCandidate {
     fresh: GenericContractCandidate,
-    approved_digest: String,
+    pub(super) approved_digest: String,
+    pub(super) cohort: super::GenericLiveCohort,
     observed_at: Instant,
 }
 impl RefreshedGenericCandidate {
@@ -146,40 +145,54 @@ pub fn refresh_generic_contract(
     sources: &mut GenericSourceProvider,
     cancelled: &AtomicBool,
 ) -> Result<RefreshedGenericCandidate, GenericError> {
+    // A raw historical preparation is descriptive execution evidence, never a
+    // workflow approval origin. Human review may outlive its old freshness, so
+    // require the sealed live origin without requiring that old clock be fresh.
+    require_live_origin(approved.live_cohort.as_ref())?;
     let control = SimulationControl::start(cancelled);
-    let header = local_simulation::latest_header(endpoint, approved.intent().network(), &control)
-        .map_err(|_| GenericError::SnapshotMismatch)?;
+    let cohort =
+        super::select_generic_live_cohort(endpoint, approved.intent().network(), cancelled)?;
     let transaction = &approved.replay().request().transaction;
     let fees = SimulationFeeFacts {
         gas_limit: transaction.gas_limit,
         max_fee_per_gas: transaction.max_fee_per_gas,
         priority_fee_per_gas: transaction.priority_fee_per_gas,
     };
-    let fresh = prepare_generic_contract_in_scope(
+    let fresh = prepare_generic_contract_at_cohort(
         workers,
         endpoint,
         approved.intent(),
-        &ContractBlock::Hash(format!("{:#x}", header.hash_slow())),
+        &cohort,
         fees,
         sources,
         cancelled,
         approved.business_scope(),
     )?;
-    if approved.payload() != fresh.payload()
-        || approved.envelope().commitment() != fresh.envelope().commitment()
-        || approved.source_commitment() != fresh.source_commitment()
-        || approved.effects().material_commitment() != fresh.effects().material_commitment()
-        || number(fresh.maximum_fee_wei())? > number(approved.maximum_fee_wei())?
-        || number(fresh.maximum_total_debit_wei())? > number(approved.maximum_total_debit_wei())?
-    {
-        return Err(GenericError::SnapshotMismatch);
+    if approved.payload() != fresh.payload() {
+        return Err(reject(Mismatch::Body));
     }
-    let observed_at = fresh.replay().prepared_at();
+    if approved.envelope().commitment() != fresh.envelope().commitment() {
+        return Err(reject(Mismatch::Envelope));
+    }
+    if approved.source_commitment() != fresh.source_commitment() {
+        return Err(reject(Mismatch::Source));
+    }
+    if approved.effects().material_commitment() != fresh.effects().material_commitment() {
+        return Err(reject(Mismatch::Material));
+    }
+    if number(fresh.maximum_fee_wei())? > number(approved.maximum_fee_wei())? {
+        return Err(reject(Mismatch::FeeBudget));
+    }
+    if number(fresh.maximum_total_debit_wei())? > number(approved.maximum_total_debit_wei())? {
+        return Err(reject(Mismatch::TotalDebitBudget));
+    }
+    let observed_at = cohort.selected_at;
     current(observed_at, &control)?;
     Ok(RefreshedGenericCandidate {
         fresh,
         approved_digest: approved.candidate_digest().into(),
         observed_at,
+        cohort,
     })
 }
 fn number(value: &str) -> Result<U256, GenericError> {
@@ -191,4 +204,32 @@ fn current(observed_at: Instant, control: &SimulationControl<'_>) -> Result<(), 
         return Err(GenericError::Expired);
     }
     Ok(())
+}
+
+fn require_live_origin(cohort: Option<&super::GenericLiveCohort>) -> Result<(), GenericError> {
+    cohort.ok_or(GenericError::SnapshotMismatch).map(|_| ())
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn historical_origin_cannot_be_promoted_and_old_live_review_does_not_reset_age()
+    -> Result<(), GenericError> {
+        assert_eq!(
+            require_live_origin(None),
+            Err(GenericError::SnapshotMismatch)
+        );
+        let old = super::super::GenericLiveCohort {
+            network: crate::EvmNetwork::EthereumSepolia,
+            block_hash: String::new(),
+            block_number: 1,
+            selected_at: Instant::now()
+                .checked_sub(Duration::from_secs(31))
+                .ok_or(GenericError::Limit)?,
+        };
+        assert!(!old.is_fresh());
+        assert!(require_live_origin(Some(&old)).is_ok());
+        assert!(!old.is_fresh());
+        Ok(())
+    }
 }

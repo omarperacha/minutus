@@ -9,10 +9,7 @@ use chain_evm::{
     TransactionHash, TransactionLifecycle,
     contract::{
         acquire_contract_transaction_proof,
-        generic::{
-            GenericError, VerifiedGenericCompletion, VerifiedGenericPrerequisites,
-            verify_generic_completion,
-        },
+        generic::{GenericError, VerifiedGenericCompletion, verify_generic_completion},
     },
     monitor_transaction,
 };
@@ -40,21 +37,6 @@ impl From<IpcError> for ObservationFailure {
     fn from(error: IpcError) -> Self {
         Self::Unknown(error)
     }
-}
-pub(super) async fn prerequisites(
-    context: &Context,
-    step: &PreparedDeclaredContractStep,
-    completed: &[CompletedStep],
-) -> Result<VerifiedGenericPrerequisites, IpcError> {
-    context
-        .prerequisites(
-            step,
-            &completed
-                .iter()
-                .map(|step| Arc::clone(&step.completion))
-                .collect::<Vec<_>>(),
-        )
-        .await
 }
 async fn prove(
     context: &Context,

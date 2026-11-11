@@ -166,6 +166,33 @@ refresh, financial bounds, cancellation, nonce ownership and one-attempt durable
 submission. Historical receipt inclusion and fresh current predicates remain
 separate certificates. Neither grants signing authority or guarantees finality.
 
+Each current-state security phase selects one opaque live cohort inside the
+chain owner. Source/state correspondence, replay, prerequisite fields and
+predicted completion use that exact canonical block. Its 30-second monotonic
+freshness clock starts before latest-header selection and is never reset by
+later proof completion. Normal head advancement is permitted while the selected
+anchor remains canonical and the head has not regressed below it; reorganisation,
+expiry and missing proofs still reject. A caller-supplied historical block cannot
+mint a live cohort or current prerequisite authority.
+
+After signing authentication and again before transport, refresh selects a new
+live cohort and proves both execution and prerequisites there. The refreshed
+binding preserves the original approved candidate digest and exact reviewed
+transaction body. Candidate and condition block identities must agree; neither
+independent latest reads nor a larger evidence lifetime repair a mismatch.
+Qualification errors identify the failed phase. `SnapshotMismatch` also covers
+acquisition or state-binding failures and alone does not establish changed source.
+
+Candidate preparation retains one proof reader across source matching, relation
+planning and trusted replay, with its original header, verified caches, request
+counter and acquisition deadline. Current prerequisites may reuse that candidate's
+opaque proved prestate; predicted completion overlays only trusted replay writes.
+Missing ancillary accounts or slots require independent proofs at the exact same
+root. Contradictory records, unproved zero values, changed source/control identity,
+reorganisation and expired evidence reject. This reuse grants no cross-block
+authority: post-inclusion completion and final goals still acquire their own
+current proofs.
+
 The host claims the current user turn before initial wallet readiness. If the
 selected account is locked, the shared native unlock prompt opens in chat before
 account-bound outbound scope consent. Cancelling unlock retires the attempt

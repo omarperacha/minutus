@@ -35,6 +35,26 @@ fallback. [EIP-1898](https://eips.ethereum.org/EIPS/eip-1898) addresses coherenc
 of block-selected RPC reads; these additional MPT checks prevent a different-root
 response from passing even if a reorganisation occurs between RPC calls.
 
+Declared workflow preparation selects one opaque host-owned live cohort. The
+candidate, current requirements and predicted completion all use its exact
+header hash and retain the monotonic clock started before header acquisition.
+The existing 30-second freshness window is never restarted when proofs finish.
+A later canonical descendant does not by itself invalidate that cohort: the
+owner samples a nonregressed current height and rechecks the original canonical
+anchor after the sample. Reorganised anchors, rollback, changed source/control
+state, unmet requirements and expiry still reject. Authentication refresh and
+final submission checks each select a new coherent cohort while retaining the
+original approved candidate binding. An explicit historical hash cannot create
+live prerequisite or refreshed workflow authority.
+
+Current requirements and predicted completion may reuse the candidate's sealed,
+proof-checked prestate at that exact header. Prerequisites read the prestate;
+prediction overlays only committed writes from trusted replay. Missing ancillary
+facts still require independent proofs at the same hash and root, with complete
+account/slot consistency checks before merging. This cache retains the original
+cohort age, source/control verification, cancellation/read bounds and final
+canonical checks; it creates no latest-state or historical-to-current fallback.
+
 Ordinary RPC response bodies remain limited to 64 KiB. Only the two standard
 `eth_getBlockByNumber`/`eth_getBlockByHash` methods with exactly two parameters
 and `fullTransactions: false` have a fixed 512 KiB limit: their responses still

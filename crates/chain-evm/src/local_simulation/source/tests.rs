@@ -127,8 +127,32 @@ fn numeric_proofs_keep_hash_bound_code_and_exact_canonical_finalisation()
         return Err("Expected exact storage proof".into());
     };
     assert_eq!(value, format!("{:#066x}", U256::from(42)));
+    let before = source.requests;
+    let sealed = source.snapshot();
+    assert_eq!(
+        sealed.slot(Address::repeat_byte(0x11), U256::ZERO),
+        Some(U256::from(42))
+    );
+    let StateValue::Storage { value } = source.query(&query(), &control)? else {
+        return Err("Expected retained cached storage".into());
+    };
+    assert_eq!(value, format!("{:#066x}", U256::from(42)));
+    assert_eq!(source.requests, before);
     source.canonical(&control)?;
     assert!(source.rpc.responses.borrow().is_empty());
+    source.requests = 256;
+    let _ = source.snapshot();
+    assert!(matches!(
+        source.query(
+            &StateQuery::Storage {
+                address: format!("{:#x}", Address::repeat_byte(0x11)),
+                slot: "0x1".into(),
+            },
+            &control
+        ),
+        Err(SimulationError::Limit)
+    ));
+    assert_eq!(source.requests, 257);
     assert_eq!(
         source
             .into_proved_state()

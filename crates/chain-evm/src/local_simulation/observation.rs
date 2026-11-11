@@ -28,6 +28,19 @@ impl<'a> ProvedReader<'a> {
     pub(crate) const fn block_number(&self) -> u64 {
         self.source.header.number
     }
+    pub(crate) const fn state_root(&self) -> B256 {
+        self.source.header.state_root
+    }
+    pub(crate) fn snapshot(
+        &mut self,
+        control: &SimulationControl<'_>,
+    ) -> Result<ProvedState, SimulationError> {
+        self.source.canonical(control)?;
+        Ok(self.source.snapshot())
+    }
+    pub(super) fn into_source(self) -> StateSource<RpcClient<'a>> {
+        self.source
+    }
     pub(crate) fn query(
         &mut self,
         query: &StateQuery,

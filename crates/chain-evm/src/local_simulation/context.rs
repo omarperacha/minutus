@@ -46,6 +46,33 @@ pub(super) fn prepare<'a>(
     let hash = proof::hash(&block.hash)?;
     let mut source = source::StateSource::new(rpc, network, header, hash);
     source.canonical(control)?;
+    let request = request(&mut source, intent, fees, control)?;
+    Ok((request, source))
+}
+
+pub(super) fn from_reader<'a>(
+    reader: super::ProvedReader<'a>,
+    intent: &UnsignedContractIntent,
+    fees: SimulationFeeFacts,
+    control: &SimulationControl<'_>,
+) -> Result<(SimulationRequest, source::StateSource<RpcClient<'a>>), SimulationError> {
+    let mut source = reader.into_source();
+    if source.network != intent.network() {
+        return Err(SimulationError::InconsistentState);
+    }
+    source.canonical(control)?;
+    let request = request(&mut source, intent, fees, control)?;
+    Ok((request, source))
+}
+
+fn request(
+    source: &mut source::StateSource<RpcClient<'_>>,
+    intent: &UnsignedContractIntent,
+    fees: SimulationFeeFacts,
+    control: &SimulationControl<'_>,
+) -> Result<SimulationRequest, SimulationError> {
+    let network = source.network;
+    let block = header::block(&source.header, source.hash)?;
     let StateValue::Account { nonce, .. } = source.query(
         &StateQuery::Account {
             address: intent.account().into(),
@@ -57,7 +84,7 @@ pub(super) fn prepare<'a>(
     };
     let value =
         U256::from_str_radix(intent.value_wei(), 10).map_err(|_| SimulationError::InvalidInput)?;
-    let request = SimulationRequest {
+    Ok(SimulationRequest {
         network: match network {
             EvmNetwork::Mainnet => SimulationNetwork::BaseMainnet,
             EvmNetwork::Sepolia => SimulationNetwork::BaseSepolia,
@@ -75,6 +102,5 @@ pub(super) fn prepare<'a>(
             max_fee_per_gas: fees.max_fee_per_gas,
             priority_fee_per_gas: fees.priority_fee_per_gas,
         },
-    };
-    Ok((request, source))
+    })
 }

@@ -157,6 +157,42 @@ repair or retry. Retain the Staging build, account, chosen argument, decision
 path, transaction hash, receipt block and observed field as the human test
 evidence. Do not record passwords or private keys.
 
+## Read-only native preparation diagnostic
+
+Before a wallet/UI write test, a debug Staging executable can exercise the same
+native `Context::preflight` and `Context::prepare` methods against the configured
+Ethereum Sepolia RPC:
+
+```sh
+MINUTUS_SOURCE_QUALIFICATION_DIAGNOSTICS=1 \
+  "target/debug/bundle/macos/Minutus Staging.app/Contents/MacOS/zeta-desktop" \
+  --qualify-contract-preparation --refresh --repeat
+```
+
+This fixed public fixture uses `Storage.store(uint256)` with `42`, zero native
+value, and the public caller `0xdc61120438889f790111f72c8f9ca2054a0654d3`.
+It proves no control of that caller. Its explicit prerequisite is `number == 1`;
+predicted completion and final declarations require `number == 42`. If another
+writer changes the shared cell, the prerequisite must fail rather than silently
+changing the fixture. The caller must also satisfy ordinary proved execution
+and fee validation.
+
+The command resolves native RPC configuration once, emits only its public
+origin, and creates a fresh disposable journal/user turn for each attempt.
+`--repeat` requests exactly three independent preparation experiments;
+`--refresh` additionally runs two real qualification refreshes and core
+prerequisite revalidations, labelled post-authentication-equivalent and
+pre-submission-equivalent. Those labels describe callback coverage: no native
+approval, actual authentication, signature or signed validation is performed.
+Every phase retains normal source/proof/cohort/resource admission. Any failed
+attempt makes the command fail. Production chat receives no retry route.
+
+Output is complete bounded public source/effect/cohort metadata, never raw
+transaction payloads or credentials. The command invokes no wallet, review,
+signing or send API, uses no real profile journal, and rejects release builds
+before reading native RPC settings. It does not qualify model tool routing,
+native consent/password interaction, transaction inclusion or a business goal.
+
 ## Remaining human gates
 
 Review the source/effect/protocol/nonce/workflow evidence and exact supported
