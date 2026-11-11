@@ -1,5 +1,6 @@
 //! Exact-state local execution; RPC header identity remains provider-trusted.
 mod context;
+mod diagnostics;
 mod execution;
 mod frozen;
 pub(crate) use frozen::{ProvedBaseSnapshot, freeze_proved_base};
@@ -10,6 +11,7 @@ mod proof;
 mod provenance;
 pub(crate) use observation::{ProvedReader, read_proved};
 mod record;
+mod rpc_budget;
 pub(crate) use provenance::{canonical_header, latest_header};
 mod source;
 mod trusted;

@@ -1,10 +1,11 @@
 //! Historical header lookup/canonicality for independently verified deployment proofs.
+use super::diagnostics::{self, Method, Stage};
 use crate::{EvmNetwork, EvmRpcUrl, rpc::RpcClient};
 use alloy_consensus::Header;
 use alloy_primitives::B256;
 use evm_simulation::{SimulationControl, SimulationError};
 use serde_json::json;
-use std::{str::FromStr, time::Duration};
+use std::str::FromStr;
 
 pub(crate) fn latest_header(
     endpoint: &EvmRpcUrl,
@@ -12,20 +13,26 @@ pub(crate) fn latest_header(
     control: &SimulationControl<'_>,
 ) -> Result<Header, SimulationError> {
     let rpc = RpcClient::new(endpoint).map_err(|_| SimulationError::StateUnavailable)?;
-    let value = rpc
-        .value_result_with_timeout(
+    let value = diagnostics::rpc(
+        Stage::LatestHeaderRpc,
+        Method::BlockByNumber,
+        rpc.value_result_with_timeout(
             "eth_getBlockByNumber",
             &json!(["latest", false]),
-            control.remaining()?.min(Duration::from_secs(1)),
-        )
-        .map_err(|_| SimulationError::StateUnavailable)?;
+            super::rpc_budget::timeout(control)?,
+        ),
+    )
+    .map_err(|_| SimulationError::StateUnavailable)?;
     control.remaining()?;
     let expected = value
         .get("hash")
         .and_then(serde_json::Value::as_str)
         .ok_or(SimulationError::InconsistentState)?;
-    let header: Header =
-        serde_json::from_value(value.clone()).map_err(|_| SimulationError::StateUnavailable)?;
+    let header: Header = diagnostics::state(
+        Stage::LatestHeaderDecode,
+        Method::None,
+        serde_json::from_value(value.clone()).map_err(|_| SimulationError::StateUnavailable),
+    )?;
     if format!("{:#x}", header.hash_slow()) != expected {
         return Err(SimulationError::InconsistentState);
     }
@@ -41,13 +48,12 @@ pub(crate) fn canonical_header(
     let expected = B256::from_str(hash).map_err(|_| SimulationError::InvalidInput)?;
     let rpc = RpcClient::new(endpoint).map_err(|_| SimulationError::StateUnavailable)?;
     let call = |method, params| {
-        let value = rpc
-            .value_result_with_timeout(
-                method,
-                &params,
-                control.remaining()?.min(Duration::from_secs(1)),
-            )
-            .map_err(|_| SimulationError::StateUnavailable)?;
+        let value = diagnostics::rpc(
+            Stage::CanonicalHeaderRpc,
+            Method::from_name(method),
+            rpc.value_result_with_timeout(method, &params, super::rpc_budget::timeout(control)?),
+        )
+        .map_err(|_| SimulationError::StateUnavailable)?;
         control.remaining()?;
         Ok::<_, SimulationError>(value)
     };
@@ -64,8 +70,11 @@ pub(crate) fn canonical_header(
     {
         return Err(SimulationError::InconsistentState);
     }
-    let header: Header =
-        serde_json::from_value(value).map_err(|_| SimulationError::StateUnavailable)?;
+    let header: Header = diagnostics::state(
+        Stage::CanonicalHeaderDecode,
+        Method::None,
+        serde_json::from_value(value).map_err(|_| SimulationError::StateUnavailable),
+    )?;
     if header.hash_slow() != expected {
         return Err(SimulationError::InconsistentState);
     }
@@ -73,8 +82,11 @@ pub(crate) fn canonical_header(
         "eth_getBlockByNumber",
         json!([format!("0x{:x}", header.number), false]),
     )?;
-    let repeated: Header =
-        serde_json::from_value(again).map_err(|_| SimulationError::StateUnavailable)?;
+    let repeated: Header = diagnostics::state(
+        Stage::CanonicalHeightDecode,
+        Method::None,
+        serde_json::from_value(again).map_err(|_| SimulationError::StateUnavailable),
+    )?;
     if repeated.hash_slow() != expected {
         return Err(SimulationError::InconsistentState);
     }

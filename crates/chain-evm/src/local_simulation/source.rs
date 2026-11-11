@@ -1,5 +1,8 @@
 //! Bounded proof-checked state acquisition; no simulation calldata is sent here.
-use super::{header, proof};
+use super::{
+    diagnostics::{self, Method, Stage},
+    header, proof,
+};
 use crate::{EvmNetwork, rpc::RpcClient};
 use alloy_consensus::Header;
 use alloy_primitives::{Address, B256, Bytes, U256, keccak256};
@@ -25,8 +28,12 @@ impl StateRpc for RpcClient<'_> {
         params: &Value,
         timeout: Duration,
     ) -> Result<Value, SimulationError> {
-        self.value_result_with_timeout(method, params, timeout)
-            .map_err(|_| SimulationError::StateUnavailable)
+        diagnostics::rpc(
+            Stage::StateReadRpc,
+            Method::from_name(method),
+            self.value_result_with_timeout(method, params, timeout),
+        )
+        .map_err(|_| SimulationError::StateUnavailable)
     }
 }
 
@@ -59,14 +66,12 @@ impl<R: StateRpc> StateSource<R> {
         params: &Value,
         control: &SimulationControl<'_>,
     ) -> Result<Value, SimulationError> {
-        let left = control.remaining()?;
+        let timeout = super::rpc_budget::timeout(control)?;
         self.requests += 1;
         if self.requests > 256 {
             return Err(SimulationError::Limit);
         }
-        let value = self
-            .rpc
-            .value(method, params, left.min(Duration::from_secs(1)))?;
+        let value = self.rpc.value(method, params, timeout)?;
         control.remaining()?;
         Ok(value)
     }
@@ -99,7 +104,11 @@ impl<R: StateRpc> StateSource<R> {
             return Ok(account.clone());
         }
         let proof = self.proof(address, &[], control)?;
-        let (exists, account) = proof::account(self.header.state_root, address, &proof)?;
+        let (exists, account) = diagnostics::state(
+            Stage::AccountProof,
+            Method::None,
+            proof::account(self.header.state_root, address, &proof),
+        )?;
         let code=self.rpc("eth_getCode",&json!([format!("{address:#x}"),{"blockHash":format!("{:#x}",self.hash),"requireCanonical":true}]),control)?;
         let code = code
             .as_str()
@@ -109,6 +118,7 @@ impl<R: StateRpc> StateSource<R> {
         if keccak256(&code) != account.code_hash {
             return Err(SimulationError::InconsistentState);
         }
+        diagnostics::account(exists, code.is_empty());
         self.accounts
             .insert(address, (exists, account, code.clone()));
         Ok((exists, account, code))
@@ -202,11 +212,19 @@ impl<R: StateRpc> SimulationStateSource for StateSource<R> {
                 }
                 let (_, account, _) = self.load_account(address, control)?;
                 let proof = self.proof(address, &[format!("{slot:#066x}")], control)?;
-                let (_, again) = proof::account(self.header.state_root, address, &proof)?;
+                let (_, again) = diagnostics::state(
+                    Stage::RepeatedAccountProof,
+                    Method::None,
+                    proof::account(self.header.state_root, address, &proof),
+                )?;
                 if account != again {
                     return Err(SimulationError::InconsistentState);
                 }
-                let value = proof::storage(account.storage_root, slot, &proof)?;
+                let value = diagnostics::state(
+                    Stage::StorageProof,
+                    Method::None,
+                    proof::storage(account.storage_root, slot, &proof),
+                )?;
                 self.slots.insert((address, slot), value);
                 Ok(StateValue::Storage {
                     value: format!("{value:#066x}"),

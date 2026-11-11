@@ -11,7 +11,6 @@ use evm_simulation::{
     SimulationStateSource, SimulationTransaction, StateQuery, StateValue,
 };
 use serde_json::json;
-use std::time::Duration;
 pub(super) fn prepare<'a>(
     endpoint: &'a EvmRpcUrl,
     intent: &UnsignedContractIntent,
@@ -25,7 +24,7 @@ pub(super) fn prepare<'a>(
         .value_result_with_timeout(
             "eth_chainId",
             &json!([]),
-            control.remaining()?.min(Duration::from_secs(1)),
+            super::rpc_budget::timeout(control)?,
         )
         .map_err(|_| SimulationError::StateUnavailable)?;
     control.remaining()?;
@@ -41,11 +40,7 @@ pub(super) fn prepare<'a>(
         ),
     };
     let value = rpc
-        .value_result_with_timeout(
-            method,
-            &params,
-            control.remaining()?.min(Duration::from_secs(1)),
-        )
+        .value_result_with_timeout(method, &params, super::rpc_budget::timeout(control)?)
         .map_err(|_| SimulationError::StateUnavailable)?;
     let (header, block) = header::decode(value, expected)?;
     let hash = proof::hash(&block.hash)?;

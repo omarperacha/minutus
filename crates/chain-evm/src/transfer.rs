@@ -575,7 +575,7 @@ impl Error for NativeTransferError {}
 impl From<RpcError> for NativeTransferError {
     fn from(error: RpcError) -> Self {
         match error {
-            RpcError::Transport => Self::Transport,
+            RpcError::Transport | RpcError::TimedOut => Self::Transport,
             RpcError::HttpStatus(status) => Self::HttpStatus(status),
             RpcError::ResponseTooLarge => Self::ResponseTooLarge,
             RpcError::MalformedResponse => Self::MalformedRpcResponse,

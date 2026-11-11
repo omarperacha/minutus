@@ -30,7 +30,7 @@ pub fn contract_fee_facts(
         .value_result_with_timeout(
             "eth_maxPriorityFeePerGas",
             &serde_json::json!([]),
-            control.remaining()?.min(std::time::Duration::from_secs(1)),
+            super::rpc_budget::timeout(&control)?,
         )
         .map_err(|_| SimulationError::StateUnavailable)?;
     control.remaining()?;

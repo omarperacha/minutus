@@ -1,4 +1,7 @@
-use super::proof;
+use super::{
+    diagnostics::{self, Method, Stage},
+    proof,
+};
 use alloy_consensus::Header;
 use alloy_primitives::B256;
 use evm_simulation::{SimulationBlock, SimulationError};
@@ -9,8 +12,11 @@ pub(super) fn decode(
     expected: Option<B256>,
 ) -> Result<(Header, SimulationBlock), SimulationError> {
     let hash = proof::hash(proof::text(&value, "hash")?)?;
-    let header: Header =
-        serde_json::from_value(value).map_err(|_| SimulationError::StateUnavailable)?;
+    let header: Header = diagnostics::state(
+        Stage::HeaderDecode,
+        Method::None,
+        serde_json::from_value(value).map_err(|_| SimulationError::StateUnavailable),
+    )?;
     if expected.is_some_and(|expected| expected != hash) || header.hash_slow() != hash {
         return Err(SimulationError::InconsistentState);
     }

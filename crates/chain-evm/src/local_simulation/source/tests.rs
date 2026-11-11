@@ -59,7 +59,7 @@ impl StateRpc for Fixture {
         params: &Value,
         timeout: Duration,
     ) -> Result<Value, SimulationError> {
-        assert!(timeout <= Duration::from_secs(1));
+        assert!(timeout <= Duration::from_secs(3));
         let (expected_method, expected_params, response) = self
             .responses
             .borrow_mut()
@@ -223,13 +223,8 @@ fn public_probe_canonical(
     let rpc = PublicProbeRpc {
         client: RpcClient::new(endpoint).map_err(|_| SimulationError::StateUnavailable)?,
     };
-    let call = |method, params| {
-        rpc.value(
-            method,
-            &params,
-            control.remaining()?.min(Duration::from_secs(1)),
-        )
-    };
+    let call =
+        |method, params| rpc.value(method, &params, super::super::rpc_budget::timeout(control)?);
     let chain = call("eth_chainId", json!([]))?;
     EvmNetwork::EthereumSepolia
         .validate_rpc_chain_id(chain.as_str().ok_or(SimulationError::InconsistentState)?)
@@ -271,7 +266,7 @@ fn default_public_sepolia_source_sequence_preserves_production_transport_bounds(
     let value = rpc.value(
         "eth_getBlockByNumber",
         &json!(["latest", false]),
-        control.remaining()?.min(Duration::from_secs(1)),
+        super::super::rpc_budget::timeout(&control)?,
     )?;
     let claimed = value["hash"].as_str().ok_or("Missing public header hash")?;
     let header: Header = serde_json::from_value(value.clone())?;

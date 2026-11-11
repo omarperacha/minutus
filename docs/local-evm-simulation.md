@@ -69,7 +69,7 @@ Only explicit reviewed chain/fork windows are accepted; there is no latest fork.
 | Execution gas / opcode steps | 1,000,000 / 200,000 |
 | Call depth / frames | 16 / 128 |
 | State queries / aggregate response bytes | 128 / 4 MiB |
-| Host state RPC calls / each IO timeout | 256 / min(remaining budget, 1 second) |
+| Host state RPC calls / each IO timeout | 256 / min(remaining budget, 3 seconds) |
 | Pipe frame / return data | 64 KiB / 8 KiB |
 | Logs / log data | 64 / 16 KiB |
 | Changed accounts / storage words | 128 / 128 |
@@ -83,6 +83,12 @@ block identity and successful child exit checks. Cancellation/limits/pipe faults
 discard partial output and kill/reap the helper. macOS footprint monitoring is
 sampled, not a hard allocation reservation; CPU and wall controls supplement it.
 The concrete RPC adapter checks cancellation after IO as well as before it.
+The shared header/proof/fee acquisition IO cap is three seconds within the
+unchanged fifteen-second phase deadline; it is not a separate allowance per
+request. An in-flight request can therefore delay cancellation by up to three
+seconds, after which cancellation still rejects its result. Bulk transaction and
+receipt acquisition retains its separate two-second IO cap; ordinary unsigned
+RPC observations retain their twelve-second cap.
 Other platforms fail closed. Staging packages separate pinned helper binaries.
 The qualification-only chat workflow is integrated; native human/security
 qualification and release enablement remain open.

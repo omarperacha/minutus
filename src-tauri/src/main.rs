@@ -49,6 +49,7 @@ mod chat_runtime;
 mod chat_tools;
 #[cfg(debug_assertions)]
 mod contract_qualification;
+mod contract_source_qualification;
 mod error_mapping;
 mod evm_approval;
 mod evm_authorizations;
@@ -363,6 +364,9 @@ fn shutdown_app(app: &tauri::AppHandle) {
 }
 
 fn main() -> ExitCode {
+    if let Some(result) = contract_source_qualification::dispatch() {
+        return result;
+    }
     if std::env::args_os().nth(1).as_deref() == Some(OsStr::new("--qualify-generic-contract")) {
         #[cfg(debug_assertions)]
         return match contract_qualification::run(&std::env::args_os().skip(2).collect::<Vec<_>>()) {

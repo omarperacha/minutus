@@ -34,3 +34,18 @@ fn production_binary_rejects_generic_qualification_before_startup()
     );
     Ok(())
 }
+
+#[test]
+fn production_binary_rejects_source_qualification_before_native_settings()
+-> Result<(), Box<dyn std::error::Error>> {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_zeta-desktop"))
+        .arg("--qualify-generic-source")
+        .output()?;
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8(output.stderr)?.trim(),
+        "Generic source qualification requires a debug executable"
+    );
+    Ok(())
+}

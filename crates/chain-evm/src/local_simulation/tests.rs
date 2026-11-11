@@ -119,7 +119,7 @@ impl source::StateRpc for Fixture {
         params: &Value,
         timeout: Duration,
     ) -> Result<Value, SimulationError> {
-        assert!(timeout <= Duration::from_secs(1));
+        assert!(timeout <= Duration::from_secs(3));
         let (expected, arguments, value) = self
             .responses
             .borrow_mut()

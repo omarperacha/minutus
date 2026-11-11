@@ -1,6 +1,12 @@
 //! Bounded credential-redacting JSON-RPC transport and exact uint256 values.
 
-use std::{cmp::Ordering, fmt, fmt::Write as _, io::Read, time::Duration};
+use std::{
+    cmp::Ordering,
+    fmt,
+    fmt::Write as _,
+    io::{self, Read},
+    time::Duration,
+};
 
 use reqwest::{StatusCode, blocking::Client, redirect::Policy};
 use serde::Deserialize;
@@ -150,7 +156,7 @@ impl<'a> RpcClient<'a> {
         // An offline worker without authenticated actual-reap evidence cannot
         // be followed by another online broker operation in this process.
         evm_simulation::ensure_worker_runtime_available().map_err(|_| RpcError::Transport)?;
-        let mut response = request.send().map_err(|_| RpcError::Transport)?;
+        let mut response = request.send().map_err(|error| transport_error(&error))?;
         if response.status() != StatusCode::OK {
             return Err(RpcError::HttpStatus(response.status().as_u16()));
         }
@@ -165,7 +171,7 @@ impl<'a> RpcClient<'a> {
             .by_ref()
             .take(max_response_bytes + 1)
             .read_to_end(&mut bytes)
-            .map_err(|_| RpcError::Transport)?;
+            .map_err(|error| body_read_error(&error))?;
         if bytes.len() as u64 > max_response_bytes {
             return Err(RpcError::ResponseTooLarge);
         }
@@ -173,8 +179,29 @@ impl<'a> RpcClient<'a> {
     }
 }
 
+fn transport_error(error: &reqwest::Error) -> RpcError {
+    if error.is_timeout() {
+        RpcError::TimedOut
+    } else {
+        RpcError::Transport
+    }
+}
+fn body_read_error(error: &io::Error) -> RpcError {
+    if error.kind() == io::ErrorKind::TimedOut
+        || error
+            .get_ref()
+            .and_then(|source| source.downcast_ref::<reqwest::Error>())
+            .is_some_and(reqwest::Error::is_timeout)
+    {
+        RpcError::TimedOut
+    } else {
+        RpcError::Transport
+    }
+}
 #[cfg(test)]
 mod header_response_tests;
+#[cfg(test)]
+mod transport_error_tests;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -233,6 +260,7 @@ pub(crate) enum RpcCallOutcome {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum RpcError {
     Transport,
+    TimedOut,
     HttpStatus(u16),
     ResponseTooLarge,
     MalformedResponse,
@@ -242,7 +270,9 @@ pub(crate) enum RpcError {
 impl fmt::Display for RpcError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Transport => formatter.write_str("The EVM RPC endpoint could not be reached"),
+            Self::Transport | Self::TimedOut => {
+                formatter.write_str("The EVM RPC endpoint could not be reached")
+            }
             Self::HttpStatus(status) => {
                 write!(formatter, "The EVM RPC endpoint returned HTTP {status}")
             }

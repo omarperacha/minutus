@@ -47,6 +47,37 @@ Successful initial unlock allows account-bound scope review and qualification.
 It is not transaction approval or signing authentication. After exact native
 approval, every write still requests a separate fresh signing password.
 
+## Read-only source diagnostic
+
+The signed debug Staging executable can test the same source-inspection API
+without starting the app profile or wallet:
+
+```sh
+MINUTUS_SOURCE_QUALIFICATION_DIAGNOSTICS=1 \
+  "target/debug/bundle/macos/Minutus Staging.app/Contents/MacOS/zeta-desktop" \
+  --qualify-generic-source ethereumSepolia \
+  0x2738d13e81e30bc615766a0410e7cf199fd59a83 --repeat \
+  > /tmp/minutus-source-inspection.jsonl 2> /tmp/minutus-source-inspection.log
+```
+
+This explicitly authorised diagnostic reads the configured RPC item through the
+native settings owner; macOS may request Keychain access. It prints only the
+public provider origin, never URL credentials, paths or query parameters.
+It does not open a vault, request a wallet password, approve, sign or submit.
+Release binaries reject this flag before native settings access.
+
+`--repeat` makes exactly three independent source inspections in one process
+after resolving the endpoint once. Each resolves `latest` afresh, verifies
+header/account/storage/code correspondence and reproduces source with the
+packaged compiler. The first and subsequent trials are separately labelled;
+any source failure keeps the overall exit status unsuccessful. A final ordinary
+runtime read is a labelled transport control and cannot qualify a failed source
+trial. No automatic retry is added to production tools.
+
+The optional diagnostic log contains only fixed stage/method/error categories,
+without provider prose, request arguments, source text or response contents.
+Source metadata remains a bounded unsigned observation with no write authority.
+
 ## Standard Ethereum Sepolia write fixture
 
 Use the public `Storage` contract below for the single-write native gate. This
