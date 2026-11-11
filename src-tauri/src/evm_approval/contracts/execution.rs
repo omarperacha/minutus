@@ -54,17 +54,24 @@ async fn run(
     cancelled: &Arc<AtomicBool>,
     cancel: &TransferCancellation,
 ) -> Result<Value, IpcError> {
-    let account = super::readiness::initial_account(&wallet.public_state()?)?;
     cancel.check()?;
-    let scope = request.scope(&account)?;
     let message = conversation
         .messages
         .iter()
         .rev()
         .find(|message| message.role == MessageRole::User)
         .ok_or_else(IpcError::internal)?;
-    let Some(session) = core
-        .start_contract_workflow(&conversation.id, &message.id, scope.clone())
+    let Some(attempt) = core
+        .claim_contract_workflow_attempt(&conversation.id, &message.id)
+        .map_err(crate::error_mapping::app_core_error)?
+    else {
+        return Ok(json!({"state":"alreadyAttempted","retryAutomatically":false}));
+    };
+    let account =
+        super::readiness::initial_account(cancel, wallet.ensure_account_ready(core)).await?;
+    let scope = request.scope(&account)?;
+    let Some(session) = attempt
+        .start_profile(scope.clone())
         .map_err(crate::error_mapping::app_core_error)?
     else {
         return Ok(json!({"state":"alreadyAttempted","retryAutomatically":false}));

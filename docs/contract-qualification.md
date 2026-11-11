@@ -13,7 +13,14 @@ effects. Header identity follows the configured RPC; these checks are not a cons
 Only the native controller can request per-write review and fresh vault
 password authentication. Neither a plan nor a workflow record approves a write.
 
-Start with an existing selected account already unlocked in Wallet. If it is locked, unlock through Wallet and make a fresh workflow request; the workflow does not unlock before outbound scope consent. This initial readiness requirement does not replace fresh password authentication for every write, and later relocking or account changes remain subject to normal readiness/approval checks.
+An existing selected account is required. A locked account opens the shared
+native unlock prompt while the user remains in chat, as transfers and x402 do.
+The host durably claims the user turn before prompting; cancellation consumes
+that attempt and requires a deliberate new user request. Unlocking precedes
+account-bound outbound scope review and grants neither outbound permission nor
+transaction approval. Every write still needs independent exact native approval
+and a separate fresh signing password. Later relocking, account changes and
+cancellation retain the existing readiness, epoch and approval checks.
 
 The new workflow tool is gated to a debug qualification build with packaged attested helpers. Release builds keep it disabled pending [native interaction and human security qualification](contract-native-qualification.md).
 

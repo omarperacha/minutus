@@ -166,6 +166,13 @@ refresh, financial bounds, cancellation, nonce ownership and one-attempt durable
 submission. Historical receipt inclusion and fresh current predicates remain
 separate certificates. Neither grants signing authority or guarantees finality.
 
+The host claims the current user turn before initial wallet readiness. If the
+selected account is locked, the shared native unlock prompt opens in chat before
+account-bound outbound scope consent. Cancelling unlock retires the attempt
+without starting source/RPC acquisition; a new attempt needs a deliberate new
+user message. Unlocking is separate from exact transaction approval and the fresh
+signing password required after approval for every write.
+
 The explicitly ignored chain-owner integration matrix uses the real packaged
 official compiler, generated MPT account/storage proofs, maintained frozen replay
 and private candidate construction. It covers direct and exact ERC-1167 calls on

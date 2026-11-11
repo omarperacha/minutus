@@ -137,6 +137,14 @@ Release availability remains disabled pending native interaction qualification
 and final human security review. Packaging pins alone cannot promote this
 capability. The earlier bundled-profile API remains compatible.
 
+Contract workflows consume their current-turn attempt before initial native
+wallet readiness. A locked selected account prompts unlock in chat through the
+shared wallet owner before account-bound outbound consent. Cancellation leaves
+the turn consumed and starts no source/RPC acquisition. Initial unlock grants no
+transaction approval or fresh signing authority: every write still needs exact
+native approval and separate fresh password authentication, with the existing
+account/epoch, refresh and nonce checks.
+
 Version 2 binds arbitrary ABI declarations to locally reproduced source and
 proof-checked current runtime/dispatch. A pinned official Solidity compiler runs
 in a separate bounded helper. Supported compiler versions and AST features are

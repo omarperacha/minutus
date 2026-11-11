@@ -1,5 +1,6 @@
 //! Fixed workflow scope and durable execution coordination. No persisted value
 //! or model declaration is native approval, authentication or effect proof.
+mod attempt;
 mod declaration;
 mod declared_execution;
 mod declared_qualification;
@@ -12,6 +13,7 @@ mod scope;
 #[cfg(test)]
 mod tests;
 
+pub use attempt::ContractWorkflowAttempt;
 pub use declaration::ContractWorkflowDeclaration;
 pub use declared_execution::{DeclaredContractWorkflowSession, DeclaredContractWorkflowStep};
 pub use declared_qualification::{DeclaredContractCompletion, PreparedDeclaredContractStep};

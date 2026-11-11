@@ -9,9 +9,9 @@ use std::sync::Arc;
 
 /// Host-owned workflow session. Identifiers/structural scope do not approve writes.
 pub struct ContractWorkflowSession {
-    core: Arc<AppCore>,
-    id: ContractWorkflowId,
-    scope: ContractWorkflowScope,
+    pub(super) core: Arc<AppCore>,
+    pub(super) id: ContractWorkflowId,
+    pub(super) scope: ContractWorkflowScope,
 }
 /// One consumed ordered intent. No approval, authentication or qualified result.
 pub struct ContractWorkflowStepWork {

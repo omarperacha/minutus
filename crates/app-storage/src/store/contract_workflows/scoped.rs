@@ -108,12 +108,24 @@ pub(super) fn create_manifest(
     if claimed != 1 {
         return Ok(None);
     }
+    insert_manifest(tx, conversation, message, scope, steps, scoped).map(Some)
+}
+// Internal manifest writing is shared only after the caller has either just
+// inserted the tombstone or consumed the exact live owner-bound attempt.
+pub(super) fn insert_manifest(
+    tx: &Transaction<'_>,
+    conversation: &ConversationId,
+    message: &MessageId,
+    scope: &str,
+    steps: &[String],
+    scoped: bool,
+) -> Result<ContractWorkflowId, StorageError> {
     tx.execute("INSERT INTO contract_workflows(conversation_id,message_id,scope_commitment,step_commitments_json,scope_format) VALUES (?1,?2,?3,?4,?5)",params![conversation.0,message.0,scope,serde_json::to_string(steps).map_err(|_|StorageError::InvalidRecord("invalid workflow manifest"))?,i64::from(scoped)])?;
     let id = ContractWorkflowId(tx.last_insert_rowid());
     for (index, commitment) in steps.iter().enumerate() {
         tx.execute("INSERT INTO contract_workflow_steps(workflow_id,step_index,commitment,state) VALUES (?1,?2,?3,'planned')",params![id.0,i64::try_from(index).map_err(|_|StorageError::InvalidRecord("invalid step index"))?,commitment])?;
     }
-    Ok(Some(id))
+    Ok(id)
 }
 pub(super) fn current_turn(
     connection: &Connection,

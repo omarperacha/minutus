@@ -1,84 +1,118 @@
-//! Initial public readiness projection. It never unlocks, reads a hidden locked
-//! address, performs RPC, or creates signing authority.
+//! Initial native wallet readiness precedes account-bound scope construction.
+//! Unlocking grants neither outbound consent nor fresh signing authentication.
+use crate::wallet_lifecycle::TransferCancellation;
 use chain_evm::PublicEvmAddress;
-use ipc_types::{IpcError, PublicWalletState, WalletAvailability};
+use ipc_types::IpcError;
+use std::future::Future;
 
-pub(super) fn initial_account(state: &PublicWalletState) -> Result<String, IpcError> {
-    match &state.availability {
-        WalletAvailability::Locked => Err(IpcError::permission_denied(
-            "Unlock the existing account in Wallet, then make a fresh contract workflow request",
-        )),
-        WalletAvailability::Unavailable => Err(crate::wallet_lifecycle::wallet_error(
-            "Create, restore or import an account first",
-            false,
-        )),
-        WalletAvailability::Ready => {
-            let address = state.address.as_deref().ok_or_else(|| {
-                IpcError::invalid_request(
-                    "Select an account in Wallet before requesting a contract workflow",
-                )
-            })?;
-            PublicEvmAddress::new(address)
-                .map(|address| address.as_str().to_owned())
-                .map_err(|_| {
-                    IpcError::invalid_request("The selected public wallet address is invalid")
-                })
-        }
-    }
+pub(super) async fn initial_account(
+    cancel: &TransferCancellation,
+    ensure_ready: impl Future<Output = Result<String, IpcError>>,
+) -> Result<String, IpcError> {
+    cancel.check()?;
+    let ready = ensure_ready.await;
+    // The transfer owner aborts a pending native prompt on cancellation. Check
+    // again before a completed unlock can supply an account for outbound scope.
+    cancel.check()?;
+    let account = ready?;
+    PublicEvmAddress::new(&account)
+        .map(|address| address.as_str().to_owned())
+        .map_err(|_| IpcError::invalid_request("The selected public wallet address is invalid"))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn state(availability: WalletAvailability, address: Option<&str>) -> PublicWalletState {
-        PublicWalletState {
-            wallet_id: None,
-            address: address.map(str::to_owned),
-            network: None,
-            availability,
-        }
-    }
-    #[test]
-    fn locked_wallet_is_not_reported_as_absent_or_allowed_to_supply_an_address() {
-        for address in [None, Some("untrusted locked metadata")] {
-            let result = initial_account(&state(WalletAvailability::Locked, address));
-            assert!(result.as_ref().is_err_and(|error| {
-                error
-                    .message
-                    .contains("Unlock the existing account in Wallet")
-            }));
-            assert!(
-                result
-                    .as_ref()
-                    .is_err_and(|error| error.message.contains("fresh contract workflow request"))
-            );
-            assert!(result.is_err_and(|error| !error.message.contains("Create, restore")));
-        }
-    }
-    #[test]
-    fn absent_wallet_keeps_the_existing_creation_guidance() {
-        let result = initial_account(&state(WalletAvailability::Unavailable, None));
-        assert!(result.as_ref().is_err_and(|error| error.code
-            == ipc_types::IpcErrorCode::Unsupported
-            && !error.retryable));
-        assert!(
-            result
-                .is_err_and(|error| error.message == "Create, restore or import an account first")
-        );
-    }
-    #[test]
-    fn ready_wallet_address_is_validated_and_canonicalised() -> Result<(), IpcError> {
+    use ipc_types::IpcErrorCode;
+    use std::{
+        cell::Cell,
+        sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        },
+    };
+
+    const ACCOUNT: &str = "0x52908400098527886E0F7030069857D2E4169EE7";
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn cancelled_request_never_polls_native_readiness() {
+        let cancel = TransferCancellation::new(Arc::new(AtomicBool::new(true)));
+        let prompted = Cell::new(false);
+        let result = initial_account(&cancel, async {
+            prompted.set(true);
+            Ok(ACCOUNT.into())
+        })
+        .await;
+        assert!(!prompted.get());
         assert_eq!(
-            initial_account(&state(
-                WalletAvailability::Ready,
-                Some("0x52908400098527886E0F7030069857D2E4169EE7")
-            ))?,
-            "0x52908400098527886e0f7030069857d2e4169ee7"
+            result.err().map(|error| error.code),
+            Some(IpcErrorCode::Cancelled)
         );
-        assert!(initial_account(&state(WalletAvailability::Ready, None)).is_err());
-        assert!(
-            initial_account(&state(WalletAvailability::Ready, Some("not-an-address"))).is_err()
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn cancellation_during_unlock_cannot_supply_a_scope_account() {
+        let requested = Arc::new(AtomicBool::new(false));
+        let cancel = TransferCancellation::new(Arc::clone(&requested));
+        let result = initial_account(&cancel, async {
+            requested.store(true, Ordering::Release);
+            Ok(ACCOUNT.into())
+        })
+        .await;
+        assert_eq!(
+            result.err().map(|error| error.code),
+            Some(IpcErrorCode::Cancelled)
         );
-        Ok(())
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn native_unlock_cancellation_and_unavailable_wallet_errors_are_preserved() {
+        let cancel = TransferCancellation::new(Arc::new(AtomicBool::new(false)));
+        for error in [
+            IpcError {
+                code: IpcErrorCode::Cancelled,
+                message: "Wallet operation cancelled".into(),
+                retryable: false,
+            },
+            crate::wallet_lifecycle::wallet_error(
+                "Create, restore or import an account first",
+                false,
+            ),
+        ] {
+            let expected = (error.code.clone(), error.message.clone(), error.retryable);
+            let result = initial_account(&cancel, async { Err(error) }).await;
+            assert_eq!(
+                result
+                    .err()
+                    .map(|error| (error.code, error.message, error.retryable)),
+                Some(expected)
+            );
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn native_readiness_finishes_before_the_canonical_account_is_released() {
+        let cancel = TransferCancellation::new(Arc::new(AtomicBool::new(false)));
+        let unlocked = Cell::new(false);
+        let result = initial_account(&cancel, async {
+            unlocked.set(true);
+            Ok(ACCOUNT.into())
+        })
+        .await;
+        assert!(unlocked.get());
+        assert_eq!(
+            result.ok().as_deref(),
+            Some("0x52908400098527886e0f7030069857d2e4169ee7")
+        );
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn invalid_readiness_address_cannot_supply_a_scope_account() {
+        let cancel = TransferCancellation::new(Arc::new(AtomicBool::new(false)));
+        let result = initial_account(&cancel, async { Ok("not-an-address".into()) }).await;
+        assert_eq!(
+            result.err().map(|error| error.code),
+            Some(IpcErrorCode::InvalidRequest)
+        );
     }
 }

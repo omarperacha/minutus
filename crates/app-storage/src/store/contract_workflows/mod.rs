@@ -1,4 +1,5 @@
 //! Durable sequential workflows; persisted state never grants approval or signing.
+mod attempt;
 mod binding;
 mod declaration;
 mod dispatch;
@@ -18,6 +19,7 @@ mod scoped_tests;
 #[cfg(test)]
 mod tests;
 
+pub use attempt::ContractWorkflowAttemptClaim;
 pub use binding::{
     StoredContractObserver, StoredObserverPredicate, StoredPredicateComparison,
     StoredWorkflowCandidate,
