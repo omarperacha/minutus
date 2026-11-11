@@ -18,10 +18,22 @@ wallet, password or signature is accessed. Potential implementation roles are
 labelled separately from proved execution roles; these results do not qualify a
 write or establish token/business semantics.
 
-This opt-in result reports `writeAuthorityGranted: false` and
-`effectsQualified: false` for the observation. Those fields do not describe
-whether the host separately advertises a workflow capability. Plain inspection
-and read result contracts retain their existing fields.
+Plain inspection and unsigned reads report
+`sourceQualification.status: "notRequested"`: they perform no source lookup or
+local reproduction and cannot establish that published source is absent. When
+source or reproduced ABI/layout is needed, request `contract.inspect` with
+`includeSource: true`; a plain result is not a reason to ask the user to supply
+source that may already be published. Successful source inspection reports
+`sourceQualification.status: "reproduced"`. A failed source attempt can reflect
+compiler, provider, proof or source correspondence failure and does not by
+itself prove missing published source.
+
+All these observation results report `writeAuthorityGranted: false` and
+`effectsQualified: false`. Those fields describe the observation, not whether the
+host separately advertises a workflow capability. The chat projection removes
+the legacy `sourceQualified` and `writesAvailable` flags from its host-owned code
+context; the underlying chain observation API remains compatible. Decoded ABI
+values, arguments, return bytes and revert evidence are preserved exactly.
 
 Immutable bindings identify the compiler declaration, original and canonical ABI
 types, and the observed value in current code. A fixed address can help declare

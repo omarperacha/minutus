@@ -51,9 +51,11 @@ pub struct ContractCodeObservation {
     pub runtime_code_hash: String,
     /// Observed runtime length.
     pub runtime_code_bytes: usize,
-    /// Always false: no verified source/ABI/proxy resolver is installed.
+    /// Always false for this RPC-only observation, which performs no source
+    /// lookup. This is not evidence that the contract has no published source.
     pub source_qualified: bool,
-    /// Always false: arbitrary effects are not qualified for signing.
+    /// Always false for this observation: it grants no write authority. This is
+    /// not the host's separately advertised contract-workflow availability.
     pub writes_available: bool,
     /// Provider-reported canonicality checked again after the observation.
     pub canonical_at_observation: bool,

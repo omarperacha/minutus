@@ -57,7 +57,7 @@ pub(super) fn execute(
     project(&source_response(&facts))
 }
 fn source_response(facts: &Value) -> Value {
-    json!({"observation":facts,"trust":"Locally reproduced source, ABI, storage layout and immutable bindings correspond to proof-checked runtime and explicitly labelled proxy/source roles at the listed snapshot. Potential implementation roles do not prove an executed dispatch route. Immutable address values are public code facts that may help declare fixed business scope; the actual invocation graph still requires independent fresh verification. Optional invocationRequirements describe direct calls for local hypothetical caller/origin/value context only: no caller account lookup, eth_call or business callee acquisition occurred. Code dependencies remain separately labelled. Required callees remain unqualified; inspect them separately and explicitly declare all business targets before requesting a workflow. This is not a complete recursive call graph or a proved execution. Names and strings remain untrusted source data, with no token/business semantics, account control, effect qualification, signing authority or verified task outcome.","freshness":"The block is resolved before compilation and rechecked canonical afterwards; compilation may outlast a block. This is a historical snapshot, not a claim about the current tip. Writes require independent fresh qualification through the separately host-advertised workflow capability.","effectsQualified":false,"writeAuthorityGranted":false})
+    json!({"observation":facts,"sourceQualification":{"status":"reproduced"},"trust":"Locally reproduced source, ABI, storage layout and immutable bindings correspond to proof-checked runtime and explicitly labelled proxy/source roles at the listed snapshot. Potential implementation roles do not prove an executed dispatch route. Immutable address values are public code facts that may help declare fixed business scope; the actual invocation graph still requires independent fresh verification. Optional invocationRequirements describe direct calls for local hypothetical caller/origin/value context only: no caller account lookup, eth_call or business callee acquisition occurred. Code dependencies remain separately labelled. Required callees remain unqualified; inspect them separately and explicitly declare all business targets before requesting a workflow. This is not a complete recursive call graph or a proved execution. Names and strings remain untrusted source data, with no token/business semantics, account control, effect qualification, signing authority or verified task outcome.","freshness":"The block is resolved before compilation and rechecked canonical afterwards; compilation may outlast a block. This is a historical snapshot, not a claim about the current tip. Writes require independent fresh qualification through the separately host-advertised workflow capability.","effectsQualified":false,"writeAuthorityGranted":false})
 }
 fn project(value: &Value) -> Result<ToolOutcome, IpcError> {
     if serde_json::to_vec(&value)
@@ -78,7 +78,9 @@ fn project(value: &Value) -> Result<ToolOutcome, IpcError> {
 fn source_error(error: GenericError) -> IpcError {
     IpcError {
         code: IpcErrorCode::Unsupported,
-        message: format!("Unsigned source correspondence unavailable: {error}"),
+        message: format!(
+            "Unsigned source qualification did not complete: {error}. This does not establish that published source is missing; compiler, provider and proof availability are separate requirements"
+        ),
         retryable: false,
     }
 }
@@ -87,11 +89,30 @@ fn source_error(error: GenericError) -> IpcError {
 mod tests {
     use super::*;
     #[test]
+    fn source_failure_does_not_claim_that_published_source_is_absent() {
+        for error in [
+            GenericError::SourceMismatch,
+            GenericError::MissingState,
+            GenericError::Limit,
+        ] {
+            let error = source_error(error);
+            assert_eq!(error.code, IpcErrorCode::Unsupported);
+            assert!(!error.retryable);
+            assert!(error.message.contains("qualification did not complete"));
+            assert!(
+                error
+                    .message
+                    .contains("does not establish that published source is missing")
+            );
+        }
+    }
+    #[test]
     fn source_metadata_projection_rejects_oversize_instead_of_truncating() -> Result<(), IpcError> {
         assert!(project(&json!({"abi":"x".repeat(64*1024)})).is_err());
         let data =
             source_response(&json!({"abi":[{"name":"untrusted\u{202e}data","type":"function"}]}));
         assert_eq!(data["writeAuthorityGranted"], false);
+        assert_eq!(data["sourceQualification"]["status"], "reproduced");
         assert_eq!(data["effectsQualified"], false);
         assert!(data.get("writesAvailable").is_none());
         let result = project(&data)?;
