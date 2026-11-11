@@ -73,19 +73,35 @@ fn review_text(request: &ObservationRequest, endpoint: &EvmRpcUrl) -> String {
     let call = request.call.as_ref().map_or_else(||"Runtime code metadata only; no calldata.".into(),|call|format!(
         "Simulated caller: {}\nFunction (unverified): {}\nArguments: {}\nExact calldata: {}\nValue: 0 wei; gas cap: 1,000,000",
         request.caller.as_deref().unwrap_or("0x0000000000000000000000000000000000000000"),call.signature(),crate::web_approval::review_json(&serde_json::Value::Array(call.arguments().to_vec())),call.calldata()));
+    let invocation = request.invocation.as_ref().map_or_else(String::new, |local| {
+        let intent = &local.intent;
+        format!(
+            "\n\nLOCAL HYPOTHETICAL INVOCATION — NOT SENT TO RPC\nCaller: {}\nOrigin: {}\nValue: {} wei\nFunction (source data): {}\nArguments: {}\nLocal calldata: {}\nThis context stays on this Mac. No caller account lookup, eth_call or callee fetch. Direct required callees remain unqualified; this grants no business scope or write authority.",
+            intent.account(), local.origin, intent.value_wei(), intent.call().signature(),
+            crate::web_approval::review_json(&serde_json::Value::Array(intent.call().arguments().to_vec())),
+            intent.call().calldata()
+        )
+    });
     let source = if request.include_source {
         "\n\nSOURCE CORRESPONDENCE REQUESTED\nPublic source service: https://sourcify.dev\nOfficial compiler downloads: https://binaries.soliditylang.org\nThe source service receives only public chain/address lookups, including proof-derived implementation dependencies. Compiler downloads reveal compiler versions. Source is reproduced locally and compared with proof-checked runtime at the requested snapshot. No transaction calldata, signatures or wallet secrets are sent to these services. ABI/layout/source identifiers are returned only as unsigned metadata, with no docs/comments, write authority or economic-safety claim."
     } else {
         ""
     };
+    let provider = if request.call.is_some() {
+        "The provider sees your IP address and the displayed public addresses/call bytes. Arguments may contain sensitive data: deny if you do not intend to share them."
+    } else {
+        "The provider sees your IP address and public target/code-dependency addresses for chain/block/code checks. Local hypothetical invocation arguments, caller, origin, value and calldata are not sent to the provider."
+    };
     format!(
-        "Allow this one-time outbound observation?\n\nNetwork: {}\nProvider origin: {}\nTarget: {}\nBlock: {}\n{}{}\n\nThe provider sees your IP address and these public addresses/call bytes. Arguments may contain sensitive data: deny if you do not intend to share them. This permission covers the displayed call, chain/block/code checks and only the explicitly requested source/compiler acquisition above.\n\nNo wallet, password, signature or transaction. Simulated state changes are discarded. Caller-declared ABI and provider data remain untrusted; separately reproduced source correspondence does not establish economic safety or qualify effects.",
+        "Allow this one-time outbound observation?\n\nNetwork: {}\nProvider origin: {}\nTarget: {}\nBlock: {}\n{}{}{}\n\n{} This permission covers the displayed outbound call, chain/block/code checks and only the explicitly requested source/compiler acquisition above.\n\nNo wallet, password, signature or transaction. Simulated state changes are discarded. Caller-declared ABI and provider data remain untrusted; separately reproduced source correspondence does not establish economic safety or qualify effects.",
         request.network.descriptor().display_name(),
         endpoint.public_origin(),
         request.target,
         block,
         call,
-        source
+        invocation,
+        source,
+        provider
     )
 }
 
@@ -109,6 +125,7 @@ mod tests {
             block: ContractBlock::Latest,
             caller: None,
             call: Some(call),
+            invocation: None,
         };
         let endpoint = EvmRpcUrl::new(
             "https://user:secret@provider.example/private-key?token=credential".into(),
@@ -134,6 +151,7 @@ mod tests {
             block: ContractBlock::Hash(format!("0x{}", "a".repeat(64))),
             call: None,
             caller: None,
+            invocation: None,
         };
         let plain = review_text(&request, &endpoint);
         assert!(!plain.contains("https://sourcify.dev"));
@@ -170,6 +188,7 @@ mod dynamic_text_tests {
             block: ContractBlock::Latest,
             caller: None,
             call: Some(call),
+            invocation: None,
         };
         let text = review_text(
             &request,
@@ -182,6 +201,38 @@ mod dynamic_text_tests {
         assert!(text.contains("\\u2066"));
         assert!(text.contains("\\u200b"));
         assert!(text.contains(request.call.as_ref().ok_or("call")?.calldata()));
+        Ok(())
+    }
+
+    #[test]
+    fn hypothetical_context_is_local_only_and_cannot_spoof_the_native_disclosure()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let call = model_runtime::ParsedToolCall {
+            call_id: "local".into(),
+            recipient: "contract.inspect".into(),
+            name: "contract.inspect".into(),
+            arguments: serde_json::from_value(serde_json::json!({
+                "network":"ethereumSepolia", "block":"latest", "includeSource":true,
+                "target":"0x1111111111111111111111111111111111111111",
+                "invocation":{"function":"f(string)","arguments":["data\u{202e}spoof\u{200b}"],
+                    "caller":"0x2222222222222222222222222222222222222222","valueWei":"7"}
+            }))?,
+        };
+        let request = super::super::intent::request(&call).map_err(|error| error.message)?;
+        let text = review_text(
+            &request,
+            &EvmRpcUrl::new("https://provider.example".into())?,
+        );
+        assert!(text.contains("LOCAL HYPOTHETICAL INVOCATION — NOT SENT TO RPC"));
+        assert!(text.contains("Value: 7 wei"));
+        assert!(text.contains("Origin: 0x2222222222222222222222222222222222222222"));
+        assert!(text.contains("No caller account lookup, eth_call or callee fetch"));
+        assert!(text.contains("https://sourcify.dev"));
+        assert!(text.contains("\\u202e"));
+        assert!(text.contains("\\u200b"));
+        assert!(!text.contains('\u{202e}'));
+        assert!(!text.contains('\u{200b}'));
+        assert!(request.call.is_none() && request.caller.is_none());
         Ok(())
     }
 }

@@ -2,13 +2,18 @@
 //! The compiler and its `JavaScriptCore` host are explicit trusted components;
 //! untrusted source is compiled in a separately bounded, authority-free process.
 mod artifact;
+mod bytecode;
 mod catalogue;
+mod immutables;
 mod input;
 mod native_identity;
+#[cfg(test)]
+mod native_memory;
 mod supervisor;
 
 pub use artifact::ReproducedArtifact;
 pub use catalogue::{CompilerBuild, compiler_build};
+pub use immutables::ImmutableBinding;
 pub use input::CompilationInput;
 pub use supervisor::TrustedCompiler;
 
@@ -29,6 +34,8 @@ pub enum CompilationError {
     CompilationFailed,
     /// Compiler/artifact/input correspondence is inconsistent.
     ArtifactMismatch,
+    /// Actual worker termination could not be authenticated; future starts reject.
+    UnconfirmedTermination,
     /// Fixed memory, output, CPU, source or wall-time bound exceeded.
     Limit,
     /// Cancelled before a complete reproduced artifact existed.

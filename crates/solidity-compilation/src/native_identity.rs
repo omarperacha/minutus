@@ -12,6 +12,7 @@ unsafe extern "C" {
         section: *const libc::c_char,
         size: *mut libc::c_ulong,
     ) -> *const u8;
+    #[cfg(test)]
     fn csops(
         pid: libc::pid_t,
         operation: libc::c_uint,
@@ -51,6 +52,7 @@ pub(crate) fn host_manifest() -> Result<Vec<u8>, CompilationError> {
         Err(CompilationError::WorkerUnavailable)
     }
 }
+#[cfg(test)]
 pub(crate) fn child_hash(pid: u32) -> Result<[u8; 20], CompilationError> {
     #[cfg(target_os = "macos")]
     {
@@ -77,6 +79,7 @@ pub(crate) fn child_hash(pid: u32) -> Result<[u8; 20], CompilationError> {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn child_exited(pid: u32) -> Result<bool, CompilationError> {
     #[cfg(target_os = "macos")]
     {
@@ -105,24 +108,5 @@ pub(crate) fn child_exited(pid: u32) -> Result<bool, CompilationError> {
     }
 }
 
-pub(crate) fn physical_bytes(pid: u32) -> Result<u64, CompilationError> {
-    #[cfg(target_os = "macos")]
-    {
-        let pid = i32::try_from(pid).map_err(|_| CompilationError::WorkerUnavailable)?;
-        let mut usage = std::mem::MaybeUninit::<libc::rusage_info_v0>::zeroed();
-        // SAFETY: fixed SDK buffer and the supervisor's own unreaped child only.
-        if unsafe { libc::proc_pid_rusage(pid, libc::RUSAGE_INFO_V0, usage.as_mut_ptr().cast()) }
-            != 0
-        {
-            return Err(CompilationError::WorkerUnavailable);
-        }
-        // SAFETY: successful kernel call initialised the exact V0 structure.
-        let usage = unsafe { usage.assume_init() };
-        Ok(usage.ri_phys_footprint.max(usage.ri_resident_size))
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = pid;
-        Err(CompilationError::WorkerUnavailable)
-    }
-}
+#[cfg(test)]
+pub(crate) use crate::native_memory::physical_bytes;

@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
     SimulationControl, SimulationError, SimulationObservation, SimulationRequest, protocol,
-    supervisor::{self, WatchedChild},
+    supervisor::{self, WatchedProcess},
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -86,7 +86,7 @@ pub(super) fn execute(
     let _ = snapshot.fee_ceiling()?;
     let exchange = |mut input,
                     receiver: &Receiver<Result<Option<WorkerMessage>, SimulationError>>,
-                    watched: &WatchedChild| {
+                    watched: &WatchedProcess| {
         protocol::write_frame(
             &HostMessage::Begin {
                 version: 1,
@@ -130,7 +130,7 @@ pub(super) fn execute(
     };
     let observation = match worker {
         Some(worker) => supervisor::supervise_trusted(worker, control, exchange),
-        None => supervisor::supervise(program, control, exchange),
+        None => supervisor::supervise_offline(program, control, exchange),
     }?;
     Ok(OfflineExecution {
         observation,
@@ -140,7 +140,7 @@ pub(super) fn execute(
 }
 fn receive(
     receiver: &Receiver<Result<Option<WorkerMessage>, SimulationError>>,
-    watched: &WatchedChild,
+    watched: &WatchedProcess,
     control: &SimulationControl<'_>,
 ) -> Result<WorkerMessage, SimulationError> {
     loop {

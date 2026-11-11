@@ -7,11 +7,16 @@ license.workspace = true
 publish = false
 
 [dependencies]
+worker-transport.workspace = true
+ruint.workspace = true
 libc.workspace = true
 rustix.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+mach2.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

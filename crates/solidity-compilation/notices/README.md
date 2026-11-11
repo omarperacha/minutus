@@ -13,7 +13,7 @@ python3 build.py ./minutus-solidity-compiler
 ```
 
 This compiles with `swiftc -O` and applies a local ad-hoc code signature. The
-helper uses only the macOS Foundation, JavaScriptCore and Darwin system
+helper uses only the macOS Foundation, JavaScriptCore, Dispatch and Darwin system
 frameworks; no downloaded package or build-time generated source is required.
 `--identity` selects an optional exact signing certificate hash. Rebuilding does
 not replace the loaded application's pinned helper identity or grant execution
@@ -37,3 +37,9 @@ separate Apache-2.0 application component, not linked into the GPL helper.
 
 The package's closed notice manifest verifies this full source, build script,
 entitlements, catalogue and licence, as well as their canonical source copies.
+
+The fixed worker broker supplies mandatory anonymous read-only lifetime pipe
+FD3 before any compiler input. EOF, unexpected data or an error on that pipe
+terminates the helper. The source also applies CPU, descriptor and zero-core
+limits before compilation. This is a process-lifetime control, not a compiler
+or onchain verification assertion.

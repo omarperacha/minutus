@@ -4,12 +4,13 @@
 //! arbitrary PID, descriptor or memory-reading API is public or model-visible.
 #![allow(unsafe_code)]
 use crate::SimulationError;
+pub(crate) mod guardian;
 
 pub(crate) fn close_inherited_descriptors() -> Result<(), SimulationError> {
     #[cfg(target_os = "macos")]
     {
         // Darwin has no closefrom symbol. Enumerate only our own descriptors
-        // before starting any threads, then close every non-stdio entry.
+        // before starting any threads, then close every entry except stdio and the validated FD3 guardian.
         // SAFETY: size-only self query retains no pointer and opens no descriptor.
         let bytes = unsafe {
             libc::proc_pidinfo(
@@ -50,9 +51,9 @@ pub(crate) fn close_inherited_descriptors() -> Result<(), SimulationError> {
             usize::try_from(written).map_err(|_| SimulationError::WorkerUnavailable)? / size,
         );
         for entry in entries {
-            if entry.proc_fd >= 3 {
+            if entry.proc_fd >= 4 {
                 // SAFETY: this worker owns the inherited descriptor and never
-                // borrowed it into Rust IO. Stdio handles are deliberately kept.
+                // borrowed it into Rust IO. Only stdio and the validated guardian are deliberately kept.
                 if unsafe { libc::close(entry.proc_fd) } != 0 {
                     return Err(SimulationError::WorkerUnavailable);
                 }
@@ -62,9 +63,9 @@ pub(crate) fn close_inherited_descriptors() -> Result<(), SimulationError> {
     }
     #[cfg(target_os = "linux")]
     {
-        // SAFETY: closes only this worker's inherited descriptors >=3. No
+        // SAFETY: closes only this worker's inherited descriptors >=4. No
         // borrowed descriptors or other threads exist at this startup boundary.
-        let result = unsafe { libc::syscall(libc::SYS_close_range, 3_u32, u32::MAX, 0_u32) };
+        let result = unsafe { libc::syscall(libc::SYS_close_range, 4_u32, u32::MAX, 0_u32) };
         if result == 0 {
             Ok(())
         } else {
@@ -78,18 +79,9 @@ pub(crate) fn close_inherited_descriptors() -> Result<(), SimulationError> {
 }
 
 #[cfg(target_os = "macos")]
-pub(crate) fn physical_bytes(pid: u32) -> Result<u64, SimulationError> {
-    let pid = i32::try_from(pid).map_err(|_| SimulationError::WorkerUnavailable)?;
-    let mut usage = std::mem::MaybeUninit::<libc::rusage_info_v0>::zeroed();
-    // SAFETY: exact SDK V0 buffer; caller owns this unreaped child and supplies
-    // no model-controlled PID. Read only after a successful complete write.
-    if unsafe { libc::proc_pid_rusage(pid, libc::RUSAGE_INFO_V0, usage.as_mut_ptr().cast()) } != 0 {
-        return Err(SimulationError::WorkerUnavailable);
-    }
-    // SAFETY: successful kernel call initialised the exact V0 structure.
-    let usage = unsafe { usage.assume_init() };
-    Ok(usage.ri_phys_footprint.max(usage.ri_resident_size))
-}
+mod macos;
+#[cfg(target_os = "macos")]
+pub(crate) use macos::physical_bytes;
 #[cfg(not(target_os = "macos"))]
 pub(crate) fn physical_bytes(_pid: u32) -> Result<u64, SimulationError> {
     Err(SimulationError::WorkerUnavailable)

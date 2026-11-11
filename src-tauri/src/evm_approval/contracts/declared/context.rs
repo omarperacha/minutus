@@ -13,10 +13,11 @@ use chain_evm::{
         ContractBlock,
         generic::{
             GenericContractCandidate, GenericContractIdentity, GenericError, GenericSourceProvider,
-            RefreshedGenericCandidate, VerifiedGenericPrerequisites, admit_generic_transition,
-            bind_generic_prerequisites, generic_condition_type, generic_contract_intent,
-            prepare_generic_contract, qualify_generic_source, refresh_generic_contract,
-            verify_generic_conditions, verify_predicted_generic_conditions,
+            RefreshedGenericCandidate, VerifiedGenericPrerequisites,
+            admit_generic_transition_in_scope, bind_generic_prerequisites, generic_condition_type,
+            generic_contract_intent, prepare_generic_contract_in_scope,
+            qualify_generic_write_source, refresh_generic_contract, verify_generic_conditions,
+            verify_predicted_generic_conditions,
         },
     },
     local_simulation::contract_fee_facts,
@@ -84,7 +85,7 @@ impl Context {
             let mut sources = GenericSourceProvider::packaged(&directory)?;
             let mut identities = BTreeMap::new();
             for contract in contracts {
-                let identity = qualify_generic_source(
+                let identity = qualify_generic_write_source(
                     network,
                     &worker_endpoint,
                     &contract.address,
@@ -105,6 +106,7 @@ impl Context {
                 let ty = generic_condition_type(identity, &condition)?;
                 condition_types.push((condition, ty));
             }
+            let views = identities.values().map(Arc::as_ref).collect::<Vec<_>>();
             for step in &declared.steps {
                 let identity = identities
                     .get(&step.contract)
@@ -116,7 +118,7 @@ impl Context {
                     &step.function,
                     &step.arguments,
                 )?;
-                admit_generic_transition(identity, &intent)?;
+                admit_generic_transition_in_scope(identity, &views, &intent)?;
             }
             super::report_budget::admit(&report_declaration, &condition_types)?;
             Ok::<_, GenericError>((sources, identities))
@@ -164,6 +166,13 @@ impl Context {
         let completion = work
             .completion_conditions()
             .map_err(|error| crate::error_mapping::app_core_error(error.into()))?;
+        let business = work
+            .declaration()
+            .intent()
+            .contracts
+            .iter()
+            .map(|contract| contract.address.clone())
+            .collect::<Vec<_>>();
         let result = tokio::task::spawn_blocking(move || {
             let mut views = identities.iter().map(Arc::as_ref).collect::<Vec<_>>();
             for previous in &prepared {
@@ -185,7 +194,7 @@ impl Context {
             )?;
             let fees = contract_fee_facts(network, &endpoint, &cancelled)
                 .map_err(|_| GenericError::SnapshotMismatch)?;
-            let candidate = prepare_generic_contract(
+            let candidate = prepare_generic_contract_in_scope(
                 &workers,
                 &endpoint,
                 &intent,
@@ -195,6 +204,7 @@ impl Context {
                     .lock()
                     .map_err(|_| GenericError::ExecutionRejected)?,
                 &cancelled,
+                &business,
             )?;
             if !views
                 .iter()

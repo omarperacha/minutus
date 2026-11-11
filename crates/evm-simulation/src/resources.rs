@@ -5,6 +5,7 @@ use rustix::process::{Resource, Rlimit, setrlimit};
 pub(crate) const WALL: std::time::Duration = std::time::Duration::from_secs(15);
 pub(crate) const MEMORY: u64 = 256 * 1024 * 1024;
 pub(crate) fn apply() -> Result<(), SimulationError> {
+    let guardian = crate::native_resources::guardian::take()?;
     crate::native_resources::close_inherited_descriptors()?;
     for (resource, soft, hard) in [
         (Resource::Core, 0, 0),
@@ -32,5 +33,5 @@ pub(crate) fn apply() -> Result<(), SimulationError> {
         },
     )
     .map_err(|_| SimulationError::WorkerUnavailable)?;
-    Ok(())
+    crate::native_resources::guardian::start(guardian)
 }

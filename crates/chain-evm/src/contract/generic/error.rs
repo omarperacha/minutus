@@ -5,7 +5,8 @@ use std::{error::Error, fmt};
 pub enum GenericError {
     /// The compiled ABI does not contain one unambiguous canonical invocation.
     InvalidAbi,
-    /// Proved code differs from the locally reproduced complete runtime.
+    /// Source/compiler/runtime correspondence cannot be established, including
+    /// unavailable acquisition or compiler execution and actual byte mismatch.
     SourceMismatch,
     /// A required account, slot or code identity is absent from the witness.
     MissingState,

@@ -3,6 +3,7 @@
 mod declaration;
 mod declared_execution;
 mod declared_qualification;
+mod declared_scope;
 #[cfg(test)]
 mod declared_tests;
 mod execution;

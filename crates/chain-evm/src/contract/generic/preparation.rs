@@ -52,8 +52,16 @@ pub fn qualify_generic_source_at(
     sources: &mut GenericSourceProvider,
     cancelled: &AtomicBool,
 ) -> Result<GenericContractIdentity, GenericError> {
-    qualify_source_at(network, endpoint, target, block, sources, cancelled)
-        .map(|(identity, _, _)| identity)
+    qualify_source_at(
+        network,
+        endpoint,
+        target,
+        block,
+        sources,
+        cancelled,
+        SourcePurpose::Observation,
+    )
+    .map(|(identity, _, _)| identity)
 }
 
 /// Read-only source metadata tied to its own exact proved canonical snapshot.
@@ -64,8 +72,25 @@ pub struct GenericSourceObservation {
     block_hash: String,
     block_number: u64,
     metadata: super::GenericSourceMetadata,
+    identity: GenericContractIdentity,
 }
 impl GenericSourceObservation {
+    /// Describes direct calls locally for a hypothetical invocation at this
+    /// observation's exact snapshot; no wallet or downstream RPC is accessed.
+    ///
+    /// # Errors
+    /// Rejects invalid ABI/context, mutable routing and unsupported expressions.
+    pub fn invocation_requirements(
+        &self,
+        signature: &str,
+        arguments: &[Value],
+        caller: &str,
+        origin: &str,
+        value: &str,
+    ) -> Result<super::GenericInvocationRequirements, GenericError> {
+        let intent = invocation_intent(&self.identity, caller, value, signature, arguments, true)?;
+        super::inspect_generic_invocation(&self.identity, &intent, origin)
+    }
     /// Exact closed network observed by the source owner.
     #[must_use]
     pub const fn network(&self) -> EvmNetwork {
@@ -108,15 +133,53 @@ pub fn inspect_generic_source(
     sources: &mut GenericSourceProvider,
     cancelled: &AtomicBool,
 ) -> Result<GenericSourceObservation, GenericError> {
-    let (identity, block_number, block_hash) =
-        qualify_source_at(network, endpoint, target, block, sources, cancelled)?;
+    let (identity, block_number, block_hash) = qualify_source_at(
+        network,
+        endpoint,
+        target,
+        block,
+        sources,
+        cancelled,
+        SourcePurpose::Observation,
+    )?;
     Ok(GenericSourceObservation {
         network,
         target: identity.entrypoint().into(),
         block_hash,
         block_number,
         metadata: identity.source_metadata()?,
+        identity,
     })
+}
+
+#[derive(Clone, Copy)]
+enum SourcePurpose {
+    Observation,
+    Write,
+}
+
+/// Source-only write preflight refuses mutable dispatch before acquiring any
+/// undeclared potential implementation. It grants no effect/signing authority.
+///
+/// # Errors
+/// Rejects missing source/proof, mutable dispatch and all compilation limits.
+pub fn qualify_generic_write_source(
+    network: EvmNetwork,
+    endpoint: &EvmRpcUrl,
+    target: &str,
+    sources: &mut GenericSourceProvider,
+    cancelled: &AtomicBool,
+) -> Result<GenericContractIdentity, GenericError> {
+    qualify_source_at(
+        network,
+        endpoint,
+        target,
+        &ContractBlock::Latest,
+        sources,
+        cancelled,
+        SourcePurpose::Write,
+    )
+    .map(|(identity, _, _)| identity)
 }
 
 fn qualify_source_at(
@@ -126,6 +189,7 @@ fn qualify_source_at(
     block: &ContractBlock,
     sources: &mut GenericSourceProvider,
     cancelled: &AtomicBool,
+    purpose: SourcePurpose,
 ) -> Result<(GenericContractIdentity, u64, String), GenericError> {
     let address = Address::from_str(target).map_err(|_| GenericError::SourceMismatch)?;
     if address == Address::ZERO {
@@ -151,7 +215,12 @@ fn qualify_source_at(
         Some(minimal)
     } else {
         match initial.slot(address, proxy::IMPLEMENTATION) {
-            Some(value) if value != U256::ZERO => Some(proxy::slot_address(value)?),
+            Some(value) if value != U256::ZERO => {
+                if matches!(purpose, SourcePurpose::Write) {
+                    return Err(GenericError::UnsupportedProxy);
+                }
+                Some(proxy::slot_address(value)?)
+            }
             _ => None,
         }
     };
@@ -201,6 +270,17 @@ pub fn generic_contract_intent(
     signature: &str,
     arguments: &[Value],
 ) -> Result<UnsignedContractIntent, GenericError> {
+    invocation_intent(identity, account, value_wei, signature, arguments, false)
+}
+
+fn invocation_intent(
+    identity: &GenericContractIdentity,
+    account: &str,
+    value_wei: &str,
+    signature: &str,
+    arguments: &[Value],
+    allow_read: bool,
+) -> Result<UnsignedContractIntent, GenericError> {
     let artifact = identity.intent_artifact(signature)?;
     let selected = artifact
         .abi()
@@ -215,7 +295,7 @@ pub fn generic_contract_intent(
         .map_err(|_| GenericError::InvalidAbi)?;
     let intent = UnsignedContractIntent::new_declared(identity.network(), account, value_wei, call)
         .map_err(|_| GenericError::InvalidAbi)?;
-    abi::bind(artifact.abi(), &intent)?;
+    abi::bind_invocation(artifact.abi(), &intent, allow_read)?;
     Ok(intent)
 }
 
@@ -234,15 +314,77 @@ pub fn prepare_generic_contract(
     sources: &mut GenericSourceProvider,
     cancelled: &AtomicBool,
 ) -> Result<GenericContractCandidate, GenericError> {
-    let (identity, _, hash) = qualify_source_at(
+    prepare_generic_contract_in_scope(
+        workers,
+        endpoint,
+        intent,
+        block,
+        fees,
+        sources,
+        cancelled,
+        &[intent.call().target().to_owned()],
+    )
+}
+
+/// Prepares a source-first invocation graph within the native-approved address
+/// scope. Code-only fixed minimal-proxy implementations are proved dependencies.
+///
+/// # Errors
+/// Rejects undeclared targets, mutable code, missing proof, unbounded effects,
+/// failed execution, cancellation, reorg and exhausted resource limits.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "The fixed preparation boundary retains its existing arguments and makes business scope explicit rather than ambient mutable provider state"
+)]
+pub fn prepare_generic_contract_in_scope(
+    workers: &TrustedSimulationWorkers,
+    endpoint: &EvmRpcUrl,
+    intent: &UnsignedContractIntent,
+    block: &ContractBlock,
+    fees: SimulationFeeFacts,
+    sources: &mut GenericSourceProvider,
+    cancelled: &AtomicBool,
+    business: &[String],
+) -> Result<GenericContractCandidate, GenericError> {
+    let allowed = business
+        .iter()
+        .map(|v| Address::from_str(v))
+        .collect::<Result<std::collections::BTreeSet<_>, _>>()
+        .map_err(|_| GenericError::InvalidAbi)?;
+    let entry = Address::from_str(intent.call().target()).map_err(|_| GenericError::InvalidAbi)?;
+    if allowed.is_empty()
+        || allowed.len() != business.len()
+        || allowed.len() > 16
+        || !allowed.contains(&entry)
+    {
+        return Err(GenericError::InvalidAbi);
+    }
+    let (root, _, hash) = qualify_source_at(
         intent.network(),
         endpoint,
         intent.call().target(),
         block,
         sources,
         cancelled,
+        SourcePurpose::Write,
     )?;
-    let envelope = super::admit_generic_transition(&identity, intent)?;
+    let mut identities = Vec::new();
+    for address in allowed.iter().filter(|address| **address != entry) {
+        identities.push(
+            qualify_source_at(
+                intent.network(),
+                endpoint,
+                &format!("{address:#x}"),
+                &ContractBlock::Hash(hash.clone()),
+                sources,
+                cancelled,
+                SourcePurpose::Write,
+            )?
+            .0,
+        );
+    }
+    let identity = root.merge_sources(&identities.iter().collect::<Vec<_>>())?;
+    let envelope = super::effect_envelope::graph_admit(&identity, intent, business)?;
     let preload = relation_queries(endpoint, &identity, intent, &hash, &envelope, cancelled)?;
     let control = SimulationControl::start(cancelled);
     let replay = local_simulation::replay_proved(
@@ -255,45 +397,13 @@ pub fn prepare_generic_contract(
         &control,
     )
     .map_err(state_error)?;
-    let mut artifacts = Vec::new();
-    let mut reached = std::collections::BTreeSet::new();
-    for call in &replay.observation().calls {
-        for value in [&call.target, &call.code_address] {
-            reached.insert(Address::from_str(value).map_err(|_| GenericError::SnapshotMismatch)?);
-        }
-    }
-    // Proved potential implementations also participate in selector-interception
-    // rejection even when the proxy did not actually delegate this invocation.
-    for address in replay.state().account_addresses() {
-        if !proxy::system_address(address)
-            && replay
-                .state()
-                .account(address)
-                .is_some_and(|account| !account.code().is_empty())
-        {
-            reached.insert(address);
-        }
-    }
-    if reached.len() > 16 {
-        return Err(GenericError::Limit);
-    }
-    for address in reached {
-        let code = replay
-            .state()
-            .account(address)
-            .ok_or(GenericError::MissingState)?
-            .code();
-        if code.is_empty() || proxy::minimal_target(code).is_some() {
-            continue;
-        }
-        artifacts.push((
-            address,
-            sources.artifact(intent.network(), &format!("{address:#x}"), code, cancelled)?,
-        ));
-    }
-    let candidate = GenericContractCandidate::from_replay(intent.clone(), replay, &artifacts)?;
-    // Reproduction may outlast a reorg. Recheck the exact header after all
-    // reached-source work, while retaining the replay's original freshness age.
+    let artifacts = identity.compiled_artifacts();
+    let candidate = GenericContractCandidate::from_replay_in_scope(
+        intent.clone(),
+        replay,
+        &artifacts,
+        business,
+    )?;
     let control = SimulationControl::start(cancelled);
     local_simulation::canonical_header(
         endpoint,
@@ -307,6 +417,7 @@ pub fn prepare_generic_contract(
     }
     Ok(candidate)
 }
+
 fn relation_queries(
     endpoint: &EvmRpcUrl,
     identity: &GenericContractIdentity,
@@ -316,16 +427,19 @@ fn relation_queries(
     cancelled: &AtomicBool,
 ) -> Result<Vec<StateQuery>, GenericError> {
     let control = SimulationControl::start(cancelled);
-    let address =
-        Address::from_str(intent.call().target()).map_err(|_| GenericError::InvalidAbi)?;
-    let artifact = identity
-        .storage_artifact(address)
-        .ok_or(GenericError::SourceMismatch)?;
     let mut reader =
         local_simulation::ProvedReader::new(endpoint, intent.network(), hash, &control)
             .map_err(state_error)?;
-    let mut queries = Vec::new();
+    let mut queries = identity.state_queries();
+    for query in &queries {
+        reader.query(query, &control).map_err(state_error)?;
+    }
     for relation in envelope.relations() {
+        let address =
+            Address::from_str(&relation.storage_address).map_err(|_| GenericError::InvalidAbi)?;
+        let artifact = identity
+            .storage_artifact(address)
+            .ok_or(GenericError::SourceMismatch)?;
         super::layout::read_condition_path(
             artifact.storage_layout(),
             &relation.path,

@@ -142,7 +142,12 @@ proof-checked current runtime/dispatch. A pinned official Solidity compiler runs
 in a separate bounded helper. Supported compiler versions and AST features are
 restricted: complete typed snapshot effects must also have an independently
 checked bounded source-field transition envelope. Unsupported state-dependent
-effects, opaque external calls and mutable proxy dispatch reject. This is a
+effects, opaque external calls and mutable proxy dispatch reject. Supported
+high-level calls require a complete source-derived graph within the explicitly
+approved business scope, owner-qualified disjoint effects and exact replay frame
+agreement. Compiler-bound immutable values do not imply constructor invariants.
+Historical compilers have a separate restricted scalar feature tier based on
+their original settings and reviewed bug triggers. This is a
 generic analysed subset, not support for every EVM function. Source labels,
 function names, logs and return values do not establish token, authority or
 business semantics. The host does not offer a warning override for missing proof.

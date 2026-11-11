@@ -140,3 +140,27 @@ fn metadata_version_abi_target_and_source_ast_coverage_must_correspond()
     rejected(&incomplete, &output);
     Ok(())
 }
+
+#[test]
+fn original_compilation_settings_remain_sealed_when_metadata_omits_details()
+-> Result<(), Box<dyn std::error::Error>> {
+    let (mut input, output) = fixture()?;
+    input.standard["settings"]["optimizer"] =
+        json!({"enabled":false,"details":{"peephole":false,"jumpdestRemover":false}});
+    input.standard["settings"]["viaIR"] = json!(false);
+    let expected = input.standard["settings"].clone();
+    let artifact = ReproducedArtifact::from_compiler(&input, &output)?;
+    assert_eq!(artifact.compilation_settings(), &expected);
+    assert!(
+        artifact.metadata()["settings"]["optimizer"]
+            .get("details")
+            .is_none()
+    );
+    input.standard["settings"]["optimizer"]["enabled"] = json!(true);
+    assert_eq!(artifact.compilation_settings(), &expected);
+    assert_ne!(
+        artifact.commitment(),
+        ReproducedArtifact::from_compiler(&input, &output)?.commitment()
+    );
+    Ok(())
+}

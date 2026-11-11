@@ -11,8 +11,9 @@ sends no RPC request. Provider credentials remain in native settings.
 This mode requires the packaged attested compiler helper and separate explicit
 native disclosure of public Sourcify chain/address lookups and official compiler
 downloads. It reproduces source locally and returns the complete bounded ABI,
-storage layout, method identifiers and source/runtime role graph, without source
-comments or NatSpec. Metadata above64KiB rejects rather than truncating. No
+storage layout, method identifiers, code-bound immutable values and source/runtime
+role graph, without source
+comments or NatSpec. Metadata above 64 KiB rejects rather than truncating. No
 wallet, password or signature is accessed. Potential implementation roles are
 labelled separately from proved execution roles; these results do not qualify a
 write or establish token/business semantics.
@@ -22,11 +23,33 @@ This opt-in result reports `writeAuthorityGranted: false` and
 whether the host separately advertises a workflow capability. Plain inspection
 and read result contracts retain their existing fields.
 
+Immutable bindings identify the compiler declaration, original and canonical ABI
+types, and the observed value in current code. A fixed address can help declare
+the business targets of a workflow, including a private immutable without a
+getter. It is not a claim that the address is an actual callee, a constructor
+invariant or a trusted recipient. The workflow independently verifies its exact
+invocation graph and fresh code/state before approval. Comments and NatSpec are
+not included; the complete inspection result still has the same 64 KiB limit.
+
+With `includeSource: true`, optional `invocation` accepts a canonical `function`,
+typed `arguments` and a public `caller`. Optional `origin` defaults to caller;
+`valueWei` defaults to `"0"`. This hypothetical context stays local: it causes no
+caller account lookup, `eth_call`, wallet access or callee fetch. The same exact
+source snapshot can describe direct `invocationRequirements.requiredCalls`,
+including fixed private constant or immutable targets. Both write and view/pure
+functions can be described; this does not admit a view function as a write.
+Each returned callee is
+still unqualified. Recursively inspect those targets and explicitly declare all
+business addresses before requesting a workflow. This description is neither a
+complete recursive graph nor execution/effect evidence; unsupported expressions
+reject rather than guessing. Invocation data is invalid without source mode.
+The complete result, including invocation requirements, retains the 64 KiB cap.
+
 Source correspondence retains its own exact requested block snapshot. `latest`
 is resolved before compilation, then that snapshot is rechecked canonical; the
 compiler may outlast a block. The result is historical evidence, with no claim
 about the current tip. Use its canonical function signatures and layout paths to
-form the separately advertised version2 workflow, which independently qualifies
+form the separately advertised version 2 workflow, which independently qualifies
 fresh source, transition relations and execution effects before each approval.
 
 `contract.inspect` returns runtime length and Keccak-256 identity. It can run as

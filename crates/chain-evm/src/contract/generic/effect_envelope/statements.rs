@@ -38,6 +38,14 @@ impl Analysis<'_> {
             }
         }
         for invocation in modifiers {
+            // Qualified Base.M is statically bound, unlike an unqualified
+            // virtual modifier. Keep it closed until its exact resolver runs.
+            if invocation["modifierName"]["name"]
+                .as_str()
+                .is_some_and(|name| name.contains('.'))
+            {
+                return Err(GenericError::OpaqueEffects);
+            }
             if invocation["arguments"]
                 .as_array()
                 .is_some_and(|v| !v.is_empty())
@@ -46,11 +54,11 @@ impl Analysis<'_> {
             }
             let definition = self
                 .program
-                .node(syntax::reference(&invocation["modifierName"])?)?;
-            if definition["nodeType"] != "ModifierDefinition" || definition["virtual"] != false {
-                return Err(GenericError::OpaqueEffects);
-            }
-            self.modifier(&definition["body"])?;
+                .resolve_modifier(&invocation["modifierName"], self.stack.last().copied())?;
+            self.stack.push(syntax::id(definition)?);
+            let result = self.modifier(&definition["body"]);
+            self.stack.pop();
+            result?;
         }
         self.block(&function["body"], depth)?;
         let _ = self.stack.pop();
@@ -71,8 +79,9 @@ impl Analysis<'_> {
                 placeholder = true;
             } else if statement["nodeType"] == "ExpressionStatement" {
                 let before = self.relations.len();
+                let calls = self.calls.len();
                 self.expression(&statement["expression"])?;
-                if self.relations.len() != before {
+                if self.relations.len() != before || self.calls.len() != calls {
                     return Err(GenericError::OpaqueEffects);
                 }
             } else if statement["nodeType"] == "IfStatement"
@@ -106,7 +115,7 @@ impl Analysis<'_> {
         }
         Ok(())
     }
-    fn statement(&mut self, node: &Value, depth: usize) -> Result<(), GenericError> {
+    pub(super) fn statement(&mut self, node: &Value, depth: usize) -> Result<(), GenericError> {
         self.step()?;
         if depth > 16 {
             return Err(GenericError::Limit);
@@ -143,22 +152,10 @@ impl Analysis<'_> {
                 }
                 Ok(())
             }
-            Some("VariableDeclarationStatement") => {
-                let declarations = node["declarations"]
-                    .as_array()
-                    .filter(|v| v.len() == 1)
-                    .ok_or(GenericError::OpaqueEffects)?;
-                let declaration = &declarations[0];
-                if matches!(declaration["storageLocation"].as_str(), Some("storage")) {
-                    return Err(GenericError::OpaqueEffects);
-                }
-                let value = self.value(&node["initialValue"], 0)?;
-                super::expressions::canonical(super::expressions::base_type(declaration)?, &value)?;
-                self.values.insert(syntax::id(declaration)?, value);
-                Ok(())
-            }
+            Some("VariableDeclarationStatement") => self.local_declaration(node),
+            Some("ForStatement") => self.for_statement(node, depth + 1),
             Some("IfStatement") => self.conditional(node, depth + 1),
-            // Loops, unchecked arithmetic, try/catch, assembly, creation and
+            // Unchecked arithmetic, break/continue, try/catch, assembly, creation and
             // unknown statements cannot silently expand an approved envelope.
             _ => Err(GenericError::OpaqueEffects),
         }
@@ -201,6 +198,9 @@ impl Analysis<'_> {
         }
     }
     fn expression(&mut self, node: &Value) -> Result<(), GenericError> {
+        if self.local_mutation(node)? {
+            return Ok(());
+        }
         match node["nodeType"].as_str() {
             Some("Assignment") => self.assignment(node),
             Some("UnaryOperation") if matches!(node["operator"].as_str(), Some("++" | "--")) => {
@@ -219,11 +219,14 @@ impl Analysis<'_> {
                 )
             }
             Some("FunctionCall") => {
-                if node["expression"]["referencedDeclaration"]
-                    .as_i64()
-                    .is_some_and(|id| id >= 0)
+                if self
+                    .program
+                    .resolve_helper(&node["expression"], self.stack.last().copied())
+                    .is_ok()
                 {
                     self.internal_call(node)
+                } else if node["expression"]["nodeType"] == "MemberAccess" {
+                    self.external_call(node)
                 } else {
                     self.guard(node)
                 }
@@ -265,7 +268,7 @@ impl Analysis<'_> {
         };
         self.add(path, operation, value)
     }
-    fn guard(&self, call: &Value) -> Result<(), GenericError> {
+    fn guard(&mut self, call: &Value) -> Result<(), GenericError> {
         let function = &call["expression"];
         if function["nodeType"] != "Identifier"
             || !matches!(function["name"].as_str(), Some("require" | "assert"))
@@ -278,14 +281,19 @@ impl Analysis<'_> {
             .filter(|v| !v.is_empty() && v.len() <= 2)
             .ok_or(GenericError::OpaqueEffects)?
         {
-            self.read_only(argument, 0)?;
+            if argument["nodeType"] == "FunctionCall"
+                && argument["expression"]["nodeType"] == "MemberAccess"
+            {
+                self.external_call(argument)?;
+            } else {
+                self.read_only(argument, 0)?;
+            }
         }
         Ok(())
     }
     fn internal_call(&mut self, call: &Value) -> Result<(), GenericError> {
         if !self.modern
             || call["kind"] != "functionCall"
-            || call["expression"]["nodeType"] != "Identifier"
             || call["names"]
                 .as_array()
                 .is_some_and(|names| !names.is_empty())
@@ -294,7 +302,7 @@ impl Analysis<'_> {
         }
         let function = self
             .program
-            .helper(syntax::reference(&call["expression"])?)?;
+            .resolve_helper(&call["expression"], self.stack.last().copied())?;
         let parameters = function["parameters"]["parameters"]
             .as_array()
             .ok_or(GenericError::OpaqueEffects)?;

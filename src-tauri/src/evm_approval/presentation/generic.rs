@@ -26,7 +26,9 @@ pub(in crate::evm_approval) fn generic_approval(
         IpcError::invalid_request("Generic contract fee budget exceeds supported bounds")
     })?;
     let effects = candidate.effects();
-    let relations = json!({"contract":candidate.intent().call().target(),"relations":candidate.envelope().relations(),"commitment":candidate.envelope().commitment()});
+    let relations = json!({"relations":candidate.envelope().relations(),"commitment":candidate.envelope().commitment()});
+    let invocations = serde_json::to_value(candidate.envelope().invocations())
+        .map_err(|_| IpcError::internal())?;
     let material = json!({"storageChanges":effects.storage_changes(),"nativeAccountMode":effects.native_account_mode(),"nativeAccountChanges":effects.accounts(),"nativeTransfers":effects.native_transfers(),"executedCalls":effects.calls(),"sourceDeclaredLogs":effects.logs(),"decodedReturn":effects.output()});
     let transaction = json!({"function":candidate.intent().call().signature(),"arguments":candidate.intent().call().arguments(),"valueWei":candidate.intent().value_wei(),"calldata":candidate.intent().call().calldata(),"nonce":candidate.decoded().nonce(),"gasLimit":candidate.decoded().gas_limit(),"maximumFeePerGasWei":candidate.decoded().max_fee_per_gas_wei(),"priorityFeePerGasWei":candidate.decoded().max_priority_fee_per_gas_wei(),"candidate":candidate.candidate_digest(),"entryGraphSourceCommitment":candidate.identity().commitment(),"workflowSourceCommitment":preparation.source_commitment,"pinnedWorkflowSourceIdentities":preparation.source_identities,"effectsCommitment":candidate.effect_commitment(),"evidenceBlock":candidate.block_hash(),"sourceContracts":candidate.identity().contracts(),"scopeCommitment":declaration.commitment(),"reviewSession":session,"expiresAtUnix":expiry});
     let body = render(&Review {
@@ -40,6 +42,7 @@ pub(in crate::evm_approval) fn generic_approval(
         maximum_fee_wei: candidate.maximum_fee_wei(),
         material: &material,
         relations: &relations,
+        invocations: &invocations,
         scope: &serde_json::to_value(declaration.intent()).map_err(|_| IpcError::internal())?,
         transaction: &transaction,
         testnet: candidate.decoded().is_testnet(),
@@ -106,6 +109,7 @@ struct Review<'a> {
     maximum_fee_wei: &'a str,
     material: &'a Value,
     relations: &'a Value,
+    invocations: &'a Value,
     scope: &'a Value,
     transaction: &'a Value,
     testnet: bool,
@@ -113,7 +117,7 @@ struct Review<'a> {
 }
 fn render(view: &Review<'_>) -> Result<String, IpcError> {
     let mut body = format!(
-        "Contract workflow step {} of {}\nNetwork: {}\nWallet account: {}\nContract: {}\nNative value: {} wei\nMaximum total native fee: {} ETH ({} wei)\n\nADMITTED STATE TRANSITION RELATIONS\n{}\n\nSNAPSHOT TRANSITION AT THE PROVED BLOCK\n{}\n\n",
+        "Contract workflow step {} of {}\nNetwork: {}\nWallet account: {}\nContract: {}\nNative value: {} wei\nMaximum total native fee: {} ETH ({} wei)\n\nADMITTED STATE TRANSITION RELATIONS\n{}\n\nADMITTED BUSINESS CALL GRAPH\n{}\n\nSNAPSHOT TRANSITION AT THE PROVED BLOCK\n{}\n\n",
         usize::from(view.step_index) + 1,
         view.steps,
         view.network,
@@ -123,6 +127,7 @@ fn render(view: &Review<'_>) -> Result<String, IpcError> {
         view.maximum_fee_eth,
         view.maximum_fee_wei,
         crate::web_approval::review_json(view.relations),
+        crate::web_approval::review_json(view.invocations),
         crate::web_approval::review_json(view.material)
     );
     if view.testnet {
@@ -157,7 +162,14 @@ mod tests {
         let scope =
             json!({"steps":["consume","finish"],"completion":"historical","prerequisites":"fresh"});
         let transaction = json!({"calldata":"technical"});
-        let relations = json!({"relations":[{"path":["counter"],"operation":"increase","value":"1","checked":true}]});
+        let relations = json!({"relations":[
+            {"storageAddress":"router-owner","codeAddress":"immutable-implementation","path":["counter"],"operation":"increase","value":"1","checked":true},
+            {"storageAddress":"callee-owner","codeAddress":"callee-code","path":["counter"],"operation":"set","value":"7","checked":true}
+        ]});
+        let invocations = json!([
+            {"parent":null,"storageAddress":"router-owner","codeAddress":"immutable-implementation","caller":"account","function":"route()","arguments":[],"valueWei":"0","calldata":"0x","isStatic":false},
+            {"parent":0,"storageAddress":"callee-owner","codeAddress":"callee-code","caller":"router-owner","function":"store(uint256)","arguments":["7"],"valueWei":"0","calldata":"0x","isStatic":false}
+        ]);
         let mut review = Review {
             step_index: 1,
             steps: 3,
@@ -169,6 +181,7 @@ mod tests {
             maximum_fee_wei: "1000000000000000",
             material: &material,
             relations: &relations,
+            invocations: &invocations,
             scope: &scope,
             transaction: &transaction,
             testnet: true,
@@ -179,6 +192,16 @@ mod tests {
         assert!(
             body.find("ADMITTED STATE TRANSITION RELATIONS") < body.find("SNAPSHOT TRANSITION")
         );
+        assert!(body.find("ADMITTED BUSINESS CALL GRAPH") < body.find("SNAPSHOT TRANSITION"));
+        for owner in [
+            "router-owner",
+            "immutable-implementation",
+            "callee-owner",
+            "callee-code",
+        ] {
+            assert!(body.contains(owner));
+        }
+        assert!(body.contains("\"caller\":\"router-owner\""));
         assert!(body.contains("\"after\":\"0\""));
         assert!(body.contains("not an on-chain cap"));
         assert!(body.contains("do not establish token semantics"));

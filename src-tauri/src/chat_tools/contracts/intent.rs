@@ -15,6 +15,8 @@ struct MetadataIntent {
     block: String,
     #[serde(default, rename = "includeSource")]
     include_source: bool,
+    #[serde(default, deserialize_with = "super::invocation::present")]
+    invocation: Option<super::invocation::InvocationIntent>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -35,6 +37,7 @@ pub(super) struct ObservationRequest {
     pub(super) block: ContractBlock,
     pub(super) call: Option<DeclaredContractCall>,
     pub(super) caller: Option<String>,
+    pub(super) invocation: Option<super::invocation::LocalInvocation>,
 }
 fn parse<T: serde::de::DeserializeOwned>(call: &ParsedToolCall) -> Result<T, IpcError> {
     serde_json::from_value(json!(call.arguments)).map_err(|_| IpcError::invalid_request("Use the exact advertised contract observation fields; unknown fields and unsupported ABI types are forbidden"))
@@ -49,13 +52,25 @@ pub(super) fn request(call: &ParsedToolCall) -> Result<ObservationRequest, IpcEr
     match call.name.as_str() {
         "contract.inspect" => {
             let intent: MetadataIntent = parse(call)?;
+            if intent.invocation.is_some() && !intent.include_source {
+                return Err(IpcError::invalid_request(
+                    "invocation requires includeSource=true; it is local discovery, not eth_call",
+                ));
+            }
+            let network = crate::evm_rpc_settings::chain_network(intent.network);
+            let target = address(&intent.target)?;
+            let invocation = intent
+                .invocation
+                .map(|invocation| invocation.validate(network, &target))
+                .transpose()?;
             Ok(ObservationRequest {
                 include_source: intent.include_source,
-                network: crate::evm_rpc_settings::chain_network(intent.network),
-                target: address(&intent.target)?,
+                network,
+                target,
                 block: ContractBlock::new(&intent.block).map_err(contract_error)?,
                 call: None,
                 caller: None,
+                invocation,
             })
         }
         "contract.read" => {
@@ -74,6 +89,7 @@ pub(super) fn request(call: &ParsedToolCall) -> Result<ObservationRequest, IpcEr
                 block: ContractBlock::new(&intent.block).map_err(contract_error)?,
                 call: Some(call),
                 caller: intent.caller.as_deref().map(address).transpose()?,
+                invocation: None,
             })
         }
         _ => Err(IpcError::invalid_request("Unavailable contract operation")),

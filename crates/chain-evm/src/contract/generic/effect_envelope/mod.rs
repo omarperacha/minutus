@@ -1,15 +1,24 @@
 //! Inclusion-time effect bounds from a conservative trusted compiler-AST subset.
+mod analysis;
+mod eligibility;
 mod expressions;
+mod external;
+mod frames;
+mod graph;
+mod loops;
 mod statements;
 mod syntax;
 mod verification;
 
 use super::{GenericContractIdentity, GenericError, layout};
 use crate::contract::UnsignedContractIntent;
+use analysis::Analysis;
+#[cfg(test)]
+use analysis::modern;
+pub(super) use graph::admit as graph_admit;
 use serde::Serialize;
 use serde_json::Value;
-use sha2::{Digest, Sha256};
-use std::{cell::Cell, collections::BTreeMap};
+#[cfg(test)]
 use syntax::Program;
 
 /// An onchain-enforced source-field operation, distinct from a snapshot value.
@@ -27,6 +36,10 @@ pub enum GenericEffectOperation {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GenericEffectRelation {
+    /// Canonical persistent storage owner, including fixed proxy context.
+    pub storage_address: String,
+    /// Reproduced code responsible for this operation.
+    pub code_address: String,
     /// Exact source field and canonical mapping keys/array indices.
     pub path: Vec<String>,
     /// Enforced operation; no token/authority meaning is inferred.
@@ -40,9 +53,120 @@ pub struct GenericEffectRelation {
 /// grammar. This is not a proof of arbitrary business/economic semantics.
 pub struct GenericEffectEnvelope {
     relations: Vec<GenericEffectRelation>,
+    invocations: Vec<GenericEffectInvocation>,
     commitment: String,
 }
+/// One statically proved business invocation. Exact minimal-proxy forwarding
+/// frames are checked separately and do not introduce another business target.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GenericEffectInvocation {
+    /// Parent source invocation in depth-first order; absent for the root.
+    pub parent: Option<u16>,
+    /// Exact persistent storage owner and business target.
+    pub storage_address: String,
+    /// Exact reproduced implementation, retaining proxy/code separation.
+    pub code_address: String,
+    /// Per-frame msg.sender, separate from the transaction origin.
+    pub caller: String,
+    /// Canonical compiler ABI signature.
+    pub function: String,
+    /// Exact bounded arguments, never snapshot-derived return values.
+    pub arguments: Vec<Value>,
+    /// Exact apparent native value in decimal wei.
+    pub value_wei: String,
+    /// Independently ABI-encoded complete calldata.
+    pub calldata: String,
+    /// This edge uses STATICCALL; read-only context propagates to descendants.
+    pub is_static: bool,
+}
+/// Locally derived caller-source requirement, not callee code/effect evidence.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GenericRequiredCall {
+    /// Fixed business target from the hypothetical invocation operands.
+    pub target: String,
+    /// Compiler-resolved interface selector; inspect the target ABI separately.
+    pub selector: String,
+    /// Locally computed bounded arguments.
+    pub arguments: Vec<Value>,
+    /// Exact value for this supported edge, currently zero.
+    pub value_wei: String,
+    /// Source interface selects STATICCALL for this edge.
+    pub is_static: bool,
+}
+/// Descriptive discovery for a hypothetical caller/origin. It neither fetches
+/// callee code nor grants an outbound scope, complete effect proof or signer.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GenericInvocationRequirements {
+    /// Hypothetical transaction origin supplied to the read-only inspection.
+    pub origin: String,
+    /// Hypothetical msg.sender, independent of any wallet/account control.
+    pub caller: String,
+    /// Source-qualified entry target at the observation's historical snapshot.
+    pub target: String,
+    /// Canonical selected function.
+    pub function: String,
+    /// Canonical selected arguments.
+    pub arguments: Vec<Value>,
+    /// Exact hypothetical native value used by local expression analysis.
+    pub value_wei: String,
+    /// Direct call requirements only. Each callee needs separate inspection and
+    /// explicit declaration before any future workflow source acquisition.
+    pub required_calls: Vec<GenericRequiredCall>,
+}
+
+/// Derives direct call requirements locally, without fetching undeclared callees.
+///
+/// # Errors
+/// Rejects unsupported source, mutable routing, invalid context or opaque operands.
+pub fn inspect_generic_invocation(
+    identity: &GenericContractIdentity,
+    intent: &UnsignedContractIntent,
+    origin: &str,
+) -> Result<GenericInvocationRequirements, GenericError> {
+    let parsed: alloy_primitives::Address = origin.parse().map_err(|_| GenericError::InvalidAbi)?;
+    if format!("{parsed:#x}") != origin {
+        return Err(GenericError::InvalidAbi);
+    }
+    if identity.entrypoint() != intent.call().target() {
+        return Err(GenericError::SourceMismatch);
+    }
+    let target = intent
+        .call()
+        .target()
+        .parse()
+        .map_err(|_| GenericError::InvalidAbi)?;
+    let (_, artifact) = identity.immutable_dispatch(target)?;
+    super::abi::bind_invocation(artifact.abi(), intent, true)?;
+    let result = analysis::analyze(identity, intent, origin, 0)?;
+    Ok(GenericInvocationRequirements {
+        origin: origin.into(),
+        caller: intent.account().into(),
+        target: intent.call().target().into(),
+        function: intent.call().signature().into(),
+        arguments: intent.call().arguments().to_vec(),
+        value_wei: intent.value_wei().into(),
+        required_calls: result
+            .calls
+            .into_iter()
+            .map(|call| GenericRequiredCall {
+                target: call.target,
+                selector: call.selector,
+                arguments: call.arguments,
+                value_wei: "0".into(),
+                is_static: call.is_static,
+            })
+            .collect(),
+    })
+}
 impl GenericEffectEnvelope {
+    /// Complete statically proved source-level call tree.
+    #[must_use]
+    pub fn invocations(&self) -> &[GenericEffectInvocation] {
+        &self.invocations
+    }
     /// Exact onchain-enforced relations, shown above snapshot predictions.
     #[must_use]
     pub fn relations(&self) -> &[GenericEffectRelation] {
@@ -57,9 +181,15 @@ impl GenericEffectEnvelope {
         &self,
         identity: &GenericContractIdentity,
     ) -> Result<Vec<Vec<u8>>, GenericError> {
-        let artifact = identity.entry_artifact()?;
         let mut preimages = Vec::new();
         for relation in &self.relations {
+            let address = relation
+                .storage_address
+                .parse()
+                .map_err(|_| GenericError::OpaqueEffects)?;
+            let artifact = identity
+                .storage_artifact(address)
+                .ok_or(GenericError::SourceMismatch)?;
             for input in layout::path_preimages(artifact.storage_layout(), &relation.path)? {
                 if !preimages.contains(&input) {
                     preimages.push(input);
@@ -80,127 +210,28 @@ pub fn admit_generic_transition(
     identity: &GenericContractIdentity,
     intent: &UnsignedContractIntent,
 ) -> Result<GenericEffectEnvelope, GenericError> {
-    if identity.mutable_dispatch() {
-        return Err(GenericError::UnsupportedProxy);
-    }
-    let artifact = identity.intent_artifact(intent.call().signature())?;
-    let program = Program::new(artifact.source_ast(), artifact.metadata())?;
-    let selector =
-        alloy_primitives::hex::encode(&alloy_primitives::keccak256(intent.call().signature())[..4]);
-    let function = program.function(&selector)?;
-    let parameters = function["parameters"]["parameters"]
-        .as_array()
-        .ok_or(GenericError::OpaqueEffects)?;
-    if parameters.len() != intent.call().arguments().len() {
-        return Err(GenericError::InvalidAbi);
-    }
-    let mut values = BTreeMap::new();
-    for (parameter, value) in parameters.iter().zip(intent.call().arguments()) {
-        values.insert(syntax::id(parameter)?, value.clone());
-    }
-    let modern = modern(artifact.compiler_version())?;
-    if !modern
-        && (artifact.metadata()["settings"]["optimizer"]["enabled"] != false
-            || artifact.metadata()["settings"]["optimizer"]
-                .get("details")
-                .is_some()
-            || artifact.metadata()["settings"]["viaIR"] == true
-            || !program.single_contract())
-    {
-        return Err(GenericError::OpaqueEffects);
-    }
-    let mut analysis = Analysis {
-        program: &program,
-        layout: artifact.storage_layout(),
-        values,
-        relations: Vec::new(),
-        steps: Cell::new(0),
-        modern,
-        account: intent.account(),
-        target: intent.call().target(),
-        native_value: intent.value_wei(),
-        terminated: false,
-        stack: Vec::new(),
-    };
-    analysis.function(function, 0)?;
-    if analysis.relations.is_empty() {
-        return Err(GenericError::OpaqueEffects);
-    }
-    let material = serde_json::json!({"domain":"minutus-generic-effect-envelope-v1","source":artifact.commitment(),"function":intent.call().signature(),"arguments":intent.call().arguments(),"account":intent.account(),"target":intent.call().target(),"nativeValue":intent.value_wei(),"relations":analysis.relations});
-    let commitment = format!(
-        "{:x}",
-        Sha256::digest(serde_json::to_vec(&material).map_err(|_| GenericError::OpaqueEffects)?)
-    );
-    Ok(GenericEffectEnvelope {
-        relations: analysis.relations,
-        commitment,
-    })
+    graph::admit(identity, intent, &[identity.entrypoint().into()])
 }
-struct Analysis<'a> {
-    program: &'a Program<'a>,
-    layout: &'a Value,
-    values: BTreeMap<i64, Value>,
-    relations: Vec<GenericEffectRelation>,
-    steps: Cell<usize>,
-    modern: bool,
-    account: &'a str,
-    target: &'a str,
-    native_value: &'a str,
-    terminated: bool,
-    stack: Vec<i64>,
-}
-impl Analysis<'_> {
-    fn step(&self) -> Result<(), GenericError> {
-        let next = self.steps.get().checked_add(1).ok_or(GenericError::Limit)?;
-        self.steps.set(next);
-        if next > 4096 {
-            Err(GenericError::Limit)
-        } else {
-            Ok(())
-        }
-    }
-    fn add(
-        &mut self,
-        path: Vec<String>,
-        operation: GenericEffectOperation,
-        value: Value,
-    ) -> Result<(), GenericError> {
-        if self.relations.len() >= 32 || self.relations.iter().any(|old| old.path == path) {
-            return Err(GenericError::OpaqueEffects);
-        }
-        let ty = layout::field_type(self.layout, &path)?;
-        if !self.modern
-            && (ty != "uint256" || operation != GenericEffectOperation::Set || path.len() != 1)
-        {
-            return Err(GenericError::OpaqueEffects);
-        }
-        let integer = ty.starts_with("uint");
-        if operation != GenericEffectOperation::Set && !integer {
-            return Err(GenericError::OpaqueEffects);
-        }
-        super::condition::validate_expected(&ty, super::GenericComparison::Equal, &value)?;
-        self.relations.push(GenericEffectRelation {
-            path,
-            operation,
-            value,
-            checked: true,
-        });
-        Ok(())
-    }
-}
-fn modern(version: &str) -> Result<bool, GenericError> {
-    let base = version
-        .split('+')
-        .next()
-        .ok_or(GenericError::OpaqueEffects)?;
-    let parts = base.split('.').collect::<Vec<_>>();
-    if parts.len() != 3 || parts[0] != "0" || parts[1] != "8" {
-        return Err(GenericError::OpaqueEffects);
-    }
-    let patch = parts[2]
-        .parse::<u32>()
-        .map_err(|_| GenericError::OpaqueEffects)?;
-    Ok(patch >= 38)
+
+/// Proves an invocation graph within explicitly declared business targets.
+/// Source descriptions do not grant fresh proof or signing authority.
+///
+/// # Errors
+/// Rejects undeclared targets, mutable routing, unknown code and opaque effects.
+pub fn admit_generic_transition_in_scope(
+    identity: &GenericContractIdentity,
+    identities: &[&GenericContractIdentity],
+    intent: &UnsignedContractIntent,
+) -> Result<GenericEffectEnvelope, GenericError> {
+    let merged = identity.merge_sources(identities)?;
+    let mut business = identities
+        .iter()
+        .map(|v| v.entrypoint().to_owned())
+        .collect::<Vec<_>>();
+    business.push(identity.entrypoint().into());
+    business.sort();
+    business.dedup();
+    graph::admit(&merged, intent, &business)
 }
 
 #[cfg(test)]

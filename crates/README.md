@@ -19,7 +19,9 @@ app-core (composition root)
 ├── transaction-policy <────┴── x402-client
 ├── chain-evm <──────────── x402-client
 │   ├── evm-simulation (isolated execution and trusted proof-backed replay)
+│   │   └── worker-transport (packaged isolated process lifetime)
 │   └── solidity-compilation (isolated exact source reproduction)
+│       └── worker-transport
 ├── web-retrieval
 └── ipc-types
 ~~~
@@ -52,6 +54,14 @@ the enforceable dependency graph:
   filesystem grants, permissions, application storage, HTTP clients, desktop UI
   or concrete agent orchestration. Its narrow private native resource FFI is
   documented in its README; no model tool or signing route selects the worker.
+- "worker-transport" owns only fixed-role packaged worker launch, kernel-bound
+  native image identity, private pipe/control capabilities and actual child
+  lifetime/resource enforcement. Its macOS XPC services launch strict workers
+  and seal their own profiles before input. It cannot depend on source, EVM,
+  wallet, application storage, network clients or desktop crates. Compiler/EVM
+  codecs and evidence remain in their existing owners. There is no public raw
+  path, PID, role-from-JSON or caller-supplied pin/profile/budget constructor.
+  Packaged qualified paths cannot fall back to an uncontained process.
 - All other crates begin as independent leaves.
 - "agent-core" defines model-neutral orchestration. It cannot depend on
   concrete filesystem, wallet, chain, x402, networking or audit
@@ -96,6 +106,7 @@ dependency that reverses one of these arrows requires an architecture review.
 | "wallet-core" | Encrypted vault, key lifecycle and signing boundary | Broadcasting, RPC, agent and workspace access |
 | "evm-simulation" | Bounded local Revm/Base worker, fixed protocol and isolated one-shot lifecycle | Wallet secrets, signing, submission, network IO, project grants and effect/source qualification |
 | "solidity-compilation" | Exact compiler pins, isolated local compilation and opaque reproduced artifacts | Network acquisition, wallet, signing, simulation, approval and effect qualification |
+| "worker-transport" | Fixed-role packaged native process, private byte pipes and trusted cleanup | Source/EVM codecs, wallet/signing, RPC, application data, raw caller-selected processes and qualification evidence |
 | "chain-evm" | EVM types, construction, decoding and simulation interfaces | Private-key storage and UI approval |
 | "transaction-policy" | Candidate binding, approval lifecycle and transaction rules | Key access and broadcasting |
 | "x402-client" | Bounded x402 v2 HTTP protocol and payment construction | Direct signing and autonomous payment |

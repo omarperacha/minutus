@@ -208,6 +208,32 @@ pub(crate) fn read_path_after(
     })
 }
 
+/// Physical words for one logical write, excluding array-length/addressing
+/// reads. Packed-bit authority remains with the compiler-AST proof.
+pub(super) fn write_slots(
+    layout: &Value,
+    state: &ProvedState,
+    address: Address,
+    path: &[String],
+    after: &BTreeMap<U256, U256>,
+) -> Result<BTreeSet<U256>, GenericError> {
+    let previous = |slot| state.slot(address, slot).ok_or(GenericError::MissingState);
+    let current = |slot| after.get(&slot).copied().map_or_else(|| previous(slot), Ok);
+    let leaf = resolve_path(layout, path, current, |_| {})?;
+    let mut slots = BTreeSet::from([leaf.slot]);
+    if matches!(leaf.ty.as_str(), "bytes" | "string") {
+        blob::read(&leaf.ty, leaf.slot, |slot| {
+            slots.insert(slot);
+            previous(slot)
+        })?;
+        blob::read(&leaf.ty, leaf.slot, |slot| {
+            slots.insert(slot);
+            current(slot)
+        })?;
+    }
+    Ok(slots)
+}
+
 fn resolve_path(
     layout: &Value,
     path: &[String],
@@ -712,6 +738,11 @@ fn encode_key(spec: &Value, key: &str) -> Result<[u8; 32], GenericError> {
             if data.len() != bytes || bytes > 32 {
                 return Err(GenericError::OpaqueEffects);
             }
+            // Path equality is used for disjoint-write proofs. A case alias
+            // must not name the same physical mapping key twice.
+            if primitive(ty, bytes, U256::from_be_slice(&data))? != json!(key) {
+                return Err(GenericError::OpaqueEffects);
+            }
             let mut word = [0; 32];
             word[..bytes].copy_from_slice(&data);
             return Ok(word);
@@ -733,3 +764,7 @@ fn encode_key(spec: &Value, key: &str) -> Result<[u8; 32], GenericError> {
 #[cfg(test)]
 #[path = "layout_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "layout_write_tests.rs"]
+mod write_tests;

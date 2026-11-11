@@ -88,3 +88,4 @@ __pycache__/
 /src-tauri/evm-workers/manifest.txt.incomplete
 /src-tauri/solidity-compiler/manifest.txt
 /src-tauri/solidity-compiler/manifest.txt.incomplete
+/src-tauri/worker-brokers/

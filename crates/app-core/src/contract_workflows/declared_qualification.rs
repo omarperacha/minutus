@@ -72,6 +72,7 @@ impl DeclaredContractWorkflowStep {
             )
             .into());
         }
+        super::declared_scope::validate(&self.declaration, &candidate)?;
         validate_gate(&self, &candidate, &prerequisites, None)?;
         let financial = serde_json::json!({"nonce":candidate.decoded().nonce(),"gas":candidate.decoded().gas_limit(),"fee":candidate.decoded().max_fee_per_gas_wei(),"priority":candidate.decoded().max_priority_fee_per_gas_wei(),"maximum":candidate.maximum_fee_wei()});
         let context = StoredGenericWorkflowPreparation {

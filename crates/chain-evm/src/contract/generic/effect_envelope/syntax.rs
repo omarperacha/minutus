@@ -1,6 +1,13 @@
+mod dispatch;
+#[cfg(test)]
+mod tests;
 use super::GenericError;
 use serde_json::Value;
 use std::collections::BTreeMap;
+
+// Real declaration IDs cannot collide with the Emscripten-u32 builtin suffix.
+const MAX_AST_ID: i64 = 1_000_000;
+const LEGACY_ID_MODULUS: i64 = 1_i64 << 32;
 
 pub(super) struct Program<'a> {
     nodes: BTreeMap<i64, &'a Value>,
@@ -74,41 +81,34 @@ impl<'a> Program<'a> {
         }
         Err(GenericError::OpaqueEffects)
     }
-    pub(super) fn helper(&self, reference: i64) -> Result<&'a Value, GenericError> {
-        let function = self.node(reference)?;
-        if function["nodeType"] != "FunctionDefinition"
-            || function["implemented"] != true
-            || function["virtual"] != false
-            || !matches!(
-                function["visibility"].as_str(),
-                Some("internal" | "private")
-            )
-        {
-            return Err(GenericError::OpaqueEffects);
-        }
-        let owned = self.contracts.iter().any(|contract| {
-            self.node(*contract)
-                .ok()
-                .and_then(|v| v["nodes"].as_array())
-                .is_some_and(|nodes| {
-                    nodes
-                        .iter()
-                        .any(|node| node["id"].as_i64() == Some(reference))
-                })
-        });
-        if !owned {
-            return Err(GenericError::OpaqueEffects);
-        }
-        Ok(function)
-    }
 }
 pub(super) fn id(node: &Value) -> Result<i64, GenericError> {
     node["id"].as_i64().ok_or(GenericError::OpaqueEffects)
 }
 pub(super) fn reference(node: &Value) -> Result<i64, GenericError> {
-    node["referencedDeclaration"]
+    let value = node["referencedDeclaration"]
         .as_i64()
-        .ok_or(GenericError::OpaqueEffects)
+        .ok_or(GenericError::OpaqueEffects)?;
+    if (0..=MAX_AST_ID).contains(&value) {
+        return Ok(value);
+    }
+    // Official old Emscripten builds store negative magic IDs in 32-bit size_t.
+    // Accept only the exact reviewed builtin name/ID pairs, never a name alone.
+    let builtin = match node["name"].as_str() {
+        Some("assert") => -3,
+        Some("msg") => -15,
+        Some("require") => -18,
+        Some("revert") => -19,
+        Some("super") => -25,
+        Some("tx") => -26,
+        Some("this") => -28,
+        _ => return Err(GenericError::OpaqueEffects),
+    };
+    if value == builtin || value == LEGACY_ID_MODULUS + builtin {
+        Ok(builtin)
+    } else {
+        Err(GenericError::OpaqueEffects)
+    }
 }
 fn visit<'a>(
     value: &'a Value,
@@ -122,7 +122,7 @@ fn visit<'a>(
     }
     if let Some(kind) = value["nodeType"].as_str() {
         if let Some(id) = value["id"].as_i64() {
-            if nodes.insert(id, value).is_some() {
+            if !(0..=MAX_AST_ID).contains(&id) || nodes.insert(id, value).is_some() {
                 return Err(GenericError::OpaqueEffects);
             }
         } else if !kind.starts_with("Yul") {

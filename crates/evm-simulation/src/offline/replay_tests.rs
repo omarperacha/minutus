@@ -11,7 +11,7 @@ const CALLER: &str = "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf";
 const TARGET: &str = "0x2222222222222222222222222222222222222222";
 const OTHER: &str = "0x3333333333333333333333333333333333333333";
 type Witness = Vec<(StateQuery, StateValue)>;
-fn fixture(
+pub(super) fn fixture(
     network: SimulationNetwork,
     code: &str,
     other_code: &str,
@@ -103,7 +103,10 @@ fn fixture(
     ));
     Ok((request, facts))
 }
-fn signed(request: &SimulationRequest, k: u64) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+pub(super) fn signed(
+    request: &SimulationRequest,
+    k: u64,
+) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let tx = &request.transaction;
     let transaction = TxEip1559 {
         chain_id: request.network.chain_id(),

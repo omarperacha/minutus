@@ -1,11 +1,10 @@
 //! Expected identities come from the loaded host image, never a caller digest.
-use crate::{SimulationControl, SimulationError};
+use crate::SimulationError;
 use sha2::{Digest, Sha256};
 use std::{
     fs::File,
     io::Read,
     path::{Path, PathBuf},
-    time::Duration,
 };
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Role {
@@ -33,6 +32,7 @@ impl TrustedSimulationWorkers {
     /// Unpackaged developer hosts, missing/malformed pins, indirect or modified
     /// helpers, unsupported OS and missing mandatory isolation fail closed.
     pub fn packaged() -> Result<Self, SimulationError> {
+        crate::supervisor::ensure_worker_runtime_available()?;
         let manifest = crate::native_identity::host_manifest()?;
         let root = std::env::current_exe()
             .map_err(|_| SimulationError::WorkerUnavailable)?
@@ -42,6 +42,10 @@ impl TrustedSimulationWorkers {
         let result = parse(&manifest, &root)?;
         result.online.verify_file()?;
         result.offline.verify_file()?;
+        // Readiness includes both fixed remote roles. Legacy sibling workers
+        // alone cannot advertise qualified execution in an App Sandbox host.
+        result.online.transport()?;
+        result.offline.transport()?;
         Ok(result)
     }
     /// The online authority-free execution helper.
@@ -56,6 +60,12 @@ impl TrustedSimulationWorkers {
     }
 }
 impl TrustedSimulationWorker {
+    pub(crate) fn transport_role(&self) -> worker_transport::Role {
+        match self.role {
+            Role::Online => worker_transport::Role::EvmOnline,
+            Role::Offline => worker_transport::Role::BaseOffline,
+        }
+    }
     pub(crate) fn path(&self) -> &Path {
         &self.path
     }
@@ -93,28 +103,17 @@ impl TrustedSimulationWorker {
         }
         Ok(())
     }
-    pub(crate) fn await_running(
-        &self,
-        pid: u32,
-        control: &SimulationControl<'_>,
-    ) -> Result<(), SimulationError> {
-        // sandbox-exec initially has its own Apple signature. Wait for its exec
-        // transition, but release no request/state/signature material beforehand.
-        for _ in 0..100 {
-            control.remaining()?;
-            if crate::native_identity::child_exited(pid)? {
-                return Err(SimulationError::WorkerUnavailable);
-            }
-            if crate::native_identity::child_hash(pid).is_ok_and(|hash| hash == self.cdhash) {
-                return if crate::native_identity::child_exited(pid)? {
-                    Err(SimulationError::WorkerUnavailable)
-                } else {
-                    Ok(())
-                };
-            }
-            std::thread::sleep(Duration::from_millis(5));
+    pub(crate) fn transport(&self) -> Result<worker_transport::PackagedWorker, SimulationError> {
+        let worker = worker_transport::PackagedWorker::packaged(self.transport_role())
+            .map_err(|_| SimulationError::WorkerUnavailable)?;
+        self.check_cohort(worker.worker_sha256(), worker.worker_cdhash())?;
+        Ok(worker)
+    }
+    fn check_cohort(&self, sha256: &str, cdhash: &str) -> Result<(), SimulationError> {
+        if decode(Some(sha256))? != self.sha256 || decode(Some(cdhash))? != self.cdhash {
+            return Err(SimulationError::WorkerUnavailable);
         }
-        Err(SimulationError::WorkerUnavailable)
+        Ok(())
     }
 }
 fn digest(file: &mut File) -> Result<[u8; 32], SimulationError> {

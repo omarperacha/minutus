@@ -98,6 +98,7 @@ def build_and_sign(pnpm, identity, profile, application):
     """Keep signed app verification complete before trimming compiler artifacts."""
     subprocess.run([sys.executable, str(REPOSITORY / "scripts/stage_solidity_compiler.py"), "--identity", identity], cwd=REPOSITORY, check=True)
     subprocess.run([sys.executable, str(REPOSITORY / "scripts/stage_evm_workers.py"), "--identity", identity], cwd=REPOSITORY, check=True)
+    subprocess.run([sys.executable, str(REPOSITORY / "scripts/stage_worker_brokers.py"), "--identity", identity], cwd=REPOSITORY, check=True)
     started = time.monotonic()
     print("Building frontend and native app (Cargo timing report enabled)…", flush=True)
     subprocess.run(
@@ -125,6 +126,7 @@ def build_and_sign(pnpm, identity, profile, application):
         )
     subprocess.run([sys.executable, str(REPOSITORY / "scripts/stage_evm_workers.py"), "--verify-bundle", str(application)], cwd=REPOSITORY, check=True)
     subprocess.run([sys.executable, str(REPOSITORY / "scripts/stage_solidity_compiler.py"), "--verify-bundle", str(application)], cwd=REPOSITORY, check=True)
+    subprocess.run([sys.executable, str(REPOSITORY / "scripts/stage_worker_brokers.py"), "--verify-bundle", str(application)], cwd=REPOSITORY, check=True)
     finished = time.monotonic()
     print(
         f"Signing and verification: {finished - built:.1f}s. "

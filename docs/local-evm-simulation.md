@@ -83,19 +83,24 @@ block identity and successful child exit checks. Cancellation/limits/pipe faults
 discard partial output and kill/reap the helper. macOS footprint monitoring is
 sampled, not a hard allocation reservation; CPU and wall controls supplement it.
 The concrete RPC adapter checks cancellation after IO as well as before it.
-Other platforms fail closed. Staging packages separate pinned helper binaries;
-full native/visual qualification and chat enablement remain open.
+Other platforms fail closed. Staging packages separate pinned helper binaries.
+The qualification-only chat workflow is integrated; native human/security
+qualification and release enablement remain open.
 
 ## Helper identity and signed Base isolation
 
 `TrustedSimulationWorkers::packaged()` accepts no caller path or expected digest.
 The desktop build verifies staged helper SHA256 and code-directory hashes and
 embeds their exact manifest in the host's immutable Mach-O text section. The
-runtime reads that loaded section and derives fixed sibling helper names. Every
-trusted launch rejects final-component symlinks, rechecks file contents, and
-checks the actual running child's kernel code identity before releasing any
-request or signature material. The latter check closes a replacement race between
-file verification and execution. Unpackaged developer builds without this section
+runtime reads that loaded section and derives fixed helper names. Packaged
+launch uses the separately pinned `worker-transport` XPC role, which owns the
+actual unreaped child. The service launches the strict worker, checks its kernel
+image and resources, then seals its own deny-default profile before dispatching
+requests. Main App Sandbox remains enabled; there is no nested sandbox fallback.
+Every trusted launch rejects final-component symlinks, rechecks file contents and
+requires live worker image identity before releasing request or signature
+material. The latter check closes a replacement race between file verification
+and execution. Unpackaged developer builds without these sections
 cannot mint trusted worker capabilities. Raw-path online APIs remain diagnostics
 and cannot supply the trusted capability required for qualification.
 
@@ -104,6 +109,21 @@ build. Normal source checking does not require staging when the generated manife
 is absent. Release packaging requires it. Bundle verification compares the helpers
 against the manifest embedded in that exact host executable; a mutable resource
 manifest cannot establish runtime trust. Staging does not launch the app.
+
+Role-specific brokers have fixed paths, limits and worker pins. They have no
+network, main-container or user-file access after sealing. The host installs the
+exact broker code-signing requirement before accepting Ready. Because that
+requirement authenticates incoming messages, source and signed bytes never travel
+on named XPC messages: authenticated Ready transfers anonymous stdin/stdout pipe
+descriptors instead. Existing compiler/EVM protocols own those byte streams.
+XPC control contains only fixed nonce-bound lifecycle facts, with no raw path,
+PID, endpoint or caller-selected budget. Each service owns one peer and one child.
+
+A private read-only lifetime pipe terminates the worker when its broker dies.
+Normal cancellation requires actual kill/wait before an authenticated Reaped
+receipt. XPC failure or stdout EOF is not reaping evidence. Missing that receipt
+for the offline signed role quarantines further EVM RPC/source/worker operations
+in the process; it cannot resume online acquisition based on presumed cleanup.
 
 Base's native L1 fee depends on the genuine signed envelope, including signature
 bytes compressed by the pinned FastLZ algorithm. The online unsigned protocol
@@ -116,8 +136,9 @@ state is terminal, including an unknown slot on a known account; it never expand
 the manifest or substitutes zero. Both helpers share the same mandatory sandbox,
 resource limits, cancellation and kill/reap lifecycle.
 
-The currently bounded offline certificate scope is one direct zero-native-value
-call. Source/profile evidence must independently establish its material effects
+The currently bounded offline certificate scope is one top-level zero-native-value
+call, including independently admitted nested source invocations. Source/profile
+evidence must independently establish its material effects
 and fee insensitivity before approval. A checked all-signature fee ceiling uses
 signed length <= unsigned signing length+68 and the pinned algorithm proof
 `FastLZLength(n) <= n+ceil(n/32)`, followed by monotone Fjord and operator-fee
@@ -126,27 +147,29 @@ inclusion-state fees; freshness, funds, nonce and approval bindings remain requi
 No dummy or unsigned envelope is presented as exact native execution.
 
 Signed-run child output remains opaque. Validation requires the original host
-material certificate, exact preloaded before words, a single direct call and
+material certificate, exact preloaded before words, the exact top-level call and
 independently reconstructed native fee/nonce settlement. Logs, return bytes,
 account/storage changes, diagnostics and gas/fee figures cannot be projected from
 that output. Even a bounded gas number could encode signed bytes. The resulting
 host-only receipt exposes only the host-computed genuine transaction hash and the
 pre-existing snapshot commitment. It cannot approve or send a transaction.
 
-## Per-network disposition reviewed 10 November 2026
+## Per-network execution and qualification disposition
 
 | Network | Explicit current disposition |
 | --- | --- |
-| Ethereum mainnet | Osaka engine and BPO blob-fee schedule exercised with synthetic worker fixtures. Admission expires 2026-12-01 UTC. Raw execution only; no material-effect/source qualification. |
-| Ethereum Sepolia | Osaka before timestamp 1791294816; Amsterdam from that boundary, requiring the exact consensus slot and block-access-list hash. Synthetic slot, state/regular gas, calldata floor/refund and value-log fixtures pass. Same 2026-12-01 block-time horizon; live-state/effect qualification remains open. |
-| Base mainnet | Native Cobalt before1793901600 and Denim from that exact mainnet boundary; full-envelope execution, L1/operator fees and settlement pass synthetic offline fixtures. The unsigned online protocol preserves missing-envelope rejection. Live source/effect/workflow qualification remains required. |
-| Base Sepolia | Native Denim passes the same offline fee/envelope fixtures. No deposit/system-transaction workaround; the same source/effect/workflow requirements apply. |
+| Ethereum mainnet | Osaka engine and BPO blob-fee schedule exercised with synthetic worker fixtures. Admission expires 2026-12-01 UTC. The independent generic layer joins reproduced source, effect envelopes and proved replay in synthetic candidate tests. |
+| Ethereum Sepolia | Osaka before timestamp 1791294816; Amsterdam from that boundary, requiring the exact consensus slot and block-access-list hash. Synthetic slot, state/regular gas, calldata floor/refund, value-log and generic candidate fixtures pass. Same 2026-12-01 block-time horizon. |
+| Base mainnet | Native Cobalt before1793901600 and Denim from that exact mainnet boundary; full-envelope execution, L1/operator fees and settlement pass synthetic offline fixtures. Generic candidates independently join application material and frozen native snapshots; unsigned online execution still rejects a missing envelope. |
+| Base Sepolia | Native Denim passes the same offline fee/envelope and generic candidate joins. No deposit/system-transaction workaround. |
 
 Ethereum timings/BPO parameters were reviewed against
 [pinned Geth chain specs](https://github.com/ethereum/go-ethereum/tree/ddaa6957127ef0c4b7d41e5cbd9c19e260c0a42f/params/chainspecs),
 and Base upgrades against the pinned Base implementation. The 2026-12-01 limit
 is a maintenance review horizon, not a prediction of the next fork. Extending it
-requires source/rules review. Synthetic hashes/state do not qualify a live chain.
+requires source/rules review. These execution and generic-layer tests do not
+establish public-provider availability, live candidate admission or human
+approval qualification.
 
 ## Evidence and enablement gates
 
@@ -159,13 +182,15 @@ They establish those bounded behaviours, not arbitrary semantic completeness.
 
 Execution status, emitted events, decoded function names and changed slots cannot
 alone establish assets received, residual approvals, operator/authority effects
-or task success. Every result therefore retains `effects_qualified=false` and
-cannot become approval/signing authority. Proxy/code/source/ABI correspondence,
-independent material-effect observers, current four-chain execution/fee coverage,
-packaged native review/per-write authentication, workflow integration with the
-[shared nonce owner](evm-nonce-ownership.md) and
-durable sequential execution integration remain required. No warning override,
-blind-sign route, account upgrade or automatic retry is installed.
+or task success. Raw worker and replay results therefore retain
+`effects_qualified=false` and cannot become approval/signing authority. The
+independent [generic qualification layer](generic-contract-qualification.md)
+binds source/code/ABI correspondence, complete material effects and the
+source-derived envelope. Its qualification-only workflow uses native approval,
+per-write authentication, the [shared nonce owner](evm-nonce-ownership.md) and
+durable sequential execution. Native human/security qualification, actual public
+provider admission and release enablement remain separate gates. No warning
+override, blind-sign route, account upgrade or automatic retry is installed.
 
 
 ## Trusted frozen host replay
@@ -175,7 +200,8 @@ maintained Revm implementation. This is an explicit execution trust boundary:
 `TrustedReplayExecution` is privately constructed from host execution, never from
 child JSON. `chain-evm` separately binds its account/code/storage/ancestor inputs
 to the exact proved header. `effects_qualified` remains false: decoding source,
-layout, native transfers and complete material effects remains a separate owner.
+layout, native transfers and complete material effects belongs to the independent
+generic qualification layer rather than this raw replay certificate.
 
 `replay_discover` runs before signature and discovers missing facts by restarting
 execution from the unchanged snapshot. It obtains each missing fact from the

@@ -287,7 +287,7 @@ pub(super) fn chat_tool_contract(name: &str) -> Option<(ToolName, &'static [&'st
         ),
         "contract.inspect" => (
             ToolName::ContractInspect,
-            &["block", "includeSource", "network", "target"][..],
+            &["block", "includeSource", "invocation", "network", "target"][..],
         ),
         "contract.request_workflow" => (
             ToolName::ContractRequestWorkflow,

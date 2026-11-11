@@ -1,5 +1,6 @@
 use super::*;
 use serde_json::json;
+use std::{cell::Cell, collections::BTreeMap};
 
 fn identify(node: &mut Value, next: &mut i64) {
     if let Some(object) = node.as_object_mut() {
@@ -63,10 +64,16 @@ fn analyse_values(
         layout: &layout,
         values,
         relations: Vec::new(),
+        calls: Vec::new(),
         steps: Cell::new(0),
         modern,
+        features: super::eligibility::Features::Structured,
+        base: false,
         account: "0x1111111111111111111111111111111111111111",
+        origin: "0x1111111111111111111111111111111111111111",
         target: "0x2222222222222222222222222222222222222222",
+        code_address: "0x2222222222222222222222222222222222222222",
+        immutable_bindings: &BTreeMap::new(),
         native_value: "0",
         terminated: false,
         stack: Vec::new(),
@@ -264,7 +271,7 @@ fn modifier_single_placeholder_revert_guards_admit_but_hidden_writes_and_extra_p
 -> Result<(), GenericError> {
     for kind in 0..3 {
         let (mut ast, metadata, layout) = fixture(vec![assignment("=", identifier(4))]);
-        ast["Example.sol"]["nodes"][0]["nodes"][1]["modifiers"] = json!([{"nodeType":"ModifierInvocation","id":90,"modifierName":{"nodeType":"IdentifierPath","id":91,"referencedDeclaration":40},"arguments":[]}]);
+        ast["Example.sol"]["nodes"][0]["nodes"][1]["modifiers"] = json!([{"nodeType":"ModifierInvocation","id":90,"modifierName":{"nodeType":"IdentifierPath","id":91,"name":"guard","referencedDeclaration":40},"arguments":[]}]);
         let guard = json!({"nodeType":"ExpressionStatement","expression":{"nodeType":"FunctionCall","expression":{"nodeType":"Identifier","name":"require","referencedDeclaration":-18},"arguments":[{"nodeType":"BinaryOperation","operator":">","leftExpression":identifier(3),"rightExpression":number("0")}]}});
         let mut statements = vec![
             if kind == 1 {
@@ -299,6 +306,8 @@ fn independent_box_counter_and_relative_assignment_have_enforced_relations()
         assert_eq!(
             proof,
             [GenericEffectRelation {
+                storage_address: "0x2222222222222222222222222222222222222222".into(),
+                code_address: "0x2222222222222222222222222222222222222222".into(),
                 path: vec!["counter".into()],
                 operation: GenericEffectOperation::Set,
                 value: json!("42"),

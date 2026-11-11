@@ -1,6 +1,7 @@
-use crate::{CompilationError, CompilationInput};
+use crate::{CompilationError, CompilationInput, ImmutableBinding, immutables};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 
 #[cfg(test)]
 mod tests;
@@ -14,15 +15,31 @@ pub struct ReproducedArtifact {
     runtime: Vec<u8>,
     creation: Vec<u8>,
     metadata: Value,
+    compilation_settings: Value,
     methods: Value,
     source_ast: Value,
     compiler_version: String,
     commitment: String,
+    immutable_bindings: BTreeMap<i64, ImmutableBinding>,
 }
 impl ReproducedArtifact {
     pub(crate) fn from_compiler(
         input: &CompilationInput,
         output: &Value,
+    ) -> Result<Self, CompilationError> {
+        Self::build(input, output, None)
+    }
+    pub(crate) fn for_runtime(
+        input: &CompilationInput,
+        output: &Value,
+        runtime: &[u8],
+    ) -> Result<Self, CompilationError> {
+        Self::build(input, output, Some(runtime))
+    }
+    fn build(
+        input: &CompilationInput,
+        output: &Value,
+        matched_runtime: Option<&[u8]>,
     ) -> Result<Self, CompilationError> {
         if output
             .get("errors")
@@ -38,7 +55,6 @@ impl ReproducedArtifact {
             .ok_or(CompilationError::CompilationFailed)?;
         let evm = &artifact["evm"];
         for reference in [
-            &evm["deployedBytecode"]["immutableReferences"],
             &evm["deployedBytecode"]["linkReferences"],
             &evm["bytecode"]["linkReferences"],
         ] {
@@ -46,12 +62,16 @@ impl ReproducedArtifact {
                 return Err(CompilationError::ArtifactMismatch);
             }
         }
-        let runtime = hex(evm["deployedBytecode"]["object"]
-            .as_str()
-            .ok_or(CompilationError::CompilationFailed)?)?;
-        let creation = hex(evm["bytecode"]["object"]
-            .as_str()
-            .ok_or(CompilationError::CompilationFailed)?)?;
+        let runtime = crate::bytecode::decode(
+            evm["deployedBytecode"]["object"]
+                .as_str()
+                .ok_or(CompilationError::CompilationFailed)?,
+        )?;
+        let creation = crate::bytecode::decode(
+            evm["bytecode"]["object"]
+                .as_str()
+                .ok_or(CompilationError::CompilationFailed)?,
+        )?;
         if runtime.is_empty() || runtime.len() > 24_576 || creation.len() > 49_152 {
             return Err(CompilationError::Limit);
         }
@@ -83,25 +103,26 @@ impl ReproducedArtifact {
             return Err(CompilationError::ArtifactMismatch);
         }
         let source_ast = source_asts(input, output)?;
-        let material = serde_json::json!({"domain":"minutus-reproduced-solidity-v1",
-            "compiler":input.build.version(),"input":input.standard,
-            "file":input.file,"name":input.name,"artifact":artifact,"sourceAst":source_ast});
-        let commitment = format!(
-            "{:x}",
-            Sha256::digest(
-                serde_json::to_vec(&material).map_err(|_| CompilationError::ArtifactMismatch)?
-            )
-        );
+        let (runtime, immutable_bindings) = immutables::match_runtime(
+            &runtime,
+            matched_runtime,
+            &evm["deployedBytecode"]["immutableReferences"],
+            &source_ast,
+        )?;
+        let commitment =
+            artifact_commitment(input, artifact, &source_ast, &runtime, &immutable_bindings)?;
         Ok(Self {
             abi,
             storage_layout,
             runtime,
             creation,
             metadata,
+            compilation_settings: input.standard["settings"].clone(),
             methods,
             source_ast,
             compiler_version: input.build.version().into(),
             commitment,
+            immutable_bindings,
         })
     }
     /// ABI produced by the exact compiler, not a provider-declared ABI.
@@ -114,10 +135,16 @@ impl ReproducedArtifact {
     pub const fn storage_layout(&self) -> &Value {
         &self.storage_layout
     }
-    /// Complete reproduced runtime including compiler metadata.
+    /// Complete matched runtime, with exact metadata and declared immutable words.
     #[must_use]
     pub fn runtime(&self) -> &[u8] {
         &self.runtime
+    }
+    /// Typed words observed only at exact compiler-declared immutable references.
+    /// These bindings establish no constructor execution or creation invariant.
+    #[must_use]
+    pub const fn immutable_bindings(&self) -> &BTreeMap<i64, ImmutableBinding> {
+        &self.immutable_bindings
     }
     /// Complete reproduced creation program; generic admission need not assume deployment invariants.
     #[must_use]
@@ -128,6 +155,13 @@ impl ReproducedArtifact {
     #[must_use]
     pub const fn metadata(&self) -> &Value {
         &self.metadata
+    }
+    /// Exact validated standard-JSON input settings, already bound by commitment.
+    /// Metadata can omit historical code-generation details and cannot replace
+    /// these original settings when assessing compiler feature eligibility.
+    #[must_use]
+    pub const fn compilation_settings(&self) -> &Value {
+        &self.compilation_settings
     }
     /// Compiler-produced canonical function signatures and selectors.
     #[must_use]
@@ -176,20 +210,27 @@ fn source_asts(input: &CompilationInput, output: &Value) -> Result<Value, Compil
         .collect::<Result<serde_json::Map<String, Value>, CompilationError>>()
         .map(Value::Object)
 }
-fn hex(value: &str) -> Result<Vec<u8>, CompilationError> {
-    if value.len() > 98_304 || !value.len().is_multiple_of(2) {
-        return Err(CompilationError::Limit);
+
+fn artifact_commitment(
+    input: &CompilationInput,
+    artifact: &Value,
+    source_ast: &Value,
+    runtime: &[u8],
+    bindings: &BTreeMap<i64, ImmutableBinding>,
+) -> Result<String, CompilationError> {
+    let mut material = serde_json::json!({"domain":"minutus-reproduced-solidity-v1",
+        "compiler":input.build.version(),"input":input.standard,
+        "file":input.file,"name":input.name,"artifact":artifact,"sourceAst":source_ast});
+    // Preserve existing non-immutable commitments; actual substitutions extend
+    // the binding only when constructor-free observed words are present.
+    if !bindings.is_empty() {
+        material["runtime"] = crate::bytecode::encode(runtime).into();
+        material["immutableBindings"] = immutables::commitment(bindings);
     }
-    value
-        .as_bytes()
-        .chunks_exact(2)
-        .map(|pair| {
-            let digit = |byte: u8| match byte {
-                b'0'..=b'9' => Ok(byte - b'0'),
-                b'a'..=b'f' => Ok(byte - b'a' + 10),
-                _ => Err(CompilationError::ArtifactMismatch),
-            };
-            Ok(digit(pair[0])? * 16 + digit(pair[1])?)
-        })
-        .collect()
+    Ok(format!(
+        "{:x}",
+        Sha256::digest(
+            serde_json::to_vec(&material).map_err(|_| CompilationError::ArtifactMismatch)?
+        )
+    ))
 }

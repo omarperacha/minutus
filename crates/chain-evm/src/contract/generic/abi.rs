@@ -6,6 +6,13 @@ use serde_json::Value;
 use std::collections::BTreeSet;
 
 pub(super) fn bind(abi: &Value, intent: &UnsignedContractIntent) -> Result<(), GenericError> {
+    bind_invocation(abi, intent, false)
+}
+pub(super) fn bind_invocation(
+    abi: &Value,
+    intent: &UnsignedContractIntent,
+    allow_read: bool,
+) -> Result<(), GenericError> {
     let functions = abi
         .as_array()
         .filter(|v| v.len() <= 1024)
@@ -23,10 +30,11 @@ pub(super) fn bind(abi: &Value, intent: &UnsignedContractIntent) -> Result<(), G
         }
     }
     let function = selected.ok_or(GenericError::InvalidAbi)?;
-    if !matches!(
+    if !(matches!(
         function["stateMutability"].as_str(),
         Some("nonpayable" | "payable")
-    ) || (intent.value_wei() != "0" && function["stateMutability"] != "payable")
+    ) || (allow_read && matches!(function["stateMutability"].as_str(), Some("pure" | "view"))))
+        || (intent.value_wei() != "0" && function["stateMutability"] != "payable")
     {
         return Err(GenericError::InvalidAbi);
     }
@@ -171,6 +179,57 @@ mod tests {
             ),
             Err(GenericError::InvalidAbi)
         );
+        Ok(())
+    }
+
+    #[test]
+    fn pure_and_view_discovery_require_explicit_read_mode_and_grant_no_write_or_value()
+    -> Result<(), Box<dyn std::error::Error>> {
+        for mutability in ["pure", "view"] {
+            let abi = json!([{"type":"function","name":"requiredTarget",
+                "inputs":[{"type":"uint256"}],"outputs":[{"type":"address"}],
+                "stateMutability":mutability}]);
+            let declared = DeclaredContractCall::new(
+                "0x2222222222222222222222222222222222222222",
+                "requiredTarget(uint256)",
+                &[json!("7")],
+                &["address".into()],
+            )?;
+            let intent = UnsignedContractIntent::new_declared(
+                EvmNetwork::EthereumSepolia,
+                "0x1111111111111111111111111111111111111111",
+                "0",
+                declared.clone(),
+            )?;
+            assert_eq!(bind(&abi, &intent), Err(GenericError::InvalidAbi));
+            bind_invocation(&abi, &intent, true)?;
+            let with_value = UnsignedContractIntent::new_declared(
+                intent.network(),
+                intent.account(),
+                "1",
+                declared,
+            )?;
+            assert_eq!(
+                bind_invocation(&abi, &with_value, true),
+                Err(GenericError::InvalidAbi)
+            );
+            let forged = DeclaredContractCall::new(
+                intent.call().target(),
+                intent.call().signature(),
+                intent.call().arguments(),
+                &[],
+            )?;
+            let wrong_output = UnsignedContractIntent::new_declared(
+                intent.network(),
+                intent.account(),
+                "0",
+                forged,
+            )?;
+            assert_eq!(
+                bind_invocation(&abi, &wrong_output, true),
+                Err(GenericError::InvalidAbi)
+            );
+        }
         Ok(())
     }
 }

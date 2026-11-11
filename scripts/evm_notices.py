@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 RESOURCE_NAME = "third-party-notices"
-MANIFEST_SHA256 = "3edd75dda2a7558ff662360571e31737181a167b80f8803135c034a0354c1c30"
+MANIFEST_SHA256 = "cb98d2b9ff094fb24cd5005c0dc68eaa285141f2a7fe69857a74a2974b0a54d4"
 NOTICES = (
     ('contract-profiles/erc20-oz-5.7.0/OpenZeppelin-MIT.txt',
      'crates/chain-evm/profiles/erc20-oz-5.7.0/OpenZeppelin-MIT.txt',
@@ -37,13 +37,13 @@ NOTICES = (
      '8946bedbf7b19245da61f429ac90b03dd6b6c69e1e2b98988aa1793958c54e2f'),
     ('solidity-compiler/README.md',
      'crates/solidity-compilation/notices/README.md',
-     'd9ec899a31d2f06a86761d6b916e72e8021b5af5dfa1d9fb4b7f958d655cc80c'),
+     'ed84b2e7c5538d10a50977ea9631ba6006aa5145be742acc7af7ae1d4307d366'),
     ('solidity-compiler/Solidity-GPL-3.0.txt',
      'crates/solidity-compilation/notices/Solidity-GPL-3.0.txt',
      '0ae0485a5bd37a63e63603596417e4eb0e653334fa6c7f932ca3a0e85d4af227'),
     ('solidity-compiler/compiler.swift',
      'crates/solidity-compilation/native/compiler.swift',
-     '88c686da39a76ea4bbf594c4284a59be72d32d63c960f692c403148c00a6d19a'),
+     '338bed92b7294fa9d1bce380f29f4f558df5835714a61b2f9df56d6fea14f0d2'),
     ('solidity-compiler/build.py',
      'crates/solidity-compilation/native/build.py',
      '36345dcb1aefaeaa23ff074901b0575141eadfe0de1be9dbf4ead348cc60ff43'),

@@ -3,7 +3,7 @@
 //! never acquire detailed diagnostics or online acquisition authority.
 use super::{
     GenericContractCandidate, GenericError, GenericSourceProvider, envelope,
-    preparation::prepare_generic_contract,
+    preparation::prepare_generic_contract_in_scope,
 };
 use crate::{
     EvmRpcUrl,
@@ -155,7 +155,7 @@ pub fn refresh_generic_contract(
         max_fee_per_gas: transaction.max_fee_per_gas,
         priority_fee_per_gas: transaction.priority_fee_per_gas,
     };
-    let fresh = prepare_generic_contract(
+    let fresh = prepare_generic_contract_in_scope(
         workers,
         endpoint,
         approved.intent(),
@@ -163,8 +163,10 @@ pub fn refresh_generic_contract(
         fees,
         sources,
         cancelled,
+        approved.business_scope(),
     )?;
     if approved.payload() != fresh.payload()
+        || approved.envelope().commitment() != fresh.envelope().commitment()
         || approved.source_commitment() != fresh.source_commitment()
         || approved.effects().material_commitment() != fresh.effects().material_commitment()
         || number(fresh.maximum_fee_wei())? > number(approved.maximum_fee_wei())?

@@ -132,36 +132,16 @@ macro_rules! trace {
                     {
                         return Err(SimulationError::UnsupportedExecution);
                     }
-                    let address = inputs.bytecode_address.as_slice();
-                    if address[..18] == [0; 18] {
-                        let low = u16::from_be_bytes([address[18], address[19]]);
-                        // Fixed reviewed standard precompile addresses, including
-                        // Osaka P256. Return before maintained frame initialisation
-                        // can dispatch any native cryptographic implementation.
-                        if (1..=0x20).contains(&low) || low == 0x100 {
-                            return Err(SimulationError::UnsupportedExecution);
-                        }
+                    if crate::application_targets::standard_reserved(
+                        inputs.bytecode_address.into_array(),
+                    ) {
+                        return Err(SimulationError::UnsupportedExecution);
                     }
                     if self.base_application
                         && (!inputs.call_value().is_zero()
-                            || [
-                                vm::primitives::address!(
-                                    "420000000000000000000000000000000000000f"
-                                ),
-                                vm::primitives::address!(
-                                    "4200000000000000000000000000000000000015"
-                                ),
-                                vm::primitives::address!(
-                                    "4200000000000000000000000000000000000019"
-                                ),
-                                vm::primitives::address!(
-                                    "420000000000000000000000000000000000001a"
-                                ),
-                                vm::primitives::address!(
-                                    "420000000000000000000000000000000000001b"
-                                ),
-                            ]
-                            .contains(&inputs.bytecode_address))
+                            || crate::application_targets::base_fee_system(
+                                inputs.bytecode_address.into_array(),
+                            ))
                     {
                         return Err(SimulationError::UnsupportedExecution);
                     }

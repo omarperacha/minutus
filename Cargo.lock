@@ -2735,6 +2735,7 @@ dependencies = [
  "alloy-primitives",
  "base-common-evm",
  "libc",
+ "mach2",
  "revm 42.0.1",
  "revm 43.0.3",
  "rustix",
@@ -2742,6 +2743,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "tempfile",
+ "worker-transport",
 ]
 
 [[package]]
@@ -7033,11 +7035,14 @@ name = "solidity-compilation"
 version = "0.1.0-beta.1"
 dependencies = [
  "libc",
+ "mach2",
+ "ruint",
  "rustix",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "tempfile",
+ "worker-transport",
 ]
 
 [[package]]
@@ -9120,6 +9125,16 @@ dependencies = [
  "group 0.14.0",
  "hybrid-array",
  "primefield",
+]
+
+[[package]]
+name = "worker-transport"
+version = "0.1.0-beta.1"
+dependencies = [
+ "getrandom 0.4.3",
+ "libc",
+ "rustix",
+ "sha2 0.10.9",
 ]
 
 [[package]]

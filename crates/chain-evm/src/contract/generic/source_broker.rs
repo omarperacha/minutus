@@ -118,8 +118,20 @@ impl GenericSourceProvider {
         let compiler = self.compiler_bytes(input.compiler(), cancelled, started)?;
         let artifact = self
             .compiler
-            .reproduce(&input, &compiler, cancelled)
-            .map_err(|_| GenericError::SourceMismatch)?;
+            .reproduce_for_runtime(&input, &compiler, runtime, cancelled)
+            .map_err(|error| {
+                #[cfg(debug_assertions)]
+                if std::env::var_os("MINUTUS_SOURCE_QUALIFICATION_DIAGNOSTICS")
+                    .is_some_and(|value| value == "1")
+                {
+                    // Closed local enum only: never provider prose, source,
+                    // calldata, paths or signing material.
+                    eprintln!("Compiler qualification diagnostic: {error:?}");
+                }
+                #[cfg(not(debug_assertions))]
+                let _ = error;
+                GenericError::SourceMismatch
+            })?;
         current(cancelled, started)?;
         if artifact.runtime() != runtime {
             return Err(GenericError::SourceMismatch);
@@ -207,6 +219,8 @@ impl GenericSourceProvider {
     }
 }
 fn current(cancelled: &AtomicBool, started: Instant) -> Result<(), GenericError> {
+    evm_simulation::ensure_worker_runtime_available()
+        .map_err(|_| GenericError::ExecutionRejected)?;
     if cancelled.load(Ordering::Acquire) || started.elapsed() > Duration::from_secs(90) {
         return Err(GenericError::Expired);
     }
@@ -226,10 +240,9 @@ fn get(
         .user_agent("Minutus source reproduction/1")
         .build()
         .map_err(|_| GenericError::SourceMismatch)?;
-    let mut response = client
-        .get(url)
-        .send()
-        .map_err(|_| GenericError::SourceMismatch)?;
+    let request = client.get(url);
+    current(cancelled, started)?;
+    let mut response = request.send().map_err(|_| GenericError::SourceMismatch)?;
     if !response.status().is_success() || response.content_length().is_some_and(|n| n > limit) {
         return Err(GenericError::SourceMismatch);
     }

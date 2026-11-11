@@ -4,11 +4,14 @@
 mod evm_workers;
 #[path = "build_support/solidity_compiler.rs"]
 mod solidity_compiler;
+#[path = "build_support/worker_brokers.rs"]
+mod worker_brokers;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     watch_runtime_sources();
     evm_workers::configure()?;
     solidity_compiler::configure()?;
+    worker_brokers::configure()?;
     verify_release_computation_runner()?;
     verify_release_ollama_payload()?;
     verify_release_whisper_helper()?;

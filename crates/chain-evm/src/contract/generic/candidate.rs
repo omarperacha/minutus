@@ -1,7 +1,7 @@
 //! Immutable generic candidate, constructed only from trusted proved replay.
 use super::{
     abi,
-    effect_envelope::{GenericEffectEnvelope, admit_generic_transition},
+    effect_envelope::GenericEffectEnvelope,
     effects::{
         GenericEffects, GenericNativeAccountMode, GenericNativeTransfer, NativeEffectContext,
     },
@@ -38,12 +38,23 @@ pub struct GenericContractCandidate {
     maximum_fee_wei: String,
     maximum_total_debit_wei: String,
     prepared_at: Instant,
+    business_scope: Vec<String>,
 }
 impl GenericContractCandidate {
+    #[cfg(test)]
     pub(crate) fn from_replay(
         intent: UnsignedContractIntent,
         replay: TrustedReplay,
         artifacts: &[(Address, Arc<ReproducedArtifact>)],
+    ) -> Result<Self, GenericError> {
+        let business = vec![intent.call().target().to_owned()];
+        Self::from_replay_in_scope(intent, replay, artifacts, &business)
+    }
+    pub(crate) fn from_replay_in_scope(
+        intent: UnsignedContractIntent,
+        replay: TrustedReplay,
+        artifacts: &[(Address, Arc<ReproducedArtifact>)],
+        business: &[String],
     ) -> Result<Self, GenericError> {
         let prepared_at = replay.prepared_at();
         let request = replay.request();
@@ -52,7 +63,16 @@ impl GenericContractCandidate {
             .target()
             .parse()
             .map_err(|_| GenericError::SnapshotMismatch)?;
-        let identity = GenericContractIdentity::from_state(
+        let identity = GenericContractIdentity::from_scoped_source_state(
+            intent.network(),
+            entry,
+            replay.state(),
+            artifacts,
+            business,
+        )?;
+        // Construct the source proof before consulting the observed call tree.
+        let envelope = super::effect_envelope::graph_admit(&identity, &intent, business)?;
+        let actual = GenericContractIdentity::from_state(
             intent.network(),
             entry,
             replay.state(),
@@ -61,35 +81,8 @@ impl GenericContractCandidate {
             replay.calls(),
             replay.written_slots(),
         )?;
-        let artifact = identity.entry_artifact()?;
-        if let Some(value) = replay.state().slot(entry, super::proxy::IMPLEMENTATION)
-            && value != U256::ZERO
-        {
-            let potential = super::proxy::slot_address(value)?;
-            let (_, expected) = artifacts
-                .iter()
-                .find(|(address, _)| *address == potential)
-                .ok_or(GenericError::SourceMismatch)?;
-            let proved = replay
-                .state()
-                .account(potential)
-                .ok_or(GenericError::MissingState)?;
-            if expected.runtime() != proved.code() {
-                return Err(GenericError::SourceMismatch);
-            }
-            if expected.methods().get(intent.call().signature()).is_some()
-                && expected.commitment() != artifact.commitment()
-            {
-                return Err(GenericError::UnsupportedProxy);
-            }
-        }
-        abi::bind(artifact.abi(), &intent)?;
-        let selector =
-            alloy_primitives::hex::encode(&keccak256(intent.call().signature().as_bytes())[..4]);
-        if artifact.methods()[intent.call().signature()] != selector {
-            return Err(GenericError::InvalidAbi);
-        }
-        let envelope = admit_generic_transition(&identity, &intent)?;
+        identity.verify_execution_graph(&actual)?;
+        verify_selected_source(&intent, &identity, &replay, artifacts)?;
         let preimages = material_preimages(&replay, &envelope, &identity)?;
         let transfers = native_transfers(&replay)?;
         if intent.network().is_base() && (!replay.is_base_material() || !transfers.is_empty()) {
@@ -111,7 +104,13 @@ impl GenericContractCandidate {
             },
             replay.calls(),
         )?;
-        envelope.verify(&intent, &effects, &identity, replay.state())?;
+        envelope.verify(
+            &intent,
+            &effects,
+            &identity,
+            replay.state(),
+            replay.written_slots(),
+        )?;
         let (payload, decoded) = envelope::prepare(&intent, request)?;
         let (fee, total) = budget(&intent, &replay)?;
         let semantic_commitment = digest(
@@ -140,6 +139,11 @@ impl GenericContractCandidate {
             maximum_fee_wei: fee.to_string(),
             maximum_total_debit_wei: total.to_string(),
             prepared_at,
+            business_scope: {
+                let mut scope = business.to_vec();
+                scope.sort();
+                scope
+            },
         })
     }
     /// Exact canonical invocation selected by the user-scoped workflow.
@@ -162,6 +166,12 @@ impl GenericContractCandidate {
     #[must_use]
     pub const fn envelope(&self) -> &GenericEffectEnvelope {
         &self.envelope
+    }
+    /// Exact business-address scope retained by refresh; not a native approval
+    /// or permission to acquire another undeclared target.
+    #[must_use]
+    pub fn business_scope(&self) -> &[String] {
+        &self.business_scope
     }
     /// Independently decoded canonical type-2 transaction facts.
     #[must_use]
@@ -227,6 +237,48 @@ impl GenericContractCandidate {
         self.replay
     }
 }
+fn verify_selected_source(
+    intent: &UnsignedContractIntent,
+    identity: &GenericContractIdentity,
+    replay: &TrustedReplay,
+    artifacts: &[(Address, Arc<ReproducedArtifact>)],
+) -> Result<(), GenericError> {
+    let entry = intent
+        .call()
+        .target()
+        .parse()
+        .map_err(|_| GenericError::InvalidAbi)?;
+    let artifact = identity.entry_artifact()?;
+    if let Some(value) = replay.state().slot(entry, super::proxy::IMPLEMENTATION)
+        && value != U256::ZERO
+    {
+        let potential = super::proxy::slot_address(value)?;
+        let (_, expected) = artifacts
+            .iter()
+            .find(|(address, _)| *address == potential)
+            .ok_or(GenericError::SourceMismatch)?;
+        let proved = replay
+            .state()
+            .account(potential)
+            .ok_or(GenericError::MissingState)?;
+        if expected.runtime() != proved.code() {
+            return Err(GenericError::SourceMismatch);
+        }
+        if expected.methods().get(intent.call().signature()).is_some()
+            && expected.commitment() != artifact.commitment()
+        {
+            return Err(GenericError::UnsupportedProxy);
+        }
+    }
+    abi::bind(artifact.abi(), intent)?;
+    let selector =
+        alloy_primitives::hex::encode(&keccak256(intent.call().signature().as_bytes())[..4]);
+    if artifact.methods()[intent.call().signature()] != selector {
+        return Err(GenericError::InvalidAbi);
+    }
+    Ok(())
+}
+
 fn material_preimages(
     replay: &TrustedReplay,
     envelope: &GenericEffectEnvelope,

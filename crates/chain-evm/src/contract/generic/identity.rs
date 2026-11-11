@@ -309,6 +309,10 @@ impl GenericContractIdentity {
                 abi: artifact.map(|a| a.abi().clone()),
                 storage_layout: artifact.map(|a| a.storage_layout().clone()),
                 method_identifiers: artifact.map(|a| a.methods().clone()),
+                immutable_bindings: artifact
+                    .map(super::source_metadata::immutable_bindings)
+                    .transpose()?
+                    .unwrap_or_default(),
             });
         }
         let projection = GenericSourceMetadata {
@@ -363,15 +367,6 @@ impl GenericContractIdentity {
             return Err(GenericError::InvalidAbi);
         }
         Ok(choices[0])
-    }
-    pub(super) fn mutable_dispatch(&self) -> bool {
-        let Ok(entry) = parse(&self.entrypoint) else {
-            return true;
-        };
-        self.potential_implementations.contains_key(&entry)
-            || self.controls.keys().any(|(address, slot)| {
-                format!("{address:#x}") == self.entrypoint && *slot == proxy::IMPLEMENTATION
-            })
     }
     /// Host-only revalidation against a newly proved common snapshot.
     pub(crate) fn verify_state(&self, state: &ProvedState) -> Result<(), GenericError> {
@@ -515,3 +510,4 @@ fn match_code_graph(
 fn parse(value: &str) -> Result<Address, GenericError> {
     value.parse().map_err(|_| GenericError::SnapshotMismatch)
 }
+mod scope;

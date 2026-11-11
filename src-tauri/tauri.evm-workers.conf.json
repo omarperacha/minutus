@@ -15,6 +15,7 @@
       "speech-runtime",
       "../LICENSE",
       "evm-workers",
+      "worker-brokers",
       "third-party-notices"
     ]
   }

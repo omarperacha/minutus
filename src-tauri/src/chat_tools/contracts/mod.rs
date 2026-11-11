@@ -1,6 +1,7 @@
 //! Unsigned contract observations with separate native outbound-data approval.
 mod execution;
 mod intent;
+mod invocation;
 mod review;
 mod schema;
 mod source;

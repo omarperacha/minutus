@@ -57,6 +57,8 @@ def main():
              distribution['identity'] if distribution else '-'], log)
         run([sys.executable, str(ROOT / 'scripts/stage_evm_workers.py'), '--identity',
              distribution['identity'] if distribution else '-'], log)
+        run([sys.executable, str(ROOT / 'scripts/stage_worker_brokers.py'), '--identity',
+             distribution['identity'] if distribution else '-'], log)
         run([pnpm, 'tauri', 'build', '--config', 'src-tauri/tauri.evm-workers.conf.json', '--target', 'aarch64-apple-darwin',
              '--bundles', 'app', '--no-sign', '--ci', '--', '--locked'], log)
         unsigned = inspect(APPLICATION, verify_unsigned=True)

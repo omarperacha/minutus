@@ -18,6 +18,9 @@ impl Analysis<'_> {
                 if let Some(value) = self.values.get(&id) {
                     return Ok(value.clone());
                 }
+                if let Some(binding) = self.immutable_bindings.get(&id) {
+                    return Ok(binding.value().clone());
+                }
                 let declaration = self.program.node(id)?;
                 if declaration["constant"] == true {
                     self.value(&declaration["value"], depth + 1)
@@ -83,12 +86,20 @@ impl Analysis<'_> {
         if matches!(ty, "bytes" | "string") && source != ty {
             return Err(GenericError::OpaqueEffects);
         }
-        canonical(ty, &value)?;
+        if ty == "contract" {
+            let expression = &node["expression"];
+            let reference = syntax::reference(expression)?;
+            if self.program.node(reference)?["nodeType"] != "ContractDefinition" {
+                return Err(GenericError::OpaqueEffects);
+            }
+            canonical("address", &value)?;
+        } else {
+            canonical(ty, &value)?;
+        }
         Ok(value)
     }
     fn pure_helper(&self, call: &Value, depth: usize) -> Result<Value, GenericError> {
         if !self.modern
-            || call["expression"]["nodeType"] != "Identifier"
             || call["names"]
                 .as_array()
                 .is_some_and(|names| !names.is_empty())
@@ -97,7 +108,7 @@ impl Analysis<'_> {
         }
         let function = self
             .program
-            .helper(syntax::reference(&call["expression"])?)?;
+            .resolve_helper(&call["expression"], self.stack.last().copied())?;
         let id = syntax::id(function)?;
         if function["stateMutability"] != "pure"
             || self.stack.contains(&id)
@@ -130,10 +141,16 @@ impl Analysis<'_> {
             layout: self.layout,
             values,
             relations: Vec::new(),
+            calls: Vec::new(),
             steps: std::cell::Cell::new(self.steps.get()),
             modern: self.modern,
+            features: self.features,
+            base: self.base,
             account: self.account,
+            origin: self.origin,
             target: self.target,
+            code_address: self.code_address,
+            immutable_bindings: self.immutable_bindings,
             native_value: self.native_value,
             terminated: false,
             stack,
@@ -150,7 +167,8 @@ impl Analysis<'_> {
         let builtin =
             base["nodeType"] == "Identifier" && syntax::reference(base).is_ok_and(|id| id < 0);
         match (base["name"].as_str(), member, builtin) {
-            (Some("msg"), "sender", true) | (Some("tx"), "origin", true) => Ok(json!(self.account)),
+            (Some("msg"), "sender", true) => Ok(json!(self.account)),
+            (Some("tx"), "origin", true) => Ok(json!(self.origin)),
             (Some("msg"), "value", true) => Ok(json!(self.native_value)),
             _ => {
                 let value = self.value(base, depth + 1)?;
@@ -240,7 +258,16 @@ impl Analysis<'_> {
         }
         match node["nodeType"].as_str() {
             Some("Literal" | "Identifier" | "ElementaryTypeNameExpression") => Ok(()),
-            Some("MemberAccess") => self.read_only(&node["expression"], depth + 1),
+            Some("MemberAccess") => {
+                if self.base
+                    && node["memberName"] == "balance"
+                    && base_type(&node["expression"])
+                        .is_ok_and(|ty| matches!(ty, "address" | "contract"))
+                {
+                    return Err(GenericError::OpaqueEffects);
+                }
+                self.read_only(&node["expression"], depth + 1)
+            }
             Some("IndexAccess") => {
                 self.read_only(&node["baseExpression"], depth + 1)?;
                 self.read_only(&node["indexExpression"], depth + 1)
@@ -265,7 +292,6 @@ impl Analysis<'_> {
             }
             Some("FunctionCall") if node["kind"] == "functionCall" => {
                 if !self.modern
-                    || node["expression"]["nodeType"] != "Identifier"
                     || node["names"]
                         .as_array()
                         .is_some_and(|names| !names.is_empty())
@@ -274,7 +300,7 @@ impl Analysis<'_> {
                 }
                 let helper = self
                     .program
-                    .helper(syntax::reference(&node["expression"])?)?;
+                    .resolve_helper(&node["expression"], self.stack.last().copied())?;
                 if !matches!(helper["stateMutability"].as_str(), Some("pure" | "view"))
                     || helper["modifiers"].as_array().is_none_or(|v| !v.is_empty())
                 {
@@ -450,6 +476,9 @@ pub(super) fn base_type(node: &Value) -> Result<&str, GenericError> {
     Err(GenericError::OpaqueEffects)
 }
 pub(super) fn canonical(ty: &str, value: &Value) -> Result<(), GenericError> {
+    if ty == "contract" {
+        return canonical("address", value);
+    }
     if ty == "int_const" {
         let text = value.as_str().ok_or(GenericError::OpaqueEffects)?;
         let normalized = if text.starts_with('-') {

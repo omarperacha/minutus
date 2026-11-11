@@ -142,13 +142,15 @@ impl<'a> RpcClient<'a> {
             "method": method,
             "params": params,
         });
-        let mut response = self
+        let request = self
             .client
             .post(self.endpoint.expose_sensitive())
             .timeout(timeout.min(RPC_REQUEST_TIMEOUT))
-            .json(&request)
-            .send()
-            .map_err(|_| RpcError::Transport)?;
+            .json(&request);
+        // An offline worker without authenticated actual-reap evidence cannot
+        // be followed by another online broker operation in this process.
+        evm_simulation::ensure_worker_runtime_available().map_err(|_| RpcError::Transport)?;
+        let mut response = request.send().map_err(|_| RpcError::Transport)?;
         if response.status() != StatusCode::OK {
             return Err(RpcError::HttpStatus(response.status().as_u16()));
         }

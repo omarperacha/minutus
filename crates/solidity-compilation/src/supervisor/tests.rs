@@ -7,6 +7,7 @@ fn worker(path: &std::path::Path) -> Result<TrustedCompiler, Box<dyn std::error:
         path: path.into(),
         digest: format!("{:x}", Sha256::digest(fs::read(path)?)),
         cdhash: [0; 20],
+        transport: None,
     })
 }
 #[test]
@@ -160,10 +161,19 @@ fn unofficial_compiler_bytes_reject_before_any_helper_launch()
         path: "/missing/compiler-test-never-executed".into(),
         digest: String::new(),
         cdhash: [0; 20],
+        transport: None,
     };
     assert!(matches!(
         absent.reproduce(&input, b"changed compiler", &AtomicBool::new(false)),
         Err(CompilationError::CompilerMismatch)
+    ));
+    assert!(matches!(
+        absent.reproduce_for_runtime(&input, b"changed compiler", &[0], &AtomicBool::new(false)),
+        Err(CompilationError::CompilerMismatch)
+    ));
+    assert!(matches!(
+        absent.reproduce_for_runtime(&input, b"changed compiler", &[], &AtomicBool::new(false)),
+        Err(CompilationError::Limit)
     ));
     assert!(matches!(
         absent.reproduce(&input, &[], &AtomicBool::new(false)),

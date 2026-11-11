@@ -53,6 +53,7 @@ done
 
 python3 "$REPOSITORY_ROOT/scripts/stage_evm_workers.py" --verify-bundle "$APPLICATION"
 python3 "$REPOSITORY_ROOT/scripts/stage_solidity_compiler.py" --verify-bundle "$APPLICATION"
+python3 "$REPOSITORY_ROOT/scripts/stage_worker_brokers.py" --verify-bundle "$APPLICATION"
 
 read -r SPEECH_DIGEST SPEECH_PATH < "$SPEECH_DIGEST_MANIFEST"
 if [ "$SPEECH_PATH" != "MacOS/zeta-whisper-helper" ] || \
@@ -248,7 +249,10 @@ if [ "${ZETA_RELEASE_VERIFICATION:-0}" = "1" ]; then
   for release_code in "$APPLICATION" "$WHISPER_HELPER" "$BROKER" "$XPC_SERVICE" "$RUNNER" \
     "$CONTENTS/MacOS/minutus-evm-simulator" \
     "$CONTENTS/MacOS/minutus-base-offline-simulator" \
-    "$CONTENTS/MacOS/minutus-solidity-compiler"; do
+    "$CONTENTS/MacOS/minutus-solidity-compiler" \
+    "$CONTENTS/XPCServices/ai.minutus.worker.compiler.xpc" \
+    "$CONTENTS/XPCServices/ai.minutus.worker.evm-online.xpc" \
+    "$CONTENTS/XPCServices/ai.minutus.worker.base-offline.xpc"; do
     if ! codesign --display --verbose=4 "$release_code" 2>&1 | \
       grep -q '^Authority=Developer ID Application:'; then
       echo "Release verification requires Developer ID signatures on every signed helper." >&2

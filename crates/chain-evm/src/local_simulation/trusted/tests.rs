@@ -376,4 +376,5 @@ fn real_compiled_external_calls_and_opaque_slots_fail_before_authority()
     Ok(())
 }
 
+mod calls;
 mod contexts;

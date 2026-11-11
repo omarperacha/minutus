@@ -29,7 +29,9 @@ pub use condition::{
     GenericComparison, GenericCondition, admit_generic_condition, generic_condition_type,
 };
 pub use effect_envelope::{
-    GenericEffectEnvelope, GenericEffectOperation, GenericEffectRelation, admit_generic_transition,
+    GenericEffectEnvelope, GenericEffectInvocation, GenericEffectOperation, GenericEffectRelation,
+    GenericInvocationRequirements, GenericRequiredCall, admit_generic_transition,
+    admit_generic_transition_in_scope, inspect_generic_invocation,
 };
 pub use effects::{
     GenericCallEffect, GenericEffects, GenericNativeAccountMode, GenericNativeTransfer,
@@ -42,11 +44,12 @@ pub use logs::GenericLogEffect;
 pub use prediction::verify_predicted_generic_conditions;
 pub use preparation::{GenericSourceObservation, inspect_generic_source};
 pub use preparation::{
-    generic_contract_intent, prepare_generic_contract, qualify_generic_source,
-    qualify_generic_source_at,
+    generic_contract_intent, prepare_generic_contract, prepare_generic_contract_in_scope,
+    qualify_generic_source, qualify_generic_source_at, qualify_generic_write_source,
 };
 pub use refresh::{RefreshedGenericCandidate, ValidatedGenericExecution, refresh_generic_contract};
 pub use source_broker::GenericSourceProvider;
 pub use source_metadata::{
-    GenericSourceContractMetadata, GenericSourceMetadata, GenericSourceRole,
+    GenericSourceContractMetadata, GenericSourceImmutableMetadata, GenericSourceMetadata,
+    GenericSourceRole,
 };
