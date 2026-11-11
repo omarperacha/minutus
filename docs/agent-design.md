@@ -704,6 +704,16 @@ Read this reference when changing agent behaviour, tools or orchestration; the
   model call and correction attempt remain charged to the global ceilings. Validate
   the plan independently first; invalid plans, mutations, unknown tools and repeated
   malformed calls still fail closed.
+- A valid current `orchestration.complete_stage` followed by exactly one known,
+  bounded task with a single argument-validation defect may receive paired
+  correction results. Reject both calls atomically: do not complete the stage,
+  execute a valid sibling, acquire effect permission or claim a write attempt.
+  Retain the accepted plan and useful evidence, charge the normal call/correction
+  budgets, and report the exact schema defect without rewriting the task's
+  intent. A subsequent model emission must pass ordinary stage, schema, scope,
+  durable-attempt and native approval/authentication admission. This does not
+  retry an executed workflow. Unknown, unsafe, unavailable, multiply malformed
+  or larger batches do not qualify for this exception.
 - Project dynamic control schemas from authoritative host state. Advertise only
   control variants legal in the current state; do not ask the model to remember a
   state transition that the schema still contradicts. Normalise a stale,

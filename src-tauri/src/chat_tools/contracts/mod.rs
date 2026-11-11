@@ -15,3 +15,10 @@ pub(super) use write::{execute_write, validate_write_call};
 
 #[cfg(test)]
 mod tests;
+
+// Schema metadata is not runtime write admission. Unpackaged unit tests inspect
+// the exact production v2 schema without overriding worker/release availability.
+#[cfg(test)]
+pub(crate) fn declared_workflow_schema_for_tests() -> model_runtime::PromptToolDefinition {
+    workflow_schema::definition()
+}

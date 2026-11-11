@@ -1,0 +1,196 @@
+{
+  "plan": {
+    "assumptions": [
+      "User's selected wallet is funded with Sepolia ETH for gas",
+      "Contract has no custom fee mechanism; standard gas cap applies"
+    ],
+    "constraints": [
+      "Exactly one store(uint256) write; no other transactions",
+      "Value 42, or 43 only if the current number is already 42",
+      "Zero ETH value; transaction fee capped at 0.001 Sepolia ETH",
+      "Stop after this single write; no retries or cleanup"
+    ],
+    "contractVersion": "semantic_execution_v6",
+    "mode": "initial",
+    "outcome": "other",
+    "steps": [
+      {
+        "actionClass": "read",
+        "doneWhen": "Current uint256 value returned at a specific block",
+        "id": "read-current",
+        "objective": "Read the contract's current number via retrieve()",
+        "suggestedTools": [
+          "contract.read"
+        ]
+      },
+      {
+        "actionClass": "external_write",
+        "dependsOn": [
+          "read-current"
+        ],
+        "doneWhen": "Host reports submitted/confirmed terminal result for the single write",
+        "id": "store-write",
+        "objective": "Submit exactly one store(uint256) call with 42 (or 43 if current is 42), zero ETH, fee capped at 0.001 Sepolia ETH, via native approval and fresh authentication",
+        "suggestedTools": [
+          "contract.request_workflow"
+        ]
+      },
+      {
+        "actionClass": "read",
+        "dependsOn": [
+          "store-write"
+        ],
+        "doneWhen": "New read at a block after confirmation shows number equal to chosen value",
+        "id": "verify-stored",
+        "objective": "Freshly re-read retrieve() and confirm it equals the chosen argument",
+        "suggestedTools": [
+          "contract.read"
+        ]
+      }
+    ],
+    "successCriteria": [
+      "Current number read before the write",
+      "Native transaction approval and fresh authentication completed for exactly one store call",
+      "Transaction confirmed on-chain",
+      "Fresh re-read proves the stored number equals the chosen argument"
+    ],
+    "target": "Storage contract 0x2738d13E81e30bC615766A0410e7cF199FD59A83 on Ethereum Sepolia (chain 11155111)"
+  },
+  "calls": [
+    {
+      "name": "orchestration.complete_stage",
+      "recipient": "orchestration.complete_stage",
+      "arguments": {}
+    },
+    {
+      "name": "contract.request_workflow",
+      "recipient": "contract.request_workflow",
+      "arguments": {
+        "contractVersion": 2,
+        "contracts": [
+          {
+            "address": "0x2738d13E81e30bC615766A0410e7cF199FD59A83",
+            "id": "storage"
+          }
+        ],
+        "goals": [
+          {
+            "comparison": "equal",
+            "contract": "storage",
+            "expected": "42",
+            "read": {
+              "kind": "sourceField",
+              "path": [
+                "number"
+              ]
+            }
+          }
+        ],
+        "network": "ethereumSepolia",
+        "steps": [
+          {
+            "arguments": [
+              "42"
+            ],
+            "completion": [
+              {
+                "comparison": "equal",
+                "contract": "storage",
+                "expected": "42",
+                "read": {
+                  "kind": "sourceField",
+                  "path": [
+                    "number"
+                  ]
+                }
+              }
+            ],
+            "contract": "storage",
+            "dependsOn": [],
+            "function": "store(uint256)",
+            "id": "store-42",
+            "prerequisites": [
+              {
+                "comparison": "notEqual",
+                "contract": "storage",
+                "expected": "42",
+                "read": {
+                  "kind": "sourceField",
+                  "path": [
+                    "number"
+                  ]
+                }
+              }
+            ],
+            "valueWei": "0"
+          }
+        ]
+      }
+    }
+  ],
+  "priorRead": {
+    "request": {
+      "arguments": {
+        "arguments": [],
+        "block": "latest",
+        "caller": null,
+        "function": "retrieve()",
+        "network": "ethereumSepolia",
+        "outputs": [
+          "uint256"
+        ],
+        "target": "0x2738d13E81e30bC615766A0410e7cF199FD59A83"
+      },
+      "callId": "prior-read",
+      "name": "contract.read"
+    },
+    "result": {
+      "callId": "prior-read",
+      "outcome": {
+        "content": [
+          {
+            "type": "json",
+            "value": {
+              "effectsQualified": false,
+              "freshness": "Observation at the returned block only; latest and canonicality must be fetched again when needed.",
+              "nextStep": "When source or a reproduced ABI/layout is needed, request contract.inspect with includeSource=true under its separate native outbound consent. Determine workflow availability from the host-advertised tools, never from this observation. Source inspection and workflows can still reject unavailable compiler/provider/proof inputs or unsupported source/effects; this observation authorises no write.",
+              "observation": {
+                "arguments": [],
+                "calldata": "0x2e64cec1",
+                "caller": "0x0000000000000000000000000000000000000000",
+                "context": {
+                  "blockHash": "0x0453e61a994d9919ea60cf27eac061ac71d091bf24b1073e453b0aa1b4441e86",
+                  "blockNumber": "12112412",
+                  "canonicalAtObservation": true,
+                  "chainId": 11155111.0,
+                  "runtimeCodeBytes": 336.0,
+                  "runtimeCodeHash": "0xf8811a5ee0d54eca4880eaee7b102eae4b3963ff343f50a024c0fd3d367cb8cc",
+                  "target": "0x2738d13e81e30bc615766a0410e7cf199fd59a83"
+                },
+                "function": "retrieve()",
+                "gasLimit": 1000000.0,
+                "outcome": {
+                  "data": "0x0000000000000000000000000000000000000000000000000000000000000001",
+                  "status": "returned",
+                  "values": [
+                    "1"
+                  ]
+                },
+                "outputTypes": [
+                  "uint256"
+                ],
+                "valueWei": "0"
+              },
+              "sourceQualification": {
+                "status": "notRequested"
+              },
+              "trust": "Untrusted RPC observation and caller-declared ABI. This operation did not look up or reproduce source; it does not establish that source is missing. It grants no source/proxy/effect qualification, account control, signing authority or task postcondition.",
+              "writeAuthorityGranted": false
+            }
+          }
+        ],
+        "type": "completed"
+      }
+    }
+  }
+}

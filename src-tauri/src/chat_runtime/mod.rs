@@ -20,3 +20,6 @@ pub(crate) use events::{emit_chat_event, next_sequence, tool_activity};
 
 #[cfg(not(debug_assertions))]
 pub(crate) use plan::qualify_contract_release_surface;
+
+#[cfg(debug_assertions)]
+pub(crate) use generation::qualify_stage_argument_recovery;

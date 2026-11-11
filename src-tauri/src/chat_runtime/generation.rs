@@ -43,6 +43,8 @@ mod images;
 mod plan_pending;
 mod recall_scope;
 mod recovery_flow;
+#[cfg(debug_assertions)]
+pub(crate) use recovery_flow::qualify_stage_argument_recovery;
 mod round;
 mod state;
 mod stream_display;

@@ -18,6 +18,12 @@ use crate::chat_runtime::{emit_chat_event, next_sequence};
 
 mod corrections;
 mod plan_deferral;
+mod stage_pair;
+
+pub(crate) use stage_pair::{
+    RejectedStageOperationPair, emit_stage_operation_argument_corrections,
+    stage_operation_argument_corrections,
+};
 
 pub(crate) use plan_deferral::{
     PLAN_PENDING_GUIDANCE, PLAN_REQUIRED_OPERATION, deferred_plan_exchanges, emit_plan_deferrals,

@@ -63,6 +63,7 @@ mod filesystem_commands;
 mod image_commands;
 mod model_commands;
 mod model_file_access;
+mod stage_recovery_qualification;
 use external_model_commands::{
     download_model_module, forget_external_model, register_external_model,
 };
@@ -383,8 +384,9 @@ fn guardian_mode(mut arguments: std::iter::Skip<std::env::ArgsOs>) -> ExitCode {
 }
 
 fn main() -> ExitCode {
-    if let Some(result) =
-        contract_workflow_qualification::dispatch().or_else(contract_source_qualification::dispatch)
+    if let Some(result) = stage_recovery_qualification::dispatch()
+        .or_else(contract_workflow_qualification::dispatch)
+        .or_else(contract_source_qualification::dispatch)
     {
         return result;
     }

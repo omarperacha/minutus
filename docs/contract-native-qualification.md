@@ -35,6 +35,36 @@ Check the following on the actual screen, including a small window/screen size:
 The fixture checks rendering and native decision interaction. It does not
 qualify an actual vault/password/signing workflow or prove a live transaction.
 
+## Scripted stage-argument recovery
+
+The normal signed debug staging package supports this fixed, read-only check:
+
+```sh
+"target/debug/bundle/macos/Minutus Staging.app/Contents/MacOS/zeta-desktop" \
+  --qualify-stage-argument-recovery
+```
+
+The entry point runs before normal application setup and accepts no additional
+arguments. It uses the real
+packaged capability catalogue and production argument validator; missing packaged
+workflow support fails the check rather than substituting a test schema.
+
+The fixed trace fixture pairs `orchestration.complete_stage` with a workflow
+containing the unsupported comparison `notEqual`. The production recovery hook
+must produce two partial failed receipts, execute neither call, preserve the
+original arguments, plan, revision and earlier fixed historical read receipt,
+and charge the existing request/correction budgets. A separate preauthored
+fixture uses `equal` and an expected value of `1`; this is an explicit scripted
+alternative, never host normalisation or a model-generated repair. It must pass
+ordinary argument validation and require explicit stage completion before the
+plan admits the external-write stage.
+
+The bounded JSON output labels this scripted scope. No profile, database, wallet,
+Keychain, RPC, model, native prompt, source/effect qualification, signing or send
+is accessed. A fixed historical read receipt tests retained bookkeeping;
+its playback is neither a new observation nor proof of a current chain value.
+This check establishes schema/recovery/plan routing only. Release binaries reject the flag before application setup.
+
 ## Initial native unlock
 
 An existing selected locked account opens the same native unlock prompt used by
