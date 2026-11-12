@@ -1,6 +1,7 @@
 //! One generic declared workflow preserves native authority at every write.
 use super::{
     context::Context,
+    lifecycle::Lifecycle,
     observation::{CompletedStep, ObservationFailure, wait_and_verify},
     reporting,
     request::DeclaredWorkflowRequest,
@@ -36,8 +37,9 @@ pub(crate) fn execute(
     let wallet = app.state::<WalletControl>();
     let approval = app.state::<EvmApprovalControl>();
     let _lease = approval.begin_reconciliation()?;
-    wallet.transfer_work(app, cancelled, None, |cancel| {
-        tauri::async_runtime::block_on(run(
+    let mut lifecycle = Lifecycle::default();
+    let outcome = wallet.transfer_work(app, cancelled, None, |cancel| {
+        Ok(tauri::async_runtime::block_on(run(
             app,
             core.inner(),
             wallet.inner(),
@@ -45,9 +47,37 @@ pub(crate) fn execute(
             request,
             cancelled,
             cancel,
-        ))
-    })
+            &mut lifecycle,
+        )))
+    });
+    match outcome {
+        Ok(Ok(value)) => Ok(lifecycle.project_success(value)),
+        Ok(Err(failure)) => Err(lifecycle.project_error(
+            failure.error,
+            failure.completed_steps,
+            &failure.partial_facts,
+        )),
+        Err(error) => Err(lifecycle.project_error(error, 0, &Value::Null)),
+    }
 }
+struct Failure {
+    error: IpcError,
+    completed_steps: usize,
+    partial_facts: Value,
+}
+impl From<IpcError> for Failure {
+    fn from(error: IpcError) -> Self {
+        Self {
+            error,
+            completed_steps: 0,
+            partial_facts: Value::Null,
+        }
+    }
+}
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Native workflow owners and request-local reporting stay explicit"
+)]
 async fn run(
     app: &tauri::AppHandle,
     core: &Arc<AppCore>,
@@ -56,7 +86,8 @@ async fn run(
     request: &DeclaredWorkflowRequest,
     cancelled: &Arc<AtomicBool>,
     cancel: &TransferCancellation,
-) -> Result<Value, IpcError> {
+    lifecycle: &mut Lifecycle,
+) -> Result<Value, Failure> {
     cancel.check()?;
     let message = conversation
         .messages
@@ -70,8 +101,10 @@ async fn run(
     else {
         return Ok(json!({"state":"alreadyAttempted","retryAutomatically":false}));
     };
+    lifecycle.wallet_readiness_requested(wallet.public_state()?.availability);
     let account =
         super::super::readiness::initial_account(cancel, wallet.ensure_account_ready(core)).await?;
+    lifecycle.wallet_ready();
     let declaration = request.declaration(&account)?;
     let Some(session) = attempt
         .start_declared(declaration.clone())
@@ -82,7 +115,9 @@ async fn run(
     let endpoint = Arc::new(crate::evm_rpc_settings::resolved(
         crate::evm_rpc_settings::chain_network(request.network),
     )?);
+    lifecycle.scope_review_requested();
     let decision = super::scope_review::review(app, &declaration, &endpoint).await?;
+    lifecycle.scope_decision(decision);
     if decision != EvmApprovalDecision::Approved {
         stop_initial(
             &session,
@@ -105,6 +140,7 @@ async fn run(
         .app_data_dir()
         .map_err(|_| IpcError::internal())?
         .join("public-contract-sources");
+    lifecycle.source_preflight_started();
     let mut context = match Context::preflight(
         &declaration,
         endpoint,
@@ -117,19 +153,30 @@ async fn run(
         Ok(context) => context,
         Err(error) => {
             stop_initial(&session, ContractStepState::Failed)?;
-            return Err(error);
+            return Err(error.into());
         }
     };
+    lifecycle.source_preflight_succeeded();
     cancel.check()?;
     let ready = wallet.ensure_account_ready(core).await?;
     if !ready.eq_ignore_ascii_case(&account) {
         stop_initial(&session, ContractStepState::Cancelled)?;
         return Err(IpcError::invalid_request(
             "The selected account changed after source preflight",
-        ));
+        )
+        .into());
     }
     context.wallet_epoch = wallet.transfer_epoch()?;
-    run_steps(app, core, wallet, &session, &Arc::new(context), cancel).await
+    run_steps(
+        app,
+        core,
+        wallet,
+        &session,
+        &Arc::new(context),
+        cancel,
+        lifecycle,
+    )
+    .await
 }
 fn stop_initial(
     session: &DeclaredContractWorkflowSession,
@@ -151,7 +198,8 @@ async fn run_steps(
     session: &DeclaredContractWorkflowSession,
     context: &Arc<Context>,
     cancel: &TransferCancellation,
-) -> Result<Value, IpcError> {
+    lifecycle: &mut Lifecycle,
+) -> Result<Value, Failure> {
     let mut completed = Vec::<CompletedStep>::new();
     let result=async{
         while completed.len()<session.declaration().intent().steps.len(){
@@ -162,7 +210,8 @@ async fn run_steps(
             context.check(wallet,cancel)?;
             let step=Arc::new(work.bind_generic_candidate(candidate,proof).map_err(crate::error_mapping::app_core_error)?);
             context.remember(step.shared_candidate())?;
-            let record=match super::signing::review_and_send(app,core,wallet,context,&step,&completed,cancel).await{Ok(Some(record))=>record,Ok(None)=>return Ok(json!({"state":"deniedOrDismissed","completedSteps":completed.len(),"partialFacts":reporting::partial(context,&completed),"retryAutomatically":false})),Err(error)=>{let _=step.stop_before_send(ContractStepState::Failed);return Err(error);}};
+            let progress=lifecycle.step(usize::from(step.index())).ok_or_else(IpcError::internal)?;
+            let record=match super::signing::review_and_send(app,core,wallet,context,&step,&completed,cancel,progress).await{Ok(Some(record))=>record,Ok(None)=>return Ok(json!({"state":"deniedOrDismissed","completedSteps":completed.len(),"partialFacts":reporting::partial(context,&completed),"retryAutomatically":false})),Err(error)=>{let _=step.stop_before_send(ContractStepState::Failed);return Err(error);}};
             completed.push(wait_and_verify(context,wallet,cancel,core,step,record).await?);
         }
         if session.declaration().intent().goals.is_empty() {
@@ -179,11 +228,11 @@ async fn run_steps(
     }.await;
     match result {
         Ok(value) => Ok(value),
-        Err(mut error) => {
-            error.message=json!({"state":"stopped","message":error.message,"completedSteps":completed.len(),"partialFacts":reporting::partial(context,&completed),"retryAutomatically":false}).to_string();
-            error.retryable = false;
-            Err(error)
-        }
+        Err(error) => Err(Failure {
+            error,
+            completed_steps: completed.len(),
+            partial_facts: reporting::partial(context, &completed),
+        }),
     }
 }
 async fn final_goals(

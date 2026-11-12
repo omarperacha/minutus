@@ -1,6 +1,9 @@
 //! Native outbound consent freezes the endpoint and every semantic call first.
 use super::preparation::ContractWorkflowRequest;
-use crate::evm_approval::{execution::show_native_review, presentation::ApprovalDisplay};
+use crate::evm_approval::{
+    execution::show_native_review,
+    presentation::{ApprovalDisplay, ReviewKind},
+};
 use app_core::ContractWorkflowScope;
 use chain_evm::{EvmRpcUrl, contract::DeclaredContractCall};
 use ipc_types::{EvmApprovalDecision, IpcError};
@@ -22,6 +25,7 @@ fn display(
    Ok(serde_json::json!({"target":step.target,"function":step.operation,"arguments":step.arguments,"valueWei":step.value_wei,"calldata":call.calldata(),"deploymentTransaction":source.deployment_transaction}))
  }).collect::<Result<Vec<_>,IpcError>>()?;
     Ok(ApprovalDisplay {
+        kind: ReviewKind::OutboundPermission,
         title: "Allow contract workflow data to leave this Mac?".into(),
         body: format!(
             "Provider origin: {}\nAccount: {}\nNetwork: {}\nExact ordered calls: {}\nScope commitment: {}\n\nBefore transaction approval, the provider sees account/target addresses, queried storage keys and public transaction hashes for source/state/receipt proofs; these queries may reveal intent. Execution remains local. The new transaction calldata and signature reach the provider only after that step's exact native approval, fresh password and signed validation. This permission covers only the displayed fixed ordered calls and bounded status/proof refreshes during this request. Every target must match the reviewed compiled token family before any write. Each write requires separate exact native approval and fresh password. This outbound consent authorises no transaction. A prior allowance may remain if a later step is denied, fails or is uncertain; no automatic cleanup or retry.",
@@ -58,6 +62,8 @@ mod tests {
         for secret in ["user:secret", "private-key", "credential"] {
             assert!(!view.body.contains(secret));
         }
+        assert_eq!(view.kind, ReviewKind::OutboundPermission);
+        assert_eq!(view.approval_button_title(), "Allow outbound data");
         assert!(view.body.contains("authorises no transaction"));
         Ok(())
     }

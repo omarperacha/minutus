@@ -1,5 +1,8 @@
 //! Generic source acquisition is part of explicit native outbound consent.
-use crate::evm_approval::{execution::show_native_review, presentation::ApprovalDisplay};
+use crate::evm_approval::{
+    execution::show_native_review,
+    presentation::{ApprovalDisplay, ReviewKind},
+};
 use app_core::ContractWorkflowDeclaration;
 use chain_evm::{EvmRpcUrl, contract::DeclaredContractCall};
 use ipc_types::{EvmApprovalDecision, IpcError};
@@ -41,6 +44,7 @@ fn display(
         ));
     }
     Ok(ApprovalDisplay {
+        kind: ReviewKind::OutboundPermission,
         title: "Allow generic contract workflow data to leave this Mac?".into(),
         body,
         has_warnings: true,
@@ -87,6 +91,8 @@ mod tests {
             view.body
                 .contains("grants no permission to call that implementation")
         );
+        assert_eq!(view.kind, ReviewKind::OutboundPermission);
+        assert_eq!(view.approval_button_title(), "Allow outbound data");
         assert!(view.body.contains("authorises no transaction"));
         for secret in ["user:secret", "private?token", "credential"] {
             assert!(!view.body.contains(secret));

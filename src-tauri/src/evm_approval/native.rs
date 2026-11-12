@@ -1,4 +1,4 @@
-//! macOS-owned modal transaction decision surface.
+//! macOS-owned modal consent and transaction decision surface.
 
 use ipc_types::{EvmApprovalDecision, IpcError};
 use objc2::{MainThreadMarker, rc::autoreleasepool};
@@ -35,9 +35,7 @@ pub(super) fn present(display: &ApprovalDisplay) -> Result<EvmApprovalDecision, 
             NSAlertStyle::Informational
         });
         alert.setMessageText(&NSString::from_str(&display.title));
-        alert.setInformativeText(&NSString::from_str(
-                "Review the network, account, recipient, amount, maximum fees and warnings below. Scroll for the complete transaction and technical details. Approval applies only to this exact transaction.",
-            ));
+        alert.setInformativeText(&NSString::from_str(display.informative_text()));
         // Bound the review to the current screen. All trusted facts remain
         // selectable and scrollable; decision buttons stay outside the pane.
         let screen = NSScreen::mainScreen(mtm).map_or(NSSize::new(1024.0, 768.0), |screen| {
@@ -68,7 +66,7 @@ pub(super) fn present(display: &ApprovalDisplay) -> Result<EvmApprovalDecision, 
         // requires selecting the separate native button explicitly.
         alert.addButtonWithTitle(&NSString::from_str("Deny"));
         if display.approval_allowed {
-            alert.addButtonWithTitle(&NSString::from_str("Approve exact transaction"));
+            alert.addButtonWithTitle(&NSString::from_str(display.approval_button_title()));
         }
         alert.addButtonWithTitle(&NSString::from_str("Dismiss"));
         Ok(match alert.runModal() {

@@ -1,6 +1,7 @@
 //! Consumed approval and exact signed validation precede durable send admission.
 use super::{
     context::{Context, error as chain_error},
+    lifecycle::StepLifecycle,
     observation::CompletedStep,
 };
 use crate::{
@@ -20,6 +21,10 @@ use ipc_types::{EvmApprovalDecision, IpcError};
 use std::sync::Arc;
 use transaction_policy::ApprovalCommitment;
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Native owners and authority-free lifecycle reporting stay explicit"
+)]
 pub(super) async fn review_and_send(
     app: &tauri::AppHandle,
     core: &Arc<AppCore>,
@@ -28,6 +33,7 @@ pub(super) async fn review_and_send(
     step: &Arc<PreparedDeclaredContractStep>,
     completed: &[CompletedStep],
     cancel: &TransferCancellation,
+    progress: &mut StepLifecycle,
 ) -> Result<Option<StoredEvmTransaction>, IpcError> {
     context.check(wallet, cancel)?;
     let session = uuid::Uuid::now_v7().to_string();
@@ -53,16 +59,12 @@ pub(super) async fn review_and_send(
         origin: context.origin,
     };
     audit.presented(audit_warning_codes);
+    progress.exact_review_requested();
     let decision = show_native_review(app, display).await?;
+    progress.exact_review_decision(decision);
     audit.decision(decision);
     if decision != EvmApprovalDecision::Approved {
-        let state = if decision == EvmApprovalDecision::Denied {
-            ContractStepState::Denied
-        } else {
-            ContractStepState::Cancelled
-        };
-        step.stop_before_send(state)
-            .map_err(crate::error_mapping::app_core_error)?;
+        stop_declined_review(step, decision)?;
         return Ok(None);
     }
     context.check(wallet, cancel)?;
@@ -77,7 +79,7 @@ pub(super) async fn review_and_send(
         session: &session,
         expiry,
     };
-    let authorized = authorize(&conditions, &evidence).await;
+    let authorized = authorize(&conditions, &evidence, progress).await;
     audit.authorization(&authorized);
     let (signed, after_auth, nonce) = authorized?;
     let raw = assemble_signed_eip1559_transaction(
@@ -96,7 +98,9 @@ pub(super) async fn review_and_send(
     context.check(wallet, cancel)?;
     // Refresh a second time immediately before actual transport, retaining the
     // exact approved body; no caller may replace fees/nonce or widen authority.
+    progress.presend_refresh_started();
     let (fresh, proofs) = refresh(context, step, completed).await?;
+    progress.presend_refresh_succeeded();
     let final_check = validate(context, fresh, bytes).await?;
     context.check(wallet, cancel)?;
     if final_check.evidence_block_hash() != proofs.conditions().block_hash() {
@@ -123,10 +127,25 @@ pub(super) async fn review_and_send(
             proofs,
             expiry,
         },
+        progress,
     )
     .await;
     audit.broadcast(&outcome);
     outcome.map(Some)
+}
+
+fn stop_declined_review(
+    step: &PreparedDeclaredContractStep,
+    decision: EvmApprovalDecision,
+) -> Result<(), IpcError> {
+    let state = if decision == EvmApprovalDecision::Denied {
+        ContractStepState::Denied
+    } else {
+        ContractStepState::Cancelled
+    };
+    step.stop_before_send(state)
+        .map(|_| ())
+        .map_err(crate::error_mapping::app_core_error)
 }
 
 async fn refresh(
@@ -192,6 +211,7 @@ struct Authorization<'a> {
 async fn authorize(
     conditions: &Authorization<'_>,
     evidence: &crate::evm_approval::presentation::ApprovalEvidence,
+    progress: &mut StepLifecycle,
 ) -> Result<
     (
         crate::wallet_lifecycle::WalletSigned,
@@ -228,8 +248,12 @@ async fn authorize(
     let commitment =
         ApprovalCommitment::issue(evidence.binding_input(), unix_now()?).map_err(chain_error)?;
     let mut after_auth = None;
+    progress.authorization_requested();
     let signed = wallet
         .sign_exact_transaction(core, &commitment, evidence, cancel, async {
+            // This future is polled only after native fresh authentication succeeds.
+            // A failure below is therefore after authentication, before signing.
+            progress.authentication_succeeded();
             context.check(wallet, cancel)?;
             if !nonce
                 .is_current()
@@ -265,9 +289,11 @@ async fn authorize(
                 ));
             }
             after_auth = Some(fresh);
+            progress.signing_started();
             Ok(())
         })
         .await?;
+    progress.signature_returned();
     Ok((signed, after_auth.ok_or_else(IpcError::internal)?, nonce))
 }
 

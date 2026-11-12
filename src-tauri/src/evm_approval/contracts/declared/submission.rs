@@ -1,5 +1,5 @@
 //! The actual transport worker retains the nonce and workflow owners.
-use super::context::Context;
+use super::{context::Context, lifecycle::StepLifecycle};
 use crate::{
     evm_approval::registry::unix_now,
     wallet_lifecycle::{TransferCancellation, WalletControl, WalletSubmission},
@@ -32,7 +32,9 @@ pub(super) async fn broadcast(
     cancel: TransferCancellation,
     step: Arc<PreparedDeclaredContractStep>,
     ready: ReadySubmission,
+    progress: &mut StepLifecycle,
 ) -> Result<StoredEvmTransaction, IpcError> {
+    progress.record_transaction_hash(&ready.record.transaction_hash)?;
     let record = ready.record.clone();
     let worker_step = Arc::clone(&step);
     let admission = Arc::new(AtomicBool::new(false));
@@ -94,20 +96,15 @@ pub(super) async fn broadcast(
         entered.load(Ordering::Acquire),
         returned.load(Ordering::Acquire),
     );
+    if possible {
+        // Admission or an interrupted admission callback can make a send
+        // uncertain; it does not prove an HTTP request was actually sent.
+        progress.submission_may_have_been_sent();
+    }
     match outcome {
         Ok(Ok(_)) if possible => {
-            if !step
-                .record_execution(
-                    ContractStepState::Dispatching,
-                    ContractStepState::Submitted,
-                    Some(&record.transaction_hash),
-                )
-                .map_err(crate::error_mapping::app_core_error)?
-            {
-                return Err(IpcError::invalid_request(
-                    "Submission acknowledged but workflow state changed; reconcile before further writes",
-                ));
-            }
+            progress.submission_acknowledged();
+            record_acknowledgement(&step, &record)?;
             Ok(record)
         }
         _ if possible => {
@@ -128,4 +125,23 @@ pub(super) async fn broadcast(
             ))
         }
     }
+}
+
+fn record_acknowledgement(
+    step: &PreparedDeclaredContractStep,
+    record: &StoredEvmTransaction,
+) -> Result<(), IpcError> {
+    if !step
+        .record_execution(
+            ContractStepState::Dispatching,
+            ContractStepState::Submitted,
+            Some(&record.transaction_hash),
+        )
+        .map_err(crate::error_mapping::app_core_error)?
+    {
+        return Err(IpcError::invalid_request(
+            "Submission acknowledged but workflow state changed; reconcile before further writes",
+        ));
+    }
+    Ok(())
 }

@@ -1,6 +1,7 @@
 //! Generic workflow integration keeps native permissions separate from declarations.
 mod context;
 mod execution;
+mod lifecycle;
 mod observation;
 #[cfg(debug_assertions)]
 mod qualification;

@@ -1,6 +1,6 @@
 //! Source-qualified material facts lead the native review; technical bindings
 //! remain selectable below them. Presentation data can never mint approval.
-use super::{ApprovalDisplay, ApprovalEvidence, PreparedApproval, digest_parts};
+use super::{ApprovalDisplay, ApprovalEvidence, PreparedApproval, ReviewKind, digest_parts};
 use chain_evm::{
     TransferFeeBudget,
     contract::{AllowanceEffect, ContractAction, QualifiedContractCandidate, TokenBalanceEffect},
@@ -59,6 +59,7 @@ pub(in crate::evm_approval) fn qualified_approval(
     }
     Ok(PreparedApproval {
         display: ApprovalDisplay {
+            kind: ReviewKind::Transaction,
             title: "Review source-qualified contract write".into(),
             body,
             has_warnings: true,
@@ -255,6 +256,7 @@ pub(in crate::evm_approval) fn synthetic_preview() -> ApprovalDisplay {
     );
     body.push_str("\nEND OF SYNTHETIC EVIDENCE — choices only close this fixture. No password is requested.\n");
     ApprovalDisplay {
+        kind: ReviewKind::Transaction,
         title: "Synthetic contract review — display only".into(),
         body,
         has_warnings: true,

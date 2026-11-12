@@ -77,6 +77,38 @@ Successful initial unlock allows account-bound scope review and qualification.
 It is not transaction approval or signing authentication. After exact native
 approval, every write still requests a separate fresh signing password.
 
+## Reporting the reached lifecycle
+
+Distinguish initial unlock, outbound scope consent, exact transaction review and
+fresh signing authentication. Scope consent precedes source/proof acquisition
+and does not approve or sign a transaction. Report each boundary only from the
+host's facts for that same workflow attempt and step; a dialogue from another
+attempt cannot establish the current attempt's phase. An error code alone cannot
+establish that a review was denied, a password was skipped, signing did not occur,
+submission was impossible or source changed. Preserve an unknown result when
+those facts are unavailable.
+
+The native renderer uses a host-owned review kind. Outbound permission uses
+“Allow outbound data” and describes disclosure consent; only the separate
+transaction review uses “Approve exact transaction”. Both retain denial as the
+default action. Generic workflow results include bounded, request-local lifecycle
+observations even when initial source preflight fails. These observations carry
+no signing authority and do not replace durable transaction reconciliation.
+
+Fresh signing authentication succeeds before the post-authentication refresh;
+the signer runs only after that refresh succeeds. A second refresh occurs after
+a signature is returned and before submission admission. The same acquisition
+error can therefore arise on either side of signing. Failure to return a
+signature is also distinct from proof that no signing operation began. After
+transport admission, retain any possible submission or known acknowledgement and
+hash even when later state, receipt or completion proof acquisition fails.
+
+Earlier reads report their original blocks. They do not prove a current value,
+unchanged storage or unchanged source after a failed attempt. A zero count of
+verified workflow completions does not mean no transaction was signed, submitted
+or included. Stop the workflow and retain its durable attempt; error reporting
+must not reopen an automatic retry or cleanup route.
+
 ## Read-only source diagnostic
 
 The signed debug Staging executable can test the same source-inspection API

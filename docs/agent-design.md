@@ -731,6 +731,15 @@ Read this reference when changing agent behaviour, tools or orchestration; the
 
 ## Completion and verified outcomes
 
+- Report native financial workflow progress from typed host facts for the same
+  attempt and step, separately for initial unlock, outbound consent, exact
+  approval, fresh authentication, signing, submission and inclusion. Error codes
+  and missing completion certificates do not establish which boundaries were
+  reached. Preserve unknown states and known possible submissions when a later
+  proof fails. Earlier reads remain historical; they do not establish a current
+  or unchanged value. Reporting failure never restores a consumed attempt or
+  grants automatic retry, replacement or cleanup authority.
+
 - Gate completion on the requested outcome and its verified postcondition, not an
   intermediate operation. Creating a parent directory cannot complete a request
   to create a file.

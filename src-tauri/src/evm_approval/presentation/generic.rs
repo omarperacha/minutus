@@ -1,6 +1,6 @@
 //! Exact qualified generic transitions lead the native review. Source labels
 //! remain declarations and never become token or business-safety classifications.
-use super::{ApprovalDisplay, ApprovalEvidence, PreparedApproval, digest_parts};
+use super::{ApprovalDisplay, ApprovalEvidence, PreparedApproval, ReviewKind, digest_parts};
 use app_core::{ContractWorkflowDeclaration, TransactionAuditWarningCode};
 use chain_evm::{
     TransferFeeBudget, contract::generic::GenericContractCandidate, eip1559_signing_digest,
@@ -84,6 +84,7 @@ pub(in crate::evm_approval) fn generic_approval(
     };
     Ok(PreparedApproval {
         display: ApprovalDisplay {
+            kind: ReviewKind::Transaction,
             title: "Review generic contract write".into(),
             body,
             has_warnings: true,

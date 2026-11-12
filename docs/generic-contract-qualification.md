@@ -200,6 +200,24 @@ without starting source/RPC acquisition; a new attempt needs a deliberate new
 user message. Unlocking is separate from exact transaction approval and the fresh
 signing password required after approval for every write.
 
+Lifecycle reporting distinguishes initial wallet readiness and unlock, outbound
+scope consent, source preflight, exact transaction review, fresh signing
+authentication, signature return, submission admission and observed inclusion.
+Only host facts from the same attempt and step establish which boundaries were
+reached. Initial unlock or outbound consent does not establish transaction
+approval or signing authentication. A failure code such as `MissingState` or
+`SnapshotMismatch` identifies neither the native interaction nor whether signing
+or submission started; unavailable facts remain unknown. A missing returned
+signature does not establish that signing never began. Likewise, an acknowledged
+submission or confirmed receipt must remain reported when a later proof fails,
+even if no declared completion certificate was produced.
+
+Earlier source or field reads remain historical evidence at their listed blocks.
+They do not establish unchanged source, unchanged storage or a current value after
+a failed workflow. Failure reporting creates no new attempt, retry, replacement
+or cleanup authority. Exact transport admission and durable journal facts retain
+any possible-send outcome for reconciliation.
+
 The explicitly ignored chain-owner integration matrix uses the real packaged
 official compiler, generated MPT account/storage proofs, maintained frozen replay
 and private candidate construction. It covers direct and exact ERC-1167 calls on

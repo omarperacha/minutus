@@ -13,7 +13,10 @@ pub(super) fn admit(
     declaration: &ContractWorkflowDeclaration,
     types: &[(GenericCondition, String)],
 ) -> Result<(), GenericError> {
-    if maximum_bytes(declaration, types)? > REPORT_LIMIT {
+    if maximum_bytes(declaration, types)?
+        .saturating_add(super::lifecycle::maximum_projection_bytes())
+        > REPORT_LIMIT
+    {
         return Err(GenericError::Limit);
     }
     Ok(())
