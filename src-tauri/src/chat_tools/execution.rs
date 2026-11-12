@@ -245,7 +245,7 @@ pub(super) fn execute_prepared_chat_tool(
         };
         activity.detail = Some(
             if call.name == "contract.request_workflow" {
-                "Qualified fixed workflow · independent native approval per write"
+                "Contract workflow request · separate consent and transaction approval"
             } else {
                 "Unsigned RPC · separate native outbound review · unverified ABI"
             }

@@ -53,7 +53,9 @@ pub use preparation::{
     qualify_generic_write_source,
 };
 pub use refresh::{RefreshedGenericCandidate, ValidatedGenericExecution, refresh_generic_contract};
-pub use source_broker::GenericSourceProvider;
+pub use source_broker::{
+    GenericSourceProvider, SourceFailure, SourceFailureReason, SourceFailureStage,
+};
 pub use source_metadata::{
     GenericSourceContractMetadata, GenericSourceImmutableMetadata, GenericSourceMetadata,
     GenericSourceRole,

@@ -1,4 +1,5 @@
 //! Exact native preparation in an ephemeral journal, without wallet authority.
+mod compiler_seed;
 mod fixture;
 mod projection;
 mod refresh;
@@ -9,12 +10,20 @@ use chain_evm::EvmNetwork;
 use ipc_types::IpcError;
 use std::{
     ffi::{OsStr, OsString},
+    path::PathBuf,
     sync::{Arc, atomic::AtomicBool},
 };
 
 pub(crate) fn run(arguments: &[OsString]) -> Result<(), IpcError> {
     let options = Options::parse(arguments)?;
     let count = options.attempts;
+    let directory = tempfile::tempdir().map_err(|_| IpcError::internal())?;
+    if let Some(input) = &options.cached_compiler {
+        compiler_seed::copy_verified(input, &directory.path().join("public-contract-sources"))?;
+        eprintln!(
+            "Compiler fixture seed: checksum-verified public compiler bytes; temporary cache only"
+        );
+    }
     let endpoint = Arc::new(crate::evm_rpc_settings::resolved(
         EvmNetwork::EthereumSepolia,
     )?);
@@ -22,7 +31,6 @@ pub(crate) fn run(arguments: &[OsString]) -> Result<(), IpcError> {
         "Contract preparation RPC origin: {}",
         endpoint.public_origin()
     );
-    let directory = tempfile::tempdir().map_err(|_| IpcError::internal())?;
     let cancelled = Arc::new(AtomicBool::new(false));
     let mut failed = false;
     for attempt in 1..=count {
@@ -88,21 +96,36 @@ pub(crate) fn run(arguments: &[OsString]) -> Result<(), IpcError> {
 struct Options {
     attempts: u8,
     refresh: bool,
+    cached_compiler: Option<PathBuf>,
 }
 impl Options {
     fn parse(arguments: &[OsString]) -> Result<Self, IpcError> {
         let mut options = Self {
             attempts: 1,
             refresh: false,
+            cached_compiler: None,
         };
-        for argument in arguments {
+        let mut arguments = arguments.iter();
+        while let Some(argument) = arguments.next() {
             if argument == OsStr::new("--repeat") && options.attempts == 1 {
                 options.attempts = 3;
             } else if argument == OsStr::new("--refresh") && !options.refresh {
                 options.refresh = true;
+            } else if argument == OsStr::new("--cached-compiler")
+                && options.cached_compiler.is_none()
+            {
+                let path = arguments
+                    .next()
+                    .filter(|value| !value.is_empty() && !value.to_string_lossy().starts_with("--"))
+                    .ok_or_else(|| {
+                        IpcError::invalid_request(
+                            "Expected one public compiler data path after --cached-compiler",
+                        )
+                    })?;
+                options.cached_compiler = Some(PathBuf::from(path));
             } else {
                 return Err(IpcError::invalid_request(
-                    "Expected optional --refresh and --repeat once each for the fixed public preparation fixture",
+                    "Expected optional --refresh, --repeat and --cached-compiler path once each for the fixed public preparation fixture",
                 ));
             }
         }
@@ -123,6 +146,26 @@ mod tests {
             assert!(Options::parse(&[argument.into()]).is_err());
         }
         assert!(Options::parse(&["--repeat".into(), "--repeat".into()]).is_err());
+        assert_eq!(
+            Options::parse(&[
+                "--cached-compiler".into(),
+                "public.js".into(),
+                "--repeat".into()
+            ])?
+            .cached_compiler,
+            Some(PathBuf::from("public.js"))
+        );
+        for invalid in [
+            vec!["--cached-compiler"],
+            vec!["--cached-compiler", ""],
+            vec!["--cached-compiler", "--repeat"],
+            vec!["--cached-compiler", "a.js", "--cached-compiler", "b.js"],
+        ] {
+            assert!(
+                Options::parse(&invalid.into_iter().map(OsString::from).collect::<Vec<_>>())
+                    .is_err()
+            );
+        }
         Ok(())
     }
 }

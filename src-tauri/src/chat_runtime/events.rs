@@ -35,6 +35,10 @@ pub(crate) fn tool_activity(call_id: &str, tool_name: &str) -> TaskActivity {
             TaskActivityKind::Search,
             "Observed an unsigned contract call or runtime",
         ),
+        "contract.request_workflow" => (
+            TaskActivityKind::TransactionPreparation,
+            "Requested a contract workflow",
+        ),
         "wallet.request_transfer" => (
             TaskActivityKind::TransactionPreparation,
             "Requested a native-reviewed wallet transfer",
@@ -191,6 +195,10 @@ mod tests {
             tool_activity("x402", "x402.request").kind,
             TaskActivityKind::TransactionPreparation
         );
+        let workflow = tool_activity("workflow", "contract.request_workflow");
+        assert_eq!(workflow.kind, TaskActivityKind::TransactionPreparation);
+        assert_eq!(workflow.title, "Requested a contract workflow");
+        assert_eq!(workflow.status, TaskActivityStatus::InProgress);
         assert_eq!(
             tool_activity("tool-search", "orchestration.search_tools").title,
             "Searched available task tools"

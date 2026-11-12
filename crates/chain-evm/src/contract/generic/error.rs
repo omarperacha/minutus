@@ -1,3 +1,4 @@
+use super::SourceFailure;
 use std::{error::Error, fmt};
 
 /// Closed generic admission failures. Source/provider/worker prose is excluded.
@@ -8,6 +9,9 @@ pub enum GenericError {
     /// Source/compiler/runtime correspondence cannot be established, including
     /// unavailable acquisition or compiler execution and actual byte mismatch.
     SourceMismatch,
+    /// Source acquisition or reproduction failed at a closed host-owned stage.
+    /// Diagnostic timing and reason confer no authority or retry permission.
+    SourceQualificationFailed(SourceFailure),
     /// A required account, slot or code identity is absent from the witness.
     MissingState,
     /// A coherent source, call, context, envelope or canonical snapshot could
@@ -30,7 +34,15 @@ pub enum GenericError {
 }
 impl fmt::Display for GenericError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Generic contract admission rejected: {self:?}")
+        match self {
+            Self::SourceQualificationFailed(failure) => {
+                write!(
+                    f,
+                    "Generic contract admission rejected: SourceQualificationFailed {failure}"
+                )
+            }
+            _ => write!(f, "Generic contract admission rejected: {self:?}"),
+        }
     }
 }
 impl Error for GenericError {}

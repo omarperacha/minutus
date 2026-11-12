@@ -9381,6 +9381,7 @@ dependencies = [
  "objc2-foundation",
  "regex",
  "reqwest",
+ "rustix",
  "security-framework",
  "security-framework-sys",
  "semver 1.0.28",

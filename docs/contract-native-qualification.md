@@ -111,6 +111,32 @@ must not reopen an automatic retry or cleanup route.
 
 ## Read-only source diagnostic
 
+Source-preflight clocks start inside the host operation, after model generation,
+initial wallet readiness and outbound consent. The preceding Qwen turns do not
+consume those deadlines. Each inspection and workflow currently creates a new
+source provider, so a successful inspection does not skip the workflow's source
+fetch and local compilation. Resident-model resource contention can still slow
+the active compilation.
+
+Keep these budgets distinct: source HTTP has a 5-second connection and 20-second
+request limit; an artifact acquisition has a separate 90-second guard; the compiler
+helper session has a 60-second wall limit, including launch, IO and reaping, and
+independent CPU/memory limits. The `compilerExecution` diagnostic also includes
+host input/output qualification, so its duration is not compiler CPU time. Source
+qualification is descriptive and does not establish the later live execution
+cohort. That cohort is selected after preparation begins, and another fresh
+cohort is acquired after signing authentication. Model or human latency must not
+be accommodated by extending an old evidence certificate.
+
+`SourceQualificationFailed` carries a closed failure stage and reason, with
+artifact-attempt and active-stage elapsed milliseconds. Source HTTP timeout is
+reported only when the HTTP client establishes it. Compiler `Limit` is a resource
+limit, not proof of a wall timeout. HTTP status and failure categories contain no
+provider prose, endpoint credentials, source text or signed material. Bare
+`SourceMismatch` errors without these details cannot establish which acquisition,
+compiler or correspondence check failed. A later successful inspection does not
+prove that an earlier failure was transient or grant a workflow retry.
+
 The signed debug Staging executable can test the same source-inspection API
 without starting the app profile or wallet:
 
@@ -241,6 +267,14 @@ and fee validation.
 
 The command resolves native RPC configuration once, emits only its public
 origin, and creates a fresh disposable journal/user turn for each attempt.
+To separate compiler-download availability from cached execution, append
+`--cached-compiler /path/to/solc-emscripten-wasm32-v0.8.7+commit.e28d00a7.js`.
+This debug fixture accepts only a bounded regular file matching that exact
+official compiler checksum, before reading RPC settings, and copies it into its
+temporary cache. It leaves the supplied file and the application's public cache
+unchanged. Each trial still fetches source, proves current runtime and reproduces
+it with the packaged attested helper. It introduces no alternate download origin,
+DNS override, source/runtime fallback or signing authority.
 `--repeat` requests exactly three independent preparation experiments;
 `--refresh` additionally runs two real qualification refreshes and core
 prerequisite revalidations, labelled post-authentication-equivalent and
