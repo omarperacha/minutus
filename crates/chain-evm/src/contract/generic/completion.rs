@@ -4,16 +4,15 @@ use super::{
     GenericComparison, GenericCondition, GenericContractCandidate, GenericContractIdentity,
     GenericError, candidate_read::CandidateStateReader, layout,
 };
-use crate::{
-    EvmNetwork, EvmRpcUrl,
-    contract::{DeploymentProof, qualification::verify_transaction_inclusion},
-    local_simulation,
-};
+use crate::{EvmNetwork, EvmRpcUrl, contract::DeploymentProof, local_simulation};
+
+mod stages;
 use alloy_primitives::{Address, I256, U256};
 use evm_simulation::{SimulationControl, StateQuery};
 use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+pub use stages::{GenericCompletionFailure, VerifiedGenericInclusion};
 use std::{
     collections::BTreeMap,
     str::FromStr,
@@ -368,35 +367,76 @@ pub fn verify_generic_completion(
     conditions: &[GenericCondition],
     cancelled: &AtomicBool,
 ) -> Result<VerifiedGenericCompletion, GenericError> {
+    verify_generic_completion_staged(
+        endpoint, candidate, identities, hash, inclusion, conditions, cancelled,
+    )
+    .map_err(GenericCompletionFailure::into_error)
+}
+
+/// Preserves the exact inclusion stage separately from later source/state checks.
+/// A completion-stage error carries an opaque inclusion seal; raw acquisition
+/// success, a receipt report or an error category cannot recreate that seal.
+/// The original inclusion/final-recheck control remains in force. This split
+/// adds no phase allowance; existing condition acquisition keeps its unchanged
+/// independently bounded controls.
+///
+/// # Errors
+/// Rejects the same inputs as [`verify_generic_completion`], identifying whether
+/// exact canonical candidate inclusion had already been independently checked.
+pub fn verify_generic_completion_staged(
+    endpoint: &EvmRpcUrl,
+    candidate: &GenericContractCandidate,
+    identities: &[&GenericContractIdentity],
+    hash: &str,
+    inclusion: &DeploymentProof,
+    conditions: &[GenericCondition],
+    cancelled: &AtomicBool,
+) -> Result<VerifiedGenericCompletion, GenericCompletionFailure> {
     let control = SimulationControl::start(cancelled);
     let network = candidate.intent().network();
     let header =
         local_simulation::canonical_header(endpoint, network, &inclusion.block_hash, &control)
-            .map_err(|_| GenericError::SnapshotMismatch)?;
-    verify_transaction_inclusion(
+            .map_err(|_| GenericCompletionFailure::Inclusion(GenericError::SnapshotMismatch))?;
+    let checked = stages::verify(
+        network,
         &header,
         candidate.payload(),
         candidate.intent().account(),
         hash,
         inclusion,
+        candidate.block_number(),
     )
-    .map_err(|_| GenericError::SnapshotMismatch)?;
-    if header.number < candidate.block_number() {
-        return Err(GenericError::SnapshotMismatch);
-    }
+    .map_err(GenericCompletionFailure::Inclusion)?;
+    stages::complete(checked, |checked| {
+        finish_completion(
+            endpoint, candidate, identities, checked, conditions, cancelled, &control,
+        )
+    })
+}
+
+fn finish_completion(
+    endpoint: &EvmRpcUrl,
+    candidate: &GenericContractCandidate,
+    identities: &[&GenericContractIdentity],
+    inclusion: &VerifiedGenericInclusion,
+    conditions: &[GenericCondition],
+    cancelled: &AtomicBool,
+    control: &SimulationControl<'_>,
+) -> Result<VerifiedGenericCompletion, GenericError> {
+    let network = candidate.intent().network();
     require_candidate_identity(candidate, identities)?;
     let observed = verify_generic_conditions(endpoint, network, identities, conditions, cancelled)?;
-    if observed.block_number < header.number {
+    if observed.block_number < inclusion.receipt_number {
         return Err(GenericError::SnapshotMismatch);
     }
-    local_simulation::canonical_header(endpoint, network, &inclusion.block_hash, &control)
+    local_simulation::canonical_header(endpoint, network, &inclusion.receipt_hash, control)
         .map_err(|_| GenericError::SnapshotMismatch)?;
     current_anchor(
         endpoint,
         network,
         observed.block_hash(),
         observed.block_number(),
-        &control,
+        control,
     )?;
     if !observed.is_fresh() {
         return Err(GenericError::Expired);
@@ -404,10 +444,10 @@ pub fn verify_generic_completion(
     Ok(VerifiedGenericCompletion {
         candidate_digest: candidate.candidate_digest().into(),
         account: candidate.intent().account().into(),
-        transaction_hash: hash.into(),
-        receipt_number: header.number,
-        receipt_hash: inclusion.block_hash.clone(),
-        inclusion_commitment: commitment(inclusion)?,
+        transaction_hash: inclusion.transaction_hash.clone(),
+        receipt_number: inclusion.receipt_number,
+        receipt_hash: inclusion.receipt_hash.clone(),
+        inclusion_commitment: inclusion.inclusion_commitment.clone(),
         conditions: observed,
     })
 }

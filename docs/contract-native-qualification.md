@@ -100,6 +100,18 @@ later unsent workflow steps remain retired. A receipt-only check cannot restore
 a selected completion certificate or current goals, including when historical
 completion records refer to different receipt blocks.
 
+The captured Sepolia transaction
+`0x543e7af2dce6b9aea0b81a40fa8decf08ab940e52d3f1a1a194127b93aed7d80`
+is an offline regression for Amsterdam receipt accounting: receipt cumulative
+gas is 138,041,977 while header gas used is 96,694,775. Check its exact signed
+body, canonical header and both retained trie proofs through the production
+receipt verifier. Exercise fork activation boundaries, historical single-counter
+bounds, Amsterdam widened bounds and tampering rejection without network access.
+Also test that candidate-body/proof rejection never reports verified inclusion,
+while a later completion failure retains an actual opaque inclusion certificate
+without completing the workflow. These fixtures do not grant signing authority
+or replace live source/state completion qualification.
+
 ## Initial native unlock
 
 An existing selected locked account opens the same native unlock prompt used by

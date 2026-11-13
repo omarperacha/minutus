@@ -1,6 +1,7 @@
 //! Pure exact type-2 inclusion checks shared by task and receipt-only consumers.
 //! Header canonicality belongs to the acquiring host; raw evidence is not a seal.
-use super::{DeploymentProof, QualificationError, deployment};
+use super::{DeploymentProof, QualificationError, deployment, receipt_gas};
+use crate::EvmNetwork;
 use alloy_consensus::{Eip658Value, Header, Receipt, ReceiptWithBloom, Signed, TxEip1559};
 use alloy_primitives::{B256, keccak256};
 use alloy_rlp::Decodable;
@@ -13,6 +14,7 @@ pub(super) struct CheckedInclusion {
 }
 
 pub(super) fn verify(
+    network: EvmNetwork,
     header: &Header,
     expected_hash: &str,
     proof: &DeploymentProof,
@@ -32,6 +34,7 @@ pub(super) fn verify(
     if !remaining.is_empty()
         || transaction.first() != Some(&2)
         || canonical != transaction
+        || signed.tx().chain_id != network.descriptor().chain_id()
         || signed.signature().normalize_s().is_some()
     {
         return Err(reject);
@@ -47,12 +50,11 @@ pub(super) fn verify(
     };
     if !remaining.is_empty()
         || canonical != receipt
-        || decoded.receipt.cumulative_gas_used == 0
-        || decoded.receipt.cumulative_gas_used > header.gas_used
         || decoded.logs_bloom != decoded.receipt.bloom_slow()
     {
         return Err(reject);
     }
+    receipt_gas::validate(network, header, decoded.receipt.cumulative_gas_used)?;
     let key = Nibbles::unpack(alloy_rlp::encode(proof.transaction_index));
     verify_proof(
         header.transactions_root,

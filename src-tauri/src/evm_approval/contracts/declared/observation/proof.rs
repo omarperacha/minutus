@@ -1,16 +1,49 @@
 //! Independent canonical inclusion precedes candidate-bound completion proofs.
-use super::{super::context::Context, ObservationFailure};
+use super::{
+    super::{context::Context, lifecycle::StepLifecycle},
+    ObservationFailure,
+};
 use app_core::PreparedDeclaredContractStep;
 use chain_evm::contract::{
     acquire_contract_transaction_proof,
-    generic::{GenericError, VerifiedGenericCompletion, verify_generic_completion},
+    generic::{
+        GenericCompletionFailure, GenericError, VerifiedGenericCompletion,
+        VerifiedGenericInclusion, verify_generic_completion_staged,
+    },
 };
+use ipc_types::IpcError;
 use std::sync::Arc;
 
 pub(super) enum ProofFailure {
     Inclusion(ObservationFailure),
-    Completion(ObservationFailure),
+    Completion {
+        inclusion: VerifiedGenericInclusion,
+        failure: ObservationFailure,
+    },
     Worker,
+}
+impl ProofFailure {
+    pub(super) fn record_stage(&self, progress: &mut StepLifecycle) -> Result<(), IpcError> {
+        if let Self::Completion { inclusion, .. } = self {
+            // Matching this branch requires the chain owner's private-field
+            // seal. Neither an error code nor raw proof acquisition can enter.
+            progress.record_transaction_hash(inclusion.transaction_hash())?;
+            progress.inclusion_verified();
+            progress.completion_started();
+        }
+        Ok(())
+    }
+}
+impl From<GenericCompletionFailure> for ProofFailure {
+    fn from(error: GenericCompletionFailure) -> Self {
+        match error {
+            GenericCompletionFailure::Inclusion(error) => Self::Inclusion(error.into()),
+            GenericCompletionFailure::Completion { inclusion, error } => Self::Completion {
+                inclusion,
+                failure: error.into(),
+            },
+        }
+    }
 }
 
 pub(super) async fn prove(
@@ -49,7 +82,7 @@ pub(super) async fn prove(
         {
             identities.push(step.candidate().identity());
         }
-        verify_generic_completion(
+        verify_generic_completion_staged(
             &endpoint,
             step.candidate(),
             &identities,
@@ -58,7 +91,7 @@ pub(super) async fn prove(
             &conditions,
             &cancelled,
         )
-        .map_err(|error| ProofFailure::Completion(error.into()))
+        .map_err(ProofFailure::from)
     })
     .await
     .map_err(|_| ProofFailure::Worker)?

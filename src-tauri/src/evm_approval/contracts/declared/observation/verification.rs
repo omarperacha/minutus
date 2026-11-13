@@ -132,15 +132,25 @@ async fn verify_completion(
     progress: &mut StepLifecycle,
 ) -> Result<chain_evm::contract::generic::VerifiedGenericCompletion, IpcError> {
     progress.inclusion_started();
-    let proof = match proof::prove(context, Arc::clone(step), hash.to_owned()).await {
+    let result = proof::prove(context, Arc::clone(step), hash.to_owned()).await;
+    if let Err(failure) = &result {
+        failure.record_stage(progress).map_err(|error| {
+            stopped(
+                step,
+                progress,
+                hash,
+                ObservationStop::InclusionUnavailable,
+                &error.message,
+            )
+        })?;
+    }
+    let proof = match result {
         Ok(proof) => {
             progress.inclusion_verified();
             progress.completion_started();
             proof
         }
-        Err(ProofFailure::Completion(failure)) => {
-            progress.inclusion_verified();
-            progress.completion_started();
+        Err(ProofFailure::Completion { failure, .. }) => {
             if matches!(failure, ObservationFailure::Unsatisfied) {
                 progress.completion_unsatisfied();
                 return Err(IpcError::invalid_request(serde_json::json!({"transactionHash":hash,"execution":"canonical inclusion proved","completionConditions":"unsatisfied at proof-checked observation","goalVerified":false,"retryAutomatically":false}).to_string()));
@@ -181,3 +191,6 @@ async fn verify_completion(
     };
     Ok(proof)
 }
+
+#[cfg(test)]
+mod tests;

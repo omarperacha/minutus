@@ -23,11 +23,13 @@ mod source_metadata;
 pub use candidate::GenericContractCandidate;
 pub use cohort::{GenericLiveCohort, select_generic_live_cohort};
 pub use completion::{
-    GenericConditionObservation, VerifiedGenericCompletion, VerifiedGenericConditions,
-    VerifiedGenericGoals, VerifiedGenericPrerequisites, bind_generic_prerequisites,
-    bind_refreshed_generic_prerequisites, verify_generic_candidate_conditions,
-    verify_generic_completion, verify_generic_conditions, verify_generic_conditions_at_cohort,
-    verify_generic_goals, verify_generic_prerequisites, verify_refreshed_generic_conditions,
+    GenericCompletionFailure, GenericConditionObservation, VerifiedGenericCompletion,
+    VerifiedGenericConditions, VerifiedGenericGoals, VerifiedGenericInclusion,
+    VerifiedGenericPrerequisites, bind_generic_prerequisites, bind_refreshed_generic_prerequisites,
+    verify_generic_candidate_conditions, verify_generic_completion,
+    verify_generic_completion_staged, verify_generic_conditions,
+    verify_generic_conditions_at_cohort, verify_generic_goals, verify_generic_prerequisites,
+    verify_refreshed_generic_conditions,
 };
 pub use condition::{
     GenericComparison, GenericCondition, admit_generic_condition, generic_condition_type,

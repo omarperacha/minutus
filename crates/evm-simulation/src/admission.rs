@@ -2,6 +2,9 @@ use crate::contract::{MAX_GAS, SimulationError, SimulationNetwork, SimulationReq
 use revm::primitives::{Address, B256, U256};
 use std::str::FromStr;
 
+mod receipt;
+pub use receipt::{ReceiptGasAccounting, receipt_gas_accounting};
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Rules {
     Osaka,
@@ -14,6 +17,7 @@ pub(crate) enum Rules {
 // Reviewed 2026-11-10 against official Geth chain specs, Base v1.5.3 source
 // and the live Denim activation notice. See the dated rules review in docs.
 const REVIEW_EXPIRES: u64 = 1_796_083_200; // 2026-12-01 UTC
+const SEPOLIA_AMSTERDAM: u64 = 1_791_294_816;
 pub(crate) fn rules(network: SimulationNetwork, timestamp: u64) -> Result<Rules, SimulationError> {
     if timestamp >= REVIEW_EXPIRES {
         return Err(SimulationError::UnsupportedRules);
@@ -21,11 +25,13 @@ pub(crate) fn rules(network: SimulationNetwork, timestamp: u64) -> Result<Rules,
     match network {
         SimulationNetwork::EthereumMainnet if timestamp >= 1_764_798_551 => Ok(Rules::Osaka),
         SimulationNetwork::EthereumSepolia
-            if (1_760_427_360..1_791_294_816).contains(&timestamp) =>
+            if (1_760_427_360..SEPOLIA_AMSTERDAM).contains(&timestamp) =>
         {
             Ok(Rules::Osaka)
         }
-        SimulationNetwork::EthereumSepolia if timestamp >= 1_791_294_816 => Ok(Rules::Amsterdam),
+        SimulationNetwork::EthereumSepolia if timestamp >= SEPOLIA_AMSTERDAM => {
+            Ok(Rules::Amsterdam)
+        }
         SimulationNetwork::BaseMainnet if (1_790_791_200..1_793_901_600).contains(&timestamp) => {
             Ok(Rules::BaseCobalt)
         }

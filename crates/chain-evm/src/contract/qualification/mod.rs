@@ -16,6 +16,7 @@ mod material;
 mod profile;
 mod qualified;
 mod receipt;
+mod receipt_gas;
 pub(crate) use receipt::verify_inclusion as verify_transaction_inclusion;
 mod source;
 mod submitted;

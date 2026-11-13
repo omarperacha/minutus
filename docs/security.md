@@ -175,6 +175,22 @@ effects. Chat presents submitted/possibly sent with verification unavailable as 
 partial result; a getter returning the desired value cannot establish that the
 transaction or workflow succeeded.
 
+Receipt gas validation uses the expected network and the canonical header's
+timestamp under the maintained fork policy. Historical single-counter receipts
+retain their positive cumulative-gas bound against header gas used. Reviewed
+Amsterdam receipts use separate transaction-total and block-resource counters;
+their cumulative total is bounded by twice header gas used, with widened
+arithmetic. This does not relax canonical header, exact signed-body/signer,
+receipt encoding/status/bloom or either trie-root check. Historical receipt
+policy grants no permission to execute an unsupported historical VM fork.
+Unreviewed future receipt rules reject.
+
+The live controller records verified inclusion only after receiving an opaque
+certificate from the complete candidate-bound inclusion phase. Acquiring trie
+nodes alone cannot advance that lifecycle stage. Later source/state/completion
+failure retains the proved inclusion fact without granting completion or current
+goal credit; an inclusion-phase rejection remains inclusion-unavailable.
+
 `contract.reconcile_transaction` accepts only a hash already retained for a
 dispatched version 2 workflow in the same conversation. The host selects its
 original network, account, nonce and signing digest from validated immutable

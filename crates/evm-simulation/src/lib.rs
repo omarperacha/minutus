@@ -1,6 +1,7 @@
 //! Bounded local EVM simulation process. No networking, wallet or signing API.
 //! Raw execution is evidence only; it grants no source/effect qualification.
 mod admission;
+pub use admission::{ReceiptGasAccounting, receipt_gas_accounting};
 mod application_targets;
 pub use application_targets::is_reserved_application_target;
 mod contract;

@@ -151,3 +151,24 @@ fn canonical_expected_facts_reject_before_acquisition() -> Result<(), Qualificat
     }
     Ok(())
 }
+
+#[test]
+fn mismatched_expected_network_cannot_select_a_looser_receipt_rule()
+-> Result<(), QualificationError> {
+    let (expected, mut header, mut proof) = fixture(EvmNetwork::EthereumMainnet, 0, true)?;
+    header.timestamp = 1_794_576_300;
+    header.gas_used = 25_000;
+    proof.block_hash = format!("{:#x}", header.hash_slow());
+    // Its 50k cumulative receipt is within the Sepolia 2*25k bound, but this
+    // transaction is chain1. No caller can use chain11155111 to widen its rule.
+    assert!(
+        inclusion::verify(
+            EvmNetwork::EthereumSepolia,
+            &header,
+            &format!("{:#x}", expected.hash),
+            &proof
+        )
+        .is_err()
+    );
+    Ok(())
+}

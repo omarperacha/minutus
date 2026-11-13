@@ -92,7 +92,7 @@ impl Expected {
         proof: &DeploymentProof,
     ) -> Result<VerifiedSubmittedTransaction, QualificationError> {
         let reject = QualificationError::SnapshotMismatch;
-        let checked = inclusion::verify(header, &format!("{:#x}", self.hash), proof)?;
+        let checked = inclusion::verify(self.network, header, &format!("{:#x}", self.hash), proof)?;
         let transaction = checked.signed.tx();
         if transaction.chain_id != self.network.descriptor().chain_id()
             || transaction.nonce != self.nonce
@@ -130,3 +130,7 @@ impl Expected {
 #[cfg(test)]
 #[path = "verification_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "captured.rs"]
+mod captured;

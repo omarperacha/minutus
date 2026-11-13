@@ -228,6 +228,7 @@ pub fn verify_contract_receipt_predicates(
     let receipt_header =
         local_simulation::canonical_header(endpoint, network, &inclusion.block_hash, &control)?;
     verify_inclusion(
+        network,
         &receipt_header,
         candidate.payload(),
         candidate.intent().account(),
@@ -315,13 +316,14 @@ pub fn verify_contract_receipt_predicates(
     })
 }
 pub(crate) fn verify_inclusion(
+    network: EvmNetwork,
     header: &Header,
     payload: &[u8],
     account: &str,
     expected_hash: &str,
     proof: &DeploymentProof,
 ) -> Result<(), QualificationError> {
-    let checked = inclusion::verify(header, expected_hash, proof)?;
+    let checked = inclusion::verify(network, header, expected_hash, proof)?;
     let reject = QualificationError::SnapshotMismatch;
     if !checked.succeeded
         || checked.signed.tx().encoded_for_signing() != payload
@@ -411,9 +413,17 @@ mod tests {
     fn exact_body_signer_and_both_inclusions_required() -> Result<(), QualificationError> {
         for index in [0, 1, 127, 128, 65_536] {
             let (header, payload, account, hash, proof) = fixture(index)?;
-            verify_inclusion(&header, &payload, &account, &hash, &proof)?;
+            verify_inclusion(
+                EvmNetwork::EthereumMainnet,
+                &header,
+                &payload,
+                &account,
+                &hash,
+                &proof,
+            )?;
             assert!(
                 verify_inclusion(
+                    EvmNetwork::EthereumMainnet,
                     &header,
                     &payload,
                     "0x1111111111111111111111111111111111111111",
@@ -424,6 +434,7 @@ mod tests {
             );
             assert!(
                 verify_inclusion(
+                    EvmNetwork::EthereumMainnet,
                     &header,
                     &payload,
                     &account,
@@ -434,7 +445,17 @@ mod tests {
             );
             let mut changed = payload.clone();
             changed.push(0);
-            assert!(verify_inclusion(&header, &changed, &account, &hash, &proof).is_err());
+            assert!(
+                verify_inclusion(
+                    EvmNetwork::EthereumMainnet,
+                    &header,
+                    &changed,
+                    &account,
+                    &hash,
+                    &proof
+                )
+                .is_err()
+            );
             for mutation in 0..6 {
                 let mut changed = proof.clone();
                 match mutation {
@@ -445,7 +466,17 @@ mod tests {
                     4 => changed.transaction_proof.clear(),
                     _ => changed.block_hash = format!("{:#x}", B256::ZERO),
                 }
-                assert!(verify_inclusion(&header, &payload, &account, &hash, &changed).is_err());
+                assert!(
+                    verify_inclusion(
+                        EvmNetwork::EthereumMainnet,
+                        &header,
+                        &payload,
+                        &account,
+                        &hash,
+                        &changed
+                    )
+                    .is_err()
+                );
             }
         }
         Ok(())
@@ -465,7 +496,17 @@ mod tests {
         (header.receipts_root, proof.receipt_proof) = inclusion(0, &receipt);
         proof.receipt = format!("0x{}", alloy_primitives::hex::encode(receipt));
         proof.block_hash = format!("{:#x}", header.hash_slow());
-        assert!(verify_inclusion(&header, &payload, &account, &hash, &proof).is_err());
+        assert!(
+            verify_inclusion(
+                EvmNetwork::EthereumMainnet,
+                &header,
+                &payload,
+                &account,
+                &hash,
+                &proof
+            )
+            .is_err()
+        );
         Ok(())
     }
     #[test]

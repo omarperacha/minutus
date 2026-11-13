@@ -1,6 +1,6 @@
 //! Exact creation provenance preserves the reviewed token's initial supply invariant.
 //! The caller owns historical-header canonicality; this module only checks inclusion.
-use super::QualificationError;
+use super::{QualificationError, receipt_gas};
 use crate::EvmNetwork;
 use alloy_consensus::{Eip658Value, Header, Receipt, ReceiptWithBloom, Signed, TxEip1559};
 use alloy_dyn_abi::{DynSolType, DynSolValue};
@@ -104,7 +104,7 @@ impl VerifiedDeployment {
             return Err(reject);
         }
         let (holder, supply) = constructor(&tx.input)?;
-        successful_receipt(&receipt, header, target, holder, supply)?;
+        successful_receipt(network, &receipt, header, target, holder, supply)?;
         // Transaction/receipt tries use the nibbles of RLP(index), not a hash.
         let key = Nibbles::unpack(alloy_rlp::encode(evidence.transaction_index));
         verify_proof(
@@ -201,6 +201,7 @@ fn bounded_word(word: &[u8], maximum: usize) -> Result<usize, QualificationError
 }
 
 fn successful_receipt(
+    network: EvmNetwork,
     bytes: &[u8],
     header: &Header,
     target: Address,
@@ -215,12 +216,11 @@ fn successful_receipt(
     if !remaining.is_empty()
         || canonical != bytes
         || receipt.receipt.status != Eip658Value::Eip658(true)
-        || receipt.receipt.cumulative_gas_used == 0
-        || receipt.receipt.cumulative_gas_used > header.gas_used
         || receipt.logs_bloom != receipt.receipt.bloom_slow()
     {
         return Err(reject);
     }
+    receipt_gas::validate(network, header, receipt.receipt.cumulative_gas_used)?;
     let [log] = receipt.receipt.logs.as_slice() else {
         return Err(reject);
     };
@@ -419,6 +419,54 @@ mod tests {
                 );
             }
         }
+        Ok(())
+    }
+
+    #[test]
+    fn historical_and_amsterdam_deployments_use_receipt_dimensions_without_old_vm_admission()
+    -> Result<(), QualificationError> {
+        let (mut header, target, mut proof) = fixture(0, U256::from(17))?;
+        header.gas_used = 500_000;
+        proof.block_hash = format!("{:#x}", header.hash_slow());
+        assert!(
+            VerifiedDeployment::verify_against_header(
+                &header,
+                EvmNetwork::EthereumSepolia,
+                target,
+                &proof,
+            )
+            .is_err()
+        );
+        header.timestamp = 1_794_576_300;
+        proof.block_hash = format!("{:#x}", header.hash_slow());
+        VerifiedDeployment::verify_against_header(
+            &header,
+            EvmNetwork::EthereumSepolia,
+            target,
+            &proof,
+        )?;
+        header.gas_used -= 1;
+        proof.block_hash = format!("{:#x}", header.hash_slow());
+        assert!(
+            VerifiedDeployment::verify_against_header(
+                &header,
+                EvmNetwork::EthereumSepolia,
+                target,
+                &proof,
+            )
+            .is_err()
+        );
+        header.timestamp = u64::MAX;
+        proof.block_hash = format!("{:#x}", header.hash_slow());
+        assert!(
+            VerifiedDeployment::verify_against_header(
+                &header,
+                EvmNetwork::EthereumSepolia,
+                target,
+                &proof,
+            )
+            .is_err()
+        );
         Ok(())
     }
 
