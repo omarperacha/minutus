@@ -12,8 +12,9 @@ pub(super) async fn review(
     scope: &ContractWorkflowScope,
     endpoint: &EvmRpcUrl,
     request: &ContractWorkflowRequest,
+    cancel: &crate::wallet_lifecycle::TransferCancellation,
 ) -> Result<EvmApprovalDecision, IpcError> {
-    show_native_review(app, display(scope, endpoint, request)?).await
+    show_native_review(app, display(scope, endpoint, request)?, cancel).await
 }
 fn display(
     scope: &ContractWorkflowScope,

@@ -61,6 +61,7 @@ impl WalletControl {
     async fn prepare_sign(
         &self,
         purpose: native::PasswordPrompt,
+        observer: &mut impl FnMut(super::WalletAuthorizationEvent),
     ) -> Result<PreparedSign, IpcError> {
         let job = self.begin()?;
         let (document, id) = self.snapshot()?;
@@ -69,10 +70,11 @@ impl WalletControl {
         }
         let document = document.ok_or_else(IpcError::internal)?;
         let id = id.ok_or_else(IpcError::internal)?;
-        let password = onboarding::password(self.app()?, purpose, &job).await?;
+        let password = onboarding::password_observed(self.app()?, purpose, &job, observer).await?;
         let control = self.clone();
         let epoch = self.epoch.load(Ordering::Acquire);
-        blocking(move || {
+        observer(super::WalletAuthorizationEvent::AuthenticationStarted);
+        let result = tauri::async_runtime::spawn_blocking(move || {
             let authentication = control.store.with_revision(&document, || {
                 document.authenticate_signing(&id, &password, &job)
             })?;
@@ -84,7 +86,25 @@ impl WalletControl {
                 job,
             })
         })
-        .await
+        .await;
+        match result {
+            Ok(Ok(prepared)) => {
+                observer(super::WalletAuthorizationEvent::AuthenticationSucceeded);
+                Ok(prepared)
+            }
+            Ok(Err(error)) => {
+                observer(super::WalletAuthorizationEvent::AuthenticationFailed {
+                    failure: super::authorization::authentication_failure(error),
+                });
+                Err(password_error(error))
+            }
+            Err(_) => {
+                observer(super::WalletAuthorizationEvent::AuthenticationFailed {
+                    failure: super::authorization::WalletAuthenticationFailure::Unavailable,
+                });
+                Err(IpcError::internal())
+            }
+        }
     }
     fn finish_sign(
         &self,
@@ -166,8 +186,27 @@ impl WalletControl {
         cancellation: &super::TransferCancellation,
         revalidate: impl std::future::Future<Output = Result<(), IpcError>>,
     ) -> Result<WalletSigned, IpcError> {
+        self.sign_exact_transaction_observed(
+            core,
+            commitment,
+            evidence,
+            cancellation,
+            revalidate,
+            &mut |_| {},
+        )
+        .await
+    }
+    pub(crate) async fn sign_exact_transaction_observed(
+        &self,
+        core: &AppCore,
+        commitment: &ApprovalCommitment,
+        evidence: &crate::evm_approval::presentation::ApprovalEvidence,
+        cancellation: &super::TransferCancellation,
+        revalidate: impl std::future::Future<Output = Result<(), IpcError>>,
+        observer: &mut impl FnMut(super::WalletAuthorizationEvent),
+    ) -> Result<WalletSigned, IpcError> {
         let result = match self
-            .prepare_sign(native::PasswordPrompt::SignTransaction)
+            .prepare_sign(native::PasswordPrompt::SignTransaction, observer)
             .await
         {
             Ok(prepared) => match revalidate.await {
@@ -200,7 +239,10 @@ impl WalletControl {
         let result = if cancelled() {
             Err(cancelled_error())
         } else {
-            match self.prepare_sign(native::PasswordPrompt::SignPayment).await {
+            match self
+                .prepare_sign(native::PasswordPrompt::SignPayment, &mut |_| {})
+                .await
+            {
                 Ok(_) if cancelled() => Err(cancelled_error()),
                 Ok(prepared) => self.finish_sign(core, commitment, prepared, binding, cancelled),
                 Err(error) => Err(error),

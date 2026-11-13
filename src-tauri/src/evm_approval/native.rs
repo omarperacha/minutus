@@ -10,14 +10,17 @@ use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 use tokio::sync::oneshot;
 
 use super::presentation::ApprovalDisplay;
+use crate::wallet_lifecycle::native::modal::ModalRequest;
 
 pub(super) async fn show(
     app: &tauri::AppHandle,
     display: ApprovalDisplay,
+    cancellation: &crate::wallet_lifecycle::TransferCancellation,
 ) -> Result<EvmApprovalDecision, IpcError> {
     let (sender, receiver) = oneshot::channel();
+    let request = ModalRequest::for_transfer(cancellation);
     app.run_on_main_thread(move || {
-        let decision = present(&display);
+        let decision = present_request(&display, &request);
         let _ = sender.send(decision);
     })
     .map_err(|_| IpcError::internal())?;
@@ -25,10 +28,20 @@ pub(super) async fn show(
 }
 
 /// Shared native renderer; a display alone carries no signing authority.
+#[cfg(debug_assertions)]
 pub(super) fn present(display: &ApprovalDisplay) -> Result<EvmApprovalDecision, IpcError> {
+    present_request(display, &ModalRequest::new())
+}
+
+fn present_request(
+    display: &ApprovalDisplay,
+    request: &ModalRequest,
+) -> Result<EvmApprovalDecision, IpcError> {
+    request.check()?;
     let body = display.complete_body()?;
     autoreleasepool(|_| {
         let mtm = MainThreadMarker::new().ok_or_else(IpcError::internal)?;
+        request.check()?;
         activate_review(mtm);
         let alert = NSAlert::new(mtm);
         alert.setAlertStyle(if display.has_warnings {
@@ -71,6 +84,7 @@ pub(super) fn present(display: &ApprovalDisplay) -> Result<EvmApprovalDecision, 
             alert.addButtonWithTitle(&NSString::from_str(display.approval_button_title()));
         }
         alert.addButtonWithTitle(&NSString::from_str("Dismiss"));
+        let _modal = request.register(alert.window())?;
         Ok(match alert.runModal() {
             response if response == NSAlertFirstButtonReturn => EvmApprovalDecision::Denied,
             response if response == NSAlertSecondButtonReturn && display.approval_allowed => {

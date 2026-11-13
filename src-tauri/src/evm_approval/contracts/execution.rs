@@ -33,14 +33,13 @@ pub(crate) fn execute(
     let wallet = app.state::<WalletControl>();
     let approval = app.state::<EvmApprovalControl>();
     let _lease = approval.begin_reconciliation()?;
-    wallet.transfer_work(app, cancelled, None, |cancel| {
+    wallet.contract_workflow_work(app, cancelled, |cancel| {
         tauri::async_runtime::block_on(run(
             app,
             core.inner(),
             wallet.inner(),
             conversation,
             request,
-            cancelled,
             cancel,
         ))
     })
@@ -51,7 +50,6 @@ async fn run(
     wallet: &WalletControl,
     conversation: &Conversation,
     request: &ContractWorkflowRequest,
-    cancelled: &Arc<AtomicBool>,
     cancel: &TransferCancellation,
 ) -> Result<Value, IpcError> {
     cancel.check()?;
@@ -69,6 +67,8 @@ async fn run(
     };
     let account =
         super::readiness::initial_account(cancel, wallet.ensure_account_ready(core)).await?;
+    let wallet_epoch = wallet.transfer_epoch()?;
+    cancel.bind_wallet_epoch(wallet_epoch)?;
     let scope = request.scope(&account)?;
     let Some(session) = attempt
         .start_profile(scope.clone())
@@ -79,7 +79,8 @@ async fn run(
     let endpoint = Arc::new(crate::evm_rpc_settings::resolved(
         crate::evm_rpc_settings::chain_network(request.network),
     )?);
-    let scope_decision = super::scope_review::review(app, &scope, &endpoint, request).await?;
+    let scope_decision =
+        super::scope_review::review(app, &scope, &endpoint, request, cancel).await?;
     if scope_decision != EvmApprovalDecision::Approved {
         if let Some(work) = session
             .claim_next(vec![])
@@ -102,19 +103,20 @@ async fn run(
         request,
         account.clone(),
         0,
-        Arc::clone(cancelled),
+        cancel.worker_cancellation(),
         origin,
         endpoint,
     )
     .await?;
     cancel.check()?;
-    let ready = wallet.ensure_account_ready(core).await?;
+    wallet.check_transfer_epoch(wallet_epoch)?;
+    let ready = wallet.selected_address()?;
     if !ready.eq_ignore_ascii_case(&account) {
         return Err(IpcError::invalid_request(
             "The selected account changed after source preflight",
         ));
     }
-    context.wallet_epoch = wallet.transfer_epoch()?;
+    context.wallet_epoch = wallet_epoch;
     let context = Arc::new(context);
     run_steps(app, core, wallet, &session, &context, cancel).await
 }

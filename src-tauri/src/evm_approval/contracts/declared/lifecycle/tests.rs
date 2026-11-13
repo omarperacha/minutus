@@ -157,7 +157,24 @@ fn success_preserves_result_and_bounded_prior_step_facts() -> Result<(), Box<dyn
         Some(MAX_STEPS)
     );
     let encoded = json!({"message":result.to_string()}).to_string();
-    assert!(encoded.len() <= maximum_projection_bytes());
+    assert!(encoded.len() <= maximum_projection_bytes(MAX_STEPS).ok_or("invalid step bound")?);
+    Ok(())
+}
+
+#[test]
+fn immutable_step_count_sizes_the_complete_budget_without_widening_the_maximum()
+-> Result<(), Box<dyn std::error::Error>> {
+    assert_eq!(maximum_projection_bytes(0), None);
+    assert_eq!(maximum_projection_bytes(MAX_STEPS + 1), None);
+    let mut previous = 0;
+    for count in 1..=MAX_STEPS {
+        let bound = maximum_projection_bytes(count).ok_or("valid bound missing")?;
+        assert!(bound > previous);
+        previous = bound;
+    }
+    let eight = maximum_projection_bytes(8).ok_or("eight-step bound missing")?;
+    let sixteen = maximum_projection_bytes(MAX_STEPS).ok_or("maximum bound missing")?;
+    assert!(eight < sixteen);
     Ok(())
 }
 

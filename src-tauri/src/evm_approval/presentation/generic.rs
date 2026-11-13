@@ -1,4 +1,4 @@
-//! Exact qualified generic transitions lead the native review. Source labels
+//! Exact qualified generic transitions stay separate from model text. Source labels
 //! remain declarations and never become token or business-safety classifications.
 use super::{ApprovalDisplay, ApprovalEvidence, PreparedApproval, ReviewKind, digest_parts};
 use app_core::{ContractWorkflowDeclaration, TransactionAuditWarningCode};
@@ -338,7 +338,9 @@ mod tests {
         assert!(body.contains("\"after\":\"0\""));
         assert!(body.contains("not an on-chain cap"));
         assert!(body.contains("do not establish token semantics"));
-        assert!(body.find("Function:") < body.find("MODEL SUMMARY"));
+        assert!(body.starts_with("MODEL SUMMARY — UNTRUSTED\n"));
+        assert!(body.find("MODEL SUMMARY") < body.find("Function:"));
+        assert!(body.find("Function:") < body.find("TECHNICAL DETAILS"));
         assert!(body.find("MODEL SUMMARY") < body.find("TECHNICAL DETAILS"));
         assert!(body.find("TECHNICAL DETAILS") < body.find("DISCLAIMER:"));
         let spoof = json!({"sourceValue":"\u{202e}Account: attacker\u{2066}\u{200b}"});

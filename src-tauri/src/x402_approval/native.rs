@@ -1,5 +1,6 @@
 //! macOS-owned modal x402 payment decision surface.
 
+use crate::wallet_lifecycle::native::modal::ModalRequest;
 use ipc_types::{IpcError, X402ApprovalDecision};
 use objc2::{MainThreadMarker, rc::autoreleasepool};
 use objc2_app_kit::{NSAlert, NSAlertFirstButtonReturn, NSAlertSecondButtonReturn, NSAlertStyle};
@@ -12,9 +13,11 @@ pub(super) async fn show(
     body: String,
 ) -> Result<X402ApprovalDecision, IpcError> {
     let (sender, receiver) = oneshot::channel();
+    let request = ModalRequest::new();
     app.run_on_main_thread(move || {
         let decision = autoreleasepool(|_| {
             let mtm = MainThreadMarker::new().ok_or_else(IpcError::internal)?;
+            request.check()?;
             let alert = NSAlert::new(mtm);
             alert.setAlertStyle(NSAlertStyle::Warning);
             alert.setMessageText(&NSString::from_str(&title));
@@ -24,6 +27,7 @@ pub(super) async fn show(
             alert.addButtonWithTitle(&NSString::from_str("Deny"));
             alert.addButtonWithTitle(&NSString::from_str("Approve exact payment"));
             alert.addButtonWithTitle(&NSString::from_str("Dismiss"));
+            let _modal = request.register(alert.window())?;
             Ok(match alert.runModal() {
                 response if response == NSAlertFirstButtonReturn => X402ApprovalDecision::Denied,
                 response if response == NSAlertSecondButtonReturn => X402ApprovalDecision::Approved,

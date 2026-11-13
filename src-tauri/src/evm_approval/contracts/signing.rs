@@ -53,7 +53,7 @@ pub(super) async fn review_and_send(
         origin: context.origin,
     };
     audit.presented(audit_warning_codes);
-    let decision = show_native_review(app, display).await?;
+    let decision = show_native_review(app, display, cancel).await?;
     audit.decision(decision);
     if decision != EvmApprovalDecision::Approved {
         let state = if decision == EvmApprovalDecision::Denied {

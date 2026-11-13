@@ -18,6 +18,17 @@ pub(super) struct Presentation {
 }
 
 impl PasswordPrompt {
+    pub(in crate::wallet_lifecycle) fn purpose(
+        &self,
+    ) -> crate::wallet_lifecycle::WalletPasswordPurpose {
+        use crate::wallet_lifecycle::WalletPasswordPurpose as Purpose;
+        match self {
+            Self::Unlock => Purpose::Unlock,
+            Self::SignTransaction => Purpose::SignTransaction,
+            Self::SignPayment => Purpose::SignPayment,
+            _ => Purpose::OtherWalletOperation,
+        }
+    }
     pub(super) fn presentation(&self) -> Presentation {
         let (title, instructions, accept) = match self {
             Self::Unlock => (

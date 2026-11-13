@@ -34,7 +34,9 @@ Check the following on the actual screen, including a small window/screen size:
 - The complete text is selectable and scrollable, including the end marker.
 - Decision buttons stay visible outside the text pane.
 - Exact network/account/target/function/arguments/value/fee/debit facts are legible.
-- The model summary is clearly untrusted and follows the transaction facts.
+- The model summary is at the top, clearly labelled untrusted with an adjacent
+  warning that it is unverified and may be wrong. It cannot replace the exact
+  host transaction facts and warnings immediately below it.
 - Complete technical details remain available before the final `DISCLAIMER:`,
   whose first sentence warns that the model summary may be wrong.
 - Approve, Deny and Dismiss each close only the fixture; no password or send follows.
@@ -96,11 +98,30 @@ submission was impossible or source changed. Preserve an unknown result when
 those facts are unavailable.
 
 The native renderer uses a host-owned review kind. Outbound permission uses
-“Allow outbound data” and describes disclosure consent; only the separate
+“Allow data lookups” and describes disclosure consent; only the separate
 transaction review uses “Approve exact transaction”. Both retain denial as the
 default action. Generic workflow results include bounded, request-local lifecycle
 observations even when initial source preflight fails. These observations carry
 no signing authority and do not replace durable transaction reconciliation.
+
+The compact `hostOutcomeSummary` is generated from those typed observations,
+beside the full lifecycle. `latestObservedStage` identifies the latest recorded
+boundary, rather than a diagnosed failure cause. Successful initial unlock must
+remain distinct from a later signing-password failure. Password acceptance does
+not establish successful authentication. Bounded native events distinguish a
+presented password dialog, an actual Cancel-button decision, a host-aborted
+dialog, invalidated work and the authentication result. Only those events may
+establish the corresponding category; a generic `Cancelled` error cannot. A
+credentials-rejected result does not establish a more specific password or vault
+cause. Request-cancellation reasons are separately recorded when observed.
+
+`currentWalletState: notObserved` prevents the initial locked/ready snapshot from
+being reported as the current wallet state. These fields describe this invocation
+only and cannot authorise a retry. Readiness or review requests do not by
+themselves establish prompt visibility; native password presentation has its own
+explicit event. The pre-write report budget includes up to eight native events
+per step, all declared steps (up to sixteen), compact summaries and error-message
+JSON quoting. The immutable declaration fixes that count before any write.
 
 Fresh signing authentication succeeds before the post-authentication refresh;
 the signer runs only after that refresh succeeds. A second refresh occurs after

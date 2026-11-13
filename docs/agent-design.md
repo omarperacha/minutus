@@ -77,8 +77,10 @@ Read this reference when changing agent behaviour, tools or orchestration; the
   the native transaction review. Capture it with the tool request, before host
   work, and retain exact step association. It is optional presentation data,
   excluded from stored intent, commitments, effect qualification and signing
-  evidence. Show it as quoted untrusted text beside host-verified transaction
-  facts. Reject control/invisible formatting and oversized text; never truncate
+  evidence. Show it at the top as quoted untrusted text with an adjacent warning
+  that it is unverified and may be wrong. Keep all exact host transaction facts
+  and warnings immediately below it. Reject control/invisible formatting and
+  oversized text; never truncate
   trusted review facts to fit an explanation. The final disclaimer begins with
   the warning that the model summary may be wrong. Do not insert another model
   pass after approval or use summary text to authorise an action.
@@ -748,6 +750,17 @@ Read this reference when changing agent behaviour, tools or orchestration; the
   proof fails. Earlier reads remain historical; they do not establish a current
   or unchanged value. Reporting failure never restores a consumed attempt or
   grants automatic retry, replacement or cleanup authority.
+  Use the deterministic `hostOutcomeSummary` and full lifecycle together:
+  successful initial unlock cannot be rewritten as a cancelled unlock because
+  later signing authentication stopped. Native password presentation, an actual
+  Cancel-button decision, host abort, invalidated work and authentication results
+  are distinct bounded host events. Password acceptance alone is not successful
+  authentication. Report a credential rejection or cancellation category only
+  when its typed event establishes it; neither a generic error nor the absence
+  of an authentication-success event identifies a wrong password. The latest
+  observed stage is not a diagnosed root cause. Initial wallet availability is
+  historical; `currentWalletState: notObserved` must remain unknown. These
+  reporting observations carry no approval, signing or retry authority.
 
 - Gate completion on the requested outcome and its verified postcondition, not an
   intermediate operation. Creating a parent directory cannot complete a request

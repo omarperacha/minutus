@@ -45,6 +45,7 @@ pub(crate) struct Control {
     pub(super) work: PasswordVaultWork,
     pub(super) revoked: AtomicBool,
     pub(super) epoch: AtomicU64,
+    revocation_gate: Mutex<()>,
     cleanup_pending: AtomicBool,
     pub(super) app: OnceLock<tauri::AppHandle>,
     pub(super) old_format_present: bool,
@@ -102,6 +103,7 @@ impl WalletControl {
             work: PasswordVaultWork::new(),
             revoked: AtomicBool::new(false),
             epoch: AtomicU64::new(0),
+            revocation_gate: Mutex::new(()),
             cleanup_pending: AtomicBool::new(false),
             app: OnceLock::new(),
             old_format_present,
@@ -121,12 +123,18 @@ impl WalletControl {
                 false,
             ));
         }
+        let admission = self
+            .revocation_gate
+            .lock()
+            .map_err(|_| IpcError::internal())?;
         if self.cleanup_pending.load(Ordering::Acquire) {
             return Err(password_error(Error::Busy));
         }
         let job = self.work.begin().map_err(password_error)?;
+        let was_revoked = self.revoked.swap(false, Ordering::AcqRel);
+        drop(admission);
         let mut state = self.state.lock().map_err(|_| IpcError::internal())?;
-        if self.revoked.swap(false, Ordering::AcqRel) {
+        if was_revoked {
             state.lock();
         }
         job.check().map_err(password_error)?;
@@ -143,6 +151,7 @@ impl WalletControl {
             }
             state.lock();
             self.epoch.fetch_add(1, Ordering::AcqRel);
+            self.work.cancel();
             state.document = current;
             let inventory = state
                 .document
@@ -227,7 +236,36 @@ impl WalletControl {
         self.lock();
     }
     pub(crate) fn lock(&self) {
+        // The unit-valued gate never spans KDFs or blocking state acquisition.
+        // Revocation remains available if an earlier transition unwound.
+        let _gate = self
+            .revocation_gate
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         self.epoch.fetch_add(1, Ordering::AcqRel);
+        self.revoke_session();
+    }
+    pub(super) fn lock_if_transfer_epoch(&self, expected: u64) -> bool {
+        let _gate = self
+            .revocation_gate
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if self
+            .epoch
+            .compare_exchange(
+                expected,
+                expected.wrapping_add(1),
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            )
+            .is_err()
+        {
+            return false;
+        }
+        self.revoke_session();
+        true
+    }
+    fn revoke_session(&self) {
         self.revoked.store(true, Ordering::Release);
         self.work.cancel();
         self.notify_locked();

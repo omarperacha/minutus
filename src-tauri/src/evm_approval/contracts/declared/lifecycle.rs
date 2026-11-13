@@ -1,9 +1,13 @@
 //! Request-local host observations, never permission or proof of durable state.
+mod authorization;
+mod outcome;
+use crate::wallet_lifecycle::{TransferCancellationReason, WalletAuthorizationEvent};
 use ipc_types::{EvmApprovalDecision, IpcError, WalletAvailability};
 use serde::Serialize;
 use serde_json::{Value, json};
 
 const MAX_STEPS: usize = 16;
+const MAX_AUTHORIZATION_EVENTS: usize = 8;
 
 #[derive(Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -12,9 +16,13 @@ pub(super) struct Lifecycle {
     scope_review: Review,
     source_preflight: Progress,
     steps: Vec<StepLifecycle>,
+    request_cancellation: Option<TransferCancellationReason>,
 }
 
 impl Lifecycle {
+    pub(super) fn record_request_cancellation(&mut self, reason: TransferCancellationReason) {
+        self.request_cancellation.get_or_insert(reason);
+    }
     pub(super) fn wallet_readiness_requested(&mut self, availability: WalletAvailability) {
         self.wallet_readiness.unlock_required = Some(availability == WalletAvailability::Locked);
         self.wallet_readiness.initial_availability = Some(availability);
@@ -50,7 +58,7 @@ impl Lifecycle {
     }
     pub(super) fn facts(&self) -> Value {
         json!({"observationScope":"thisInvocationOnly", "observations":self,
-            "promptVisibility":"notRecorded; requesting readiness or review does not prove a prompt was displayed",
+            "promptVisibility":"notRecordedForReadinessOrTransactionReview; native password visibility is recorded only by passwordPresented events; a readiness or review request alone does not prove a prompt was displayed",
             "failureInterpretation":"failure names do not establish which earlier lifecycle events occurred",
             "durableState":"these observations do not replace transaction and nonce journal reconciliation"})
     }
@@ -62,9 +70,12 @@ impl Lifecycle {
     ) -> IpcError {
         // Completed steps count verified completions, independently of these
         // observations of approval, signing and transport.
-        error.message = json!({"state":"stopped","message":error.message,
+        error.message = outcome::project(
+            self,
+            json!({"state":"stopped","message":error.message,
             "completedSteps":completed_steps,"partialFacts":partial_facts,
-            "lifecycle":self.facts(),"retryAutomatically":false,"automaticCleanup":false})
+            "lifecycle":self.facts(),"retryAutomatically":false,"automaticCleanup":false}),
+        )
         .to_string();
         error.retryable = false;
         error
@@ -72,9 +83,9 @@ impl Lifecycle {
     pub(super) fn project_success(&self, mut value: Value) -> Value {
         if let Some(object) = value.as_object_mut() {
             object.insert("lifecycle".into(), self.facts());
-            value
+            outcome::project(self, value)
         } else {
-            json!({"result":value,"lifecycle":self.facts()})
+            outcome::project(self, json!({"result":value,"lifecycle":self.facts()}))
         }
     }
 }
@@ -97,8 +108,28 @@ pub(super) struct StepLifecycle {
     presend_refresh: Progress,
     submission: Submission,
     transaction_hash: Option<String>,
+    authorization_events: Vec<WalletAuthorizationEvent>,
+    request_cancellation: Option<TransferCancellationReason>,
 }
 impl StepLifecycle {
+    pub(super) fn record_authorization_event(
+        &mut self,
+        event: WalletAuthorizationEvent,
+    ) -> Result<(), IpcError> {
+        if self.authorization_events.len() >= MAX_AUTHORIZATION_EVENTS {
+            return Err(IpcError::invalid_request(
+                "The bounded native authentication observation limit was exceeded",
+            ));
+        }
+        if matches!(event, WalletAuthorizationEvent::AuthenticationSucceeded) {
+            self.authentication_succeeded();
+        }
+        self.authorization_events.push(event);
+        Ok(())
+    }
+    pub(super) fn record_request_cancellation(&mut self, reason: TransferCancellationReason) {
+        self.request_cancellation.get_or_insert(reason);
+    }
     pub(super) fn exact_review_requested(&mut self) {
         self.exact_review = Review::Requested;
     }
@@ -209,8 +240,12 @@ enum Submission {
     Acknowledged,
 }
 
-/// Size-only reservation, including the `IpcError` JSON string quoting layer.
-pub(super) fn maximum_projection_bytes() -> usize {
+/// Size-only reservation for the immutable admitted step count, including the
+/// `IpcError` JSON string quoting layer. Invalid counts cannot admit a report.
+pub(super) fn maximum_projection_bytes(step_count: usize) -> Option<usize> {
+    if !(1..=MAX_STEPS).contains(&step_count) {
+        return None;
+    }
     let mut maximum = Lifecycle {
         wallet_readiness: Readiness {
             status: Progress::NotStarted,
@@ -220,8 +255,9 @@ pub(super) fn maximum_projection_bytes() -> usize {
         scope_review: Review::NotRequested,
         source_preflight: Progress::NotStarted,
         steps: Vec::new(),
+        request_cancellation: Some(TransferCancellationReason::WalletEpochChanged),
     };
-    for index in 0..MAX_STEPS {
+    for index in 0..step_count {
         maximum.steps.push(StepLifecycle {
             step_index: index,
             exact_review: Review::NotRequested,
@@ -230,13 +266,18 @@ pub(super) fn maximum_projection_bytes() -> usize {
             presend_refresh: Progress::NotStarted,
             submission: Submission::MayHaveBeenSent,
             transaction_hash: Some(format!("0x{}", "f".repeat(64))),
+            authorization_events: vec![authorization::largest_event(); MAX_AUTHORIZATION_EVENTS],
+            request_cancellation: Some(TransferCancellationReason::WalletEpochChanged),
         });
     }
     // The fixed margin covers the outer wrapper's keys and status strings.
-    json!({"lifecycle":maximum.facts().to_string()})
-        .to_string()
-        .len()
-        + 512
+    Some(
+        json!({"lifecycle":maximum.facts().to_string()})
+            .to_string()
+            .len()
+            + outcome::maximum_projection_bytes(step_count)
+            + 512,
+    )
 }
 
 #[cfg(test)]

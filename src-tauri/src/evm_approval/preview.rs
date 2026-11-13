@@ -69,6 +69,8 @@ mod tests {
         let display = super::display().map_err(|error| error.message)?;
         assert!(display.body.starts_with("SYNTHETIC DISPLAY FIXTURE"));
         let content = display.complete_body().map_err(|error| error.message)?;
+        assert!(content.starts_with("MODEL SUMMARY — UNTRUSTED\n"));
+        assert!(content.find("Model summary example") < content.find("SYNTHETIC DISPLAY FIXTURE"));
         assert!(content.contains("END OF SYNTHETIC EVIDENCE"));
         assert!(content.lines().count() > 40);
         assert!(content.find("MODEL SUMMARY") < content.find("DISCLAIMER:"));

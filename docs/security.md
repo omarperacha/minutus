@@ -106,6 +106,25 @@ screen/session lock, sleep and inactivity revoke pending authority; returning to
 the app or unlocking the screen cannot revive it. A network failure or ambiguous
 broadcast does not authorise an unrestricted repeat payment.
 
+Contract workflows use request cancellation and fixed limits for each source,
+proof, execution and exact-approval phase. They do not share the ordinary
+transfer two-minute whole-operation timer across unlock, scope consent,
+source work, multiple steps and user waiting. Immediately after initial unlock,
+the workflow pins the selected wallet epoch once; later lock, inactivity,
+security events or wallet changes stop that attempt rather than silently
+unlocking it again. Exact transaction approval still expires after 120 seconds,
+and each step requires fresh password authentication and fresh evidence.
+Ordinary transfer deadlines and x402 request/challenge limits remain unchanged.
+
+Native dialogs have an exact generation and window owner. An abort snapshots
+that owner before wallet invalidation and cannot dismiss a successor dialog.
+Queued password and secret/recovery displays also check the original job's
+revocation before presentation. Host results distinguish a native Cancel button,
+host modal abort, other dismissal, invalidated work and an actual authentication
+failure; absence of successful fresh authentication is not evidence that the
+initial unlock was cancelled. These observations are descriptive and cannot
+grant authentication or signing authority.
+
 ## Software releases
 
 Official macOS distribution requires hardened runtime signatures on nested native

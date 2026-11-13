@@ -38,17 +38,20 @@ pub(crate) fn execute(
     let approval = app.state::<EvmApprovalControl>();
     let _lease = approval.begin_reconciliation()?;
     let mut lifecycle = Lifecycle::default();
-    let outcome = wallet.transfer_work(app, cancelled, None, |cancel| {
-        Ok(tauri::async_runtime::block_on(run(
+    let outcome = wallet.contract_workflow_work(app, cancelled, |cancel| {
+        let result = tauri::async_runtime::block_on(run(
             app,
             core.inner(),
             wallet.inner(),
             conversation,
             request,
-            cancelled,
             cancel,
             &mut lifecycle,
-        )))
+        ));
+        if let Some(reason) = cancel.reason() {
+            lifecycle.record_request_cancellation(reason);
+        }
+        Ok(result)
     });
     match outcome {
         Ok(Ok(value)) => Ok(lifecycle.project_success(value)),
@@ -74,17 +77,12 @@ impl From<IpcError> for Failure {
         }
     }
 }
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Native workflow owners and request-local reporting stay explicit"
-)]
 async fn run(
     app: &tauri::AppHandle,
     core: &Arc<AppCore>,
     wallet: &WalletControl,
     conversation: &Conversation,
     request: &DeclaredWorkflowRequest,
-    cancelled: &Arc<AtomicBool>,
     cancel: &TransferCancellation,
     lifecycle: &mut Lifecycle,
 ) -> Result<Value, Failure> {
@@ -105,6 +103,8 @@ async fn run(
     let account =
         super::super::readiness::initial_account(cancel, wallet.ensure_account_ready(core)).await?;
     lifecycle.wallet_ready();
+    let wallet_epoch = wallet.transfer_epoch()?;
+    cancel.bind_wallet_epoch(wallet_epoch)?;
     let declaration = request.declaration(&account)?;
     let Some(session) = attempt
         .start_declared(declaration.clone())
@@ -116,7 +116,7 @@ async fn run(
         crate::evm_rpc_settings::chain_network(request.network),
     )?);
     lifecycle.scope_review_requested();
-    let decision = super::scope_review::review(app, &declaration, &endpoint).await?;
+    let decision = super::scope_review::review(app, &declaration, &endpoint, cancel).await?;
     lifecycle.scope_decision(decision);
     if decision != EvmApprovalDecision::Approved {
         stop_initial(
@@ -144,7 +144,7 @@ async fn run(
     let mut context = match Context::preflight(
         &declaration,
         endpoint,
-        Arc::clone(cancelled),
+        cancel.worker_cancellation(),
         directory,
         origin,
     )
@@ -158,7 +158,8 @@ async fn run(
     };
     lifecycle.source_preflight_succeeded();
     cancel.check()?;
-    let ready = wallet.ensure_account_ready(core).await?;
+    wallet.check_transfer_epoch(wallet_epoch)?;
+    let ready = wallet.selected_address()?;
     if !ready.eq_ignore_ascii_case(&account) {
         stop_initial(&session, ContractStepState::Cancelled)?;
         return Err(IpcError::invalid_request(
@@ -166,7 +167,7 @@ async fn run(
         )
         .into());
     }
-    context.wallet_epoch = wallet.transfer_epoch()?;
+    context.wallet_epoch = wallet_epoch;
     run_steps(
         app,
         core,

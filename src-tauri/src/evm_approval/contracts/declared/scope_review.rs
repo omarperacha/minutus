@@ -11,8 +11,9 @@ pub(super) async fn review(
     app: &tauri::AppHandle,
     declaration: &ContractWorkflowDeclaration,
     endpoint: &EvmRpcUrl,
+    cancel: &crate::wallet_lifecycle::TransferCancellation,
 ) -> Result<EvmApprovalDecision, IpcError> {
-    show_native_review(app, display(declaration, endpoint)?).await
+    show_native_review(app, display(declaration, endpoint)?, cancel).await
 }
 fn display(
     declaration: &ContractWorkflowDeclaration,

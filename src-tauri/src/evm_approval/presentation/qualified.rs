@@ -1,4 +1,4 @@
-//! Source-qualified material facts lead the native review; technical bindings
+//! Source-qualified material facts stay grouped; complete technical bindings
 //! remain selectable below them. Presentation data can never mint approval.
 use super::{ApprovalDisplay, ApprovalEvidence, PreparedApproval, ReviewKind, digest_parts};
 use chain_evm::{
@@ -327,6 +327,8 @@ mod tests {
     fn material_and_fee_facts_precede_technical_details_in_shared_renderer() -> Result<(), String> {
         let view = super::synthetic_preview();
         let body = view.complete_body().map_err(|error| error.message)?;
+        assert!(body.starts_with("MODEL SUMMARY — UNTRUSTED\n"));
+        assert!(body.find("MODEL SUMMARY") < body.find("ACTION:"));
         let detail = body
             .find("TECHNICAL DETAILS")
             .ok_or("missing technical section")?;

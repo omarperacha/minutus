@@ -62,7 +62,7 @@ pub(super) async fn review_and_send(
     };
     audit.presented(audit_warning_codes);
     progress.exact_review_requested();
-    let decision = show_native_review(app, display).await?;
+    let decision = show_native_review(app, display, cancel).await?;
     progress.exact_review_decision(decision);
     audit.decision(decision);
     if decision != EvmApprovalDecision::Approved {
@@ -250,52 +250,71 @@ async fn authorize(
     let commitment =
         ApprovalCommitment::issue(evidence.binding_input(), unix_now()?).map_err(chain_error)?;
     let mut after_auth = None;
+    let mut authorization_events = Vec::with_capacity(8);
     progress.authorization_requested();
     let signed = wallet
-        .sign_exact_transaction(core, &commitment, evidence, cancel, async {
-            // This future is polled only after native fresh authentication succeeds.
-            // A failure below is therefore after authentication, before signing.
-            progress.authentication_succeeded();
-            context.check(wallet, cancel)?;
-            if !nonce
-                .is_current()
-                .map_err(crate::error_mapping::app_core_error)?
-            {
-                return Err(IpcError::invalid_request("Nonce ownership was retired"));
-            }
-            let (fresh, proofs) = refresh(context, step, completed).await?;
-            context.check(wallet, cancel)?;
-            if unix_now()? >= expiry || !fresh.is_fresh() {
-                return Err(IpcError::invalid_request(
-                    "The approved contract evidence expired",
-                ));
-            }
-            if !nonce
-                .is_current()
-                .map_err(crate::error_mapping::app_core_error)?
-            {
-                return Err(IpcError::invalid_request(
-                    "Nonce owner changed after refresh",
-                ));
-            }
-            if fresh.block_hash() != proofs.conditions().block_hash() {
-                return Err(IpcError::invalid_request(
-                    "Execution and prerequisites changed state cohorts",
-                ));
-            }
-            step.revalidate_preparation(proofs)
-                .map_err(crate::error_mapping::app_core_error)?;
-            if !fresh.is_fresh() {
-                return Err(IpcError::invalid_request(
-                    "Qualified evidence expired during the final workflow check",
-                ));
-            }
-            after_auth = Some(fresh);
-            progress.signing_started();
-            Ok(())
-        })
-        .await?;
-    progress.signature_returned();
+        .sign_exact_transaction_observed(
+            core,
+            &commitment,
+            evidence,
+            cancel,
+            async {
+                // This future is polled only after native fresh authentication succeeds.
+                // A failure below is therefore after authentication, before signing.
+                progress.authentication_succeeded();
+                context.check(wallet, cancel)?;
+                if !nonce
+                    .is_current()
+                    .map_err(crate::error_mapping::app_core_error)?
+                {
+                    return Err(IpcError::invalid_request("Nonce ownership was retired"));
+                }
+                let (fresh, proofs) = refresh(context, step, completed).await?;
+                context.check(wallet, cancel)?;
+                if unix_now()? >= expiry || !fresh.is_fresh() {
+                    return Err(IpcError::invalid_request(
+                        "The approved contract evidence expired",
+                    ));
+                }
+                if !nonce
+                    .is_current()
+                    .map_err(crate::error_mapping::app_core_error)?
+                {
+                    return Err(IpcError::invalid_request(
+                        "Nonce owner changed after refresh",
+                    ));
+                }
+                if fresh.block_hash() != proofs.conditions().block_hash() {
+                    return Err(IpcError::invalid_request(
+                        "Execution and prerequisites changed state cohorts",
+                    ));
+                }
+                step.revalidate_preparation(proofs)
+                    .map_err(crate::error_mapping::app_core_error)?;
+                if !fresh.is_fresh() {
+                    return Err(IpcError::invalid_request(
+                        "Qualified evidence expired during the final workflow check",
+                    ));
+                }
+                after_auth = Some(fresh);
+                progress.signing_started();
+                Ok(())
+            },
+            &mut |event| authorization_events.push(event),
+        )
+        .await;
+    // Recording diagnostics must never hide a signature already returned by
+    // the signing owner, even if a future reporting invariant fails closed.
+    if signed.is_ok() {
+        progress.signature_returned();
+    }
+    for event in authorization_events {
+        progress.record_authorization_event(event)?;
+    }
+    if let Some(reason) = cancel.reason() {
+        progress.record_request_cancellation(reason);
+    }
+    let signed = signed?;
     Ok((signed, after_auth.ok_or_else(IpcError::internal)?, nonce))
 }
 

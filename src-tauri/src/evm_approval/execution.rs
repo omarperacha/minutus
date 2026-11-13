@@ -125,7 +125,7 @@ async fn review_pending(
     ) {
         let _ = core.record_transaction_audit(event);
     }
-    let decision = match show_native_review(app, display).await {
+    let decision = match show_native_review(app, display, cancelled).await {
         Ok(decision) => decision,
         Err(error) => {
             return Err(error);
@@ -516,14 +516,16 @@ fn commitment_error(_error: transaction_policy::ApprovalCommitmentError) -> IpcE
 pub(super) async fn show_native_review(
     app: &tauri::AppHandle,
     display: ApprovalDisplay,
+    cancellation: &TransferCancellation,
 ) -> Result<EvmApprovalDecision, IpcError> {
-    super::native::show(app, display).await
+    super::native::show(app, display, cancellation).await
 }
 
 #[cfg(not(target_os = "macos"))]
 pub(super) async fn show_native_review(
     _app: &tauri::AppHandle,
     _display: ApprovalDisplay,
+    _cancellation: &TransferCancellation,
 ) -> Result<EvmApprovalDecision, IpcError> {
     Err(IpcError {
         code: IpcErrorCode::Unsupported,

@@ -212,6 +212,14 @@ signature does not establish that signing never began. Likewise, an acknowledged
 submission or confirmed receipt must remain reported when a later proof fails,
 even if no declared completion certificate was produced.
 
+The compact host outcome summary is derived from the same typed lifecycle,
+without interpreting error prose. Bounded password events retain actual native
+presentation and decision separately from authentication success or rejection.
+They do not establish a more specific password/vault cause or current wallet
+lock state. The latest observed stage is a recorded boundary, not a failure
+diagnosis. A successful initial unlock remains successful when later fresh
+signing authentication stops. Reporting observations grant no authority.
+
 Earlier source or field reads remain historical evidence at their listed blocks.
 They do not establish unchanged source, unchanged storage or a current value after
 a failed workflow. Failure reporting creates no new attempt, retry, replacement
