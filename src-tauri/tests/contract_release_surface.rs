@@ -98,3 +98,18 @@ fn production_binary_rejects_stage_recovery_qualification_before_startup()
     );
     Ok(())
 }
+
+#[test]
+fn production_binary_rejects_review_print_before_native_ui_or_profile_setup()
+-> Result<(), Box<dyn std::error::Error>> {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_zeta-desktop"))
+        .args(["--contract-approval-preview", "--print"])
+        .output()?;
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8(output.stderr)?.trim(),
+        "The synthetic native review preview is available only in macOS debug builds"
+    );
+    Ok(())
+}

@@ -172,6 +172,7 @@ async fn run(
         core,
         wallet,
         &session,
+        request,
         &Arc::new(context),
         cancel,
         lifecycle,
@@ -191,11 +192,16 @@ fn stop_initial(
     }
     Ok(())
 }
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Immutable model presentation stays separate from persisted workflow authority"
+)]
 async fn run_steps(
     app: &tauri::AppHandle,
     core: &Arc<AppCore>,
     wallet: &WalletControl,
     session: &DeclaredContractWorkflowSession,
+    request: &DeclaredWorkflowRequest,
     context: &Arc<Context>,
     cancel: &TransferCancellation,
     lifecycle: &mut Lifecycle,
@@ -211,7 +217,7 @@ async fn run_steps(
             let step=Arc::new(work.bind_generic_candidate(candidate,proof).map_err(crate::error_mapping::app_core_error)?);
             context.remember(step.shared_candidate())?;
             let progress=lifecycle.step(usize::from(step.index())).ok_or_else(IpcError::internal)?;
-            let record=match super::signing::review_and_send(app,core,wallet,context,&step,&completed,cancel,progress).await{Ok(Some(record))=>record,Ok(None)=>return Ok(json!({"state":"deniedOrDismissed","completedSteps":completed.len(),"partialFacts":reporting::partial(context,&completed),"retryAutomatically":false})),Err(error)=>{let _=step.stop_before_send(ContractStepState::Failed);return Err(error);}};
+            let record=match super::signing::review_and_send(app,core,wallet,context,&step,&completed,cancel,progress,request.summary(step.index())).await{Ok(Some(record))=>record,Ok(None)=>return Ok(json!({"state":"deniedOrDismissed","completedSteps":completed.len(),"partialFacts":reporting::partial(context,&completed),"retryAutomatically":false})),Err(error)=>{let _=step.stop_before_send(ContractStepState::Failed);return Err(error);}};
             completed.push(wait_and_verify(context,wallet,cancel,core,step,record).await?);
         }
         if session.declaration().intent().goals.is_empty() {

@@ -14,6 +14,11 @@ cargo build -p zeta-desktop --locked
 target/debug/zeta-desktop --contract-approval-preview
 ```
 
+Append `--print` to emit the same complete review text without opening a window.
+This mode returns before native application/UI setup and accepts no other input.
+The fixed fixture illustrates a generic `store(42)` transaction. Its explicitly
+labelled model-summary example is static fixture text, not model inference.
+
 This early debug entry point creates only the native application and the actual
 production approval renderer with a fixed synthetic display. It runs before
 application setup and cannot open profiles, databases or vaults, contact RPC,
@@ -28,8 +33,10 @@ Check the following on the actual screen, including a small window/screen size:
 - Approval requires explicitly choosing the separate approval button.
 - The complete text is selectable and scrollable, including the end marker.
 - Decision buttons stay visible outside the text pane.
-- Exact network/account/target/function/amount/allowance/fee details are legible.
-- The allowance remaining after a later failure and Base fee limitations are clear.
+- Exact network/account/target/function/arguments/value/fee/debit facts are legible.
+- The model summary is clearly untrusted and follows the transaction facts.
+- Complete technical details remain available before the final `DISCLAIMER:`,
+  whose first sentence warns that the model summary may be wrong.
 - Approve, Deny and Dismiss each close only the fixture; no password or send follows.
 
 The fixture checks rendering and native decision interaction. It does not
@@ -297,8 +304,11 @@ families remain unsupported even after the human gate is closed.
 
 Any actual native password/signing qualification needs a separately isolated
 Staging identity/profile, explicitly synthetic test keys and a deliberate test
-plan. Verify per-step fresh authentication, account switching, lock/background,
-cancel and crash/restart behavior, partial allowance and uncertain-send display.
+plan. Verify per-step fresh authentication and ordinary app switching after
+approval/authentication: the exact authenticated attempt should continue in the
+background. Separately verify that account changes, explicit wallet lock,
+screen/session lock, sleep, cancellation and crash/restart revoke pending
+authority. Retain partial allowance and uncertain-send display.
 Do not use an ordinary profile or real vault as an implicit fixture. A live funded
 or testnet submission, real keys, release or deployment requires separate explicit
 authorisation. No automated/subagent result is an external security audit.

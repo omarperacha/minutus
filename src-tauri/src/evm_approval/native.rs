@@ -3,7 +3,7 @@
 use ipc_types::{EvmApprovalDecision, IpcError};
 use objc2::{MainThreadMarker, rc::autoreleasepool};
 use objc2_app_kit::{
-    NSAlert, NSAlertFirstButtonReturn, NSAlertSecondButtonReturn, NSAlertStyle,
+    NSAlert, NSAlertFirstButtonReturn, NSAlertSecondButtonReturn, NSAlertStyle, NSApplication,
     NSAutoresizingMaskOptions, NSScreen, NSScrollView, NSTextView,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
@@ -26,8 +26,10 @@ pub(super) async fn show(
 
 /// Shared native renderer; a display alone carries no signing authority.
 pub(super) fn present(display: &ApprovalDisplay) -> Result<EvmApprovalDecision, IpcError> {
+    let body = display.complete_body()?;
     autoreleasepool(|_| {
         let mtm = MainThreadMarker::new().ok_or_else(IpcError::internal)?;
+        activate_review(mtm);
         let alert = NSAlert::new(mtm);
         alert.setAlertStyle(if display.has_warnings {
             NSAlertStyle::Warning
@@ -42,8 +44,8 @@ pub(super) fn present(display: &ApprovalDisplay) -> Result<EvmApprovalDecision, 
             screen.visibleFrame().size
         });
         let size = NSSize::new(
-            (screen.width - 200.0).clamp(240.0, 680.0),
-            (screen.height - 280.0).clamp(120.0, 360.0),
+            (screen.width - 200.0).clamp(240.0, 720.0),
+            (screen.height - 280.0).clamp(120.0, 480.0),
         );
         let frame = NSRect::new(NSPoint::new(0.0, 0.0), size);
         let scroll = NSScrollView::initWithFrame(mtm.alloc(), frame);
@@ -58,7 +60,7 @@ pub(super) fn present(display: &ApprovalDisplay) -> Result<EvmApprovalDecision, 
         view.setAutoresizingMask(NSAutoresizingMaskOptions::ViewWidthSizable);
         view.setMinSize(NSSize::new(0.0, size.height));
         view.setMaxSize(NSSize::new(f64::MAX, f64::MAX));
-        view.setString(&NSString::from_str(&display.body));
+        view.setString(&NSString::from_str(&body));
         scroll.setDocumentView(Some(&view));
         alert.setAccessoryView(Some(&scroll));
 
@@ -77,4 +79,14 @@ pub(super) fn present(display: &ApprovalDisplay) -> Result<EvmApprovalDecision, 
             _ => EvmApprovalDecision::Dismissed,
         })
     })
+}
+
+#[allow(
+    deprecated,
+    reason = "The supported macOS 13.3 floor requires this AppKit activation API for explicit native review presentation"
+)]
+fn activate_review(mtm: MainThreadMarker) {
+    // A foreground request makes the pending human decision visible. It does
+    // not supply a decision or turn application focus into approval evidence.
+    NSApplication::sharedApplication(mtm).activateIgnoringOtherApps(true);
 }

@@ -92,8 +92,18 @@ Private application data and overlapping workspace roots are excluded from model
 filesystem and computation inputs. Receiving addresses are withheld until password
 authentication; locked envelope metadata is not a trusted deposit destination.
 Transactions require native review of the exact proposal and fresh app-password
-authentication. Approval is bound to the candidate and consumed once. Screen lock,
-sleep and inactivity revoke the unlocked session. A network failure or ambiguous
+authentication after that review. Unlocking the wallet and authorising an approved
+transaction or payment use distinct native password prompts; an unlock password
+does not replace fresh signing authentication. The native password dialog requests
+foreground presentation and requires explicit acceptance. After fresh authentication,
+ordinary switching to another app does not revoke the one-use, selected-account
+app-vault capability while verification, signing and submission continue. This is
+not general background signing: the exact candidate, approval, nonce, expiry,
+document revision, job and wallet epoch remain bound and checked. The historical
+Keychain and isolated password-vault prototype retain their foreground policy.
+Approval is consumed once. Explicit lock, cancellation, account or vault changes,
+screen/session lock, sleep and inactivity revoke pending authority; returning to
+the app or unlocking the screen cannot revive it. A network failure or ambiguous
 broadcast does not authorise an unrestricted repeat payment.
 
 ## Software releases

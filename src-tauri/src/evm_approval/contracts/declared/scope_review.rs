@@ -25,7 +25,7 @@ fn display(
         Ok(json!({"step":step.id,"target":target.address,"function":step.function,"arguments":step.arguments,"calldata":call.calldata(),"valueWei":step.value_wei,"dependsOn":step.depends_on,"prerequisites":step.prerequisites,"completion":step.completion}))
     }).collect::<Result<Vec<_>,IpcError>>()?;
     let body = format!(
-        "RPC provider origin: {}\nNetwork: {}\nSelected account: {}\nPublic source service: https://sourcify.dev\nOfficial compiler downloads: https://binaries.soliditylang.org\nContracts: {}\nExact ordered calls and declared conditions: {}\nFinal goals: {}\nScope commitment: {}\n\nThe source service sees public chain/address lookups for the listed business contracts and proof-derived code-only dependencies of exact minimal proxies. Official compiler downloads reveal compiler versions. Neither service receives transaction calldata, signatures or wallet secrets. The RPC provider sees addresses, queried state keys and public transaction hashes; these queries may reveal intent. Source is compiled locally with an independently pinned official compiler, then matched against proof-checked current runtime. Execution remains local. New transaction calldata and signatures reach the RPC provider only after each exact native approval, fresh password and signed validation.\n\nThis permission covers the listed fixed business addresses, exact ordered calls, predicates, proof-derived minimal-proxy code dependencies and bounded proof/status refreshes during this request. Every external business call target must be listed before any source or RPC acquisition; unknown targets stop the request. Code-only implementation discovery grants no permission to call that implementation as another business target. Source/ABI and predicate feasibility are checked before the first write; later execution can still fail. Every write requires its own review and password. Earlier effects may remain if a later step stops. No automatic cleanup, replacement or retry. This outbound permission authorises no transaction.",
+        "DATA ACCESS PERMISSION — NO TRANSACTION APPROVAL\n\nThis permission allows the public RPC, source and compiler lookups described below. It does not approve a transfer or contract transaction. Exact transaction review and a fresh signing password come later, separately.\n\nRPC provider origin: {}\nNetwork: {}\nSelected account: {}\nPublic source service: https://sourcify.dev\nOfficial compiler downloads: https://binaries.soliditylang.org\nContracts: {}\nExact ordered calls and declared conditions: {}\nFinal goals: {}\nScope commitment: {}\n\nThe source service sees public chain/address lookups for the listed business contracts and proof-derived code-only dependencies of exact minimal proxies. Official compiler downloads reveal compiler versions. Neither service receives transaction calldata, signatures or wallet secrets. The RPC provider sees addresses, queried state keys and public transaction hashes; these queries may reveal intent. Source is compiled locally with an independently pinned official compiler, then matched against proof-checked current runtime. Execution remains local. New transaction calldata and signatures reach the RPC provider only after each exact native approval, fresh password and signed validation.\n\nThis permission covers the listed fixed business addresses, exact ordered calls, predicates, proof-derived minimal-proxy code dependencies and bounded proof/status refreshes during this request. Every external business call target must be listed before any source or RPC acquisition; unknown targets stop the request. Code-only implementation discovery grants no permission to call that implementation as another business target. Source/ABI and predicate feasibility are checked before the first write; later execution can still fail. Every write requires its own review and password. Earlier effects may remain if a later step stops. No automatic cleanup, replacement or retry. This outbound permission authorises no transaction.",
         endpoint.public_origin(),
         intent.network,
         intent.account,
@@ -45,7 +45,10 @@ fn display(
     }
     Ok(ApprovalDisplay {
         kind: ReviewKind::OutboundPermission,
-        title: "Allow generic contract workflow data to leave this Mac?".into(),
+        title: "Allow contract data lookups?".into(),
+        technical_details: String::new(),
+        model_summary: None,
+        final_disclaimer: String::new(),
         body,
         has_warnings: true,
         approval_allowed: true,
@@ -92,7 +95,7 @@ mod tests {
                 .contains("grants no permission to call that implementation")
         );
         assert_eq!(view.kind, ReviewKind::OutboundPermission);
-        assert_eq!(view.approval_button_title(), "Allow outbound data");
+        assert_eq!(view.approval_button_title(), "Allow data lookups");
         assert!(view.body.contains("authorises no transaction"));
         for secret in ["user:secret", "private?token", "credential"] {
             assert!(!view.body.contains(secret));

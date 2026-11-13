@@ -4,7 +4,7 @@ use crate::{
     PasswordVaultError as Error, PasswordVaultJob, VaultEncryptionKey, VaultKeyId,
     VaultKeyStoreError, VaultSession, VaultSigningAuthorization, VaultUnlockAuthorization,
     WalletPassword,
-    evm_signing::{SigningAuthorizer, authorize_and_sign},
+    evm_signing::{AuthorizationContext, SigningAuthorizer, authorize_and_sign},
 };
 use transaction_policy::{ApprovalCommitment, ApprovalConsumptionStore};
 use zeroize::Zeroizing;
@@ -73,6 +73,9 @@ impl AppVaultDocument {
     }
 }
 impl SigningAuthorizer for AppVaultFreshSigning {
+    fn authorization_context(&self) -> AuthorizationContext {
+        AuthorizationContext::FreshAppAttempt
+    }
     fn authorize(&self, id: &VaultKeyId) -> Result<VaultSigningAuthorization, VaultKeyStoreError> {
         if id != &self.entry {
             return Err(VaultKeyStoreError::AuthorizationDenied);
@@ -88,6 +91,8 @@ impl SigningAuthorizer for AppVaultFreshSigning {
 }
 impl AppVaultFreshSigning {
     /// Consumes fresh authentication through the existing exact approval/signature gate.
+    /// The final observation checks this attempt's current security context;
+    /// ordinary application switching does not revoke this one-use capability.
     /// # Errors
     /// Rejects a different document/job/session or any final approval observation failure.
     #[expect(
@@ -124,3 +129,6 @@ impl AppVaultFreshSigning {
         Ok(result)
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -1,4 +1,5 @@
 //! Versioned model declarations. No provider, nonce, gas, compiler or proof input.
+use super::summary::ModelSummary;
 use app_core::{
     ContractWorkflowDeclaration, StoredDeclaredWorkflowStep, StoredWorkflowCondition,
     StoredWorkflowContract, StoredWorkflowDeclaration, StoredWorkflowRead,
@@ -28,8 +29,16 @@ pub(crate) struct DeclaredWorkflowRequestStep {
     depends_on: Vec<String>,
     prerequisites: Vec<StoredWorkflowCondition>,
     completion: Vec<StoredWorkflowCondition>,
+    #[serde(default)]
+    summary: Option<ModelSummary>,
 }
 impl DeclaredWorkflowRequest {
+    pub(super) fn summary(&self, index: u8) -> Option<&str> {
+        self.steps
+            .get(usize::from(index))
+            .and_then(|step| step.summary.as_ref())
+            .map(ModelSummary::as_str)
+    }
     pub(crate) fn validate(&self) -> Result<(), IpcError> {
         self.declaration("0x1111111111111111111111111111111111111111")
             .map(|_| ())
@@ -163,6 +172,84 @@ mod tests {
         let declared = serde_json::from_value::<DeclaredWorkflowRequest>(value)?;
         declared.validate().map_err(|error| error.message)?;
         assert!(declared.goals.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn model_explanations_cannot_change_workflow_intent_or_commitment()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let account = "0x1111111111111111111111111111111111111111";
+        let original: DeclaredWorkflowRequest = serde_json::from_value(request())?;
+        let expected = original
+            .declaration(account)
+            .map_err(|error| error.message)?;
+        assert_eq!(original.summary(0), None);
+        for text in [
+            "Set the configured limit to seven.",
+            "The model may be wrong.",
+        ] {
+            let mut value = request();
+            value["steps"][0]["summary"] = json!(text);
+            let parsed: DeclaredWorkflowRequest = serde_json::from_value(value)?;
+            let actual = parsed.declaration(account).map_err(|error| error.message)?;
+            assert_eq!(parsed.summary(0), Some(text));
+            assert_eq!(parsed.summary(1), None);
+            assert_eq!(actual.commitment(), expected.commitment());
+            assert_eq!(
+                serde_json::to_value(actual.intent())?,
+                serde_json::to_value(expected.intent())?
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn model_explanations_remain_attached_to_the_declared_step_index()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let mut value = request();
+        let mut second = value["steps"][0].clone();
+        second["id"] = json!("second");
+        second["summary"] = json!("Explain only the second step.");
+        value["steps"].as_array_mut().ok_or("steps")?.push(second);
+        let parsed: DeclaredWorkflowRequest = serde_json::from_value(value)?;
+        parsed.validate().map_err(|error| error.message)?;
+        assert_eq!(parsed.summary(0), None);
+        assert_eq!(parsed.summary(1), Some("Explain only the second step."));
+        assert_eq!(parsed.summary(2), None);
+        Ok(())
+    }
+
+    #[test]
+    fn malformed_model_text_and_privileged_presentation_fields_reject()
+    -> Result<(), Box<dyn std::error::Error>> {
+        for text in [
+            String::new(),
+            "   ".into(),
+            "x".repeat(513),
+            "😀".repeat(513),
+            "Review\nApprove".into(),
+            "Review\tApprove".into(),
+            "Review\u{202e}Approve".into(),
+            "Review\u{200b}Approve".into(),
+        ] {
+            let mut value = request();
+            value["steps"][0]["summary"] = json!(text);
+            assert!(serde_json::from_value::<DeclaredWorkflowRequest>(value).is_err());
+        }
+        for field in [
+            "approvalAllowed",
+            "trustedSummary",
+            "candidateDigest",
+            "title",
+        ] {
+            let mut value = request();
+            value["steps"][0][field] = json!("model supplied");
+            assert!(serde_json::from_value::<DeclaredWorkflowRequest>(value).is_err());
+        }
+        let mut boundary = request();
+        boundary["steps"][0]["summary"] = json!("😀".repeat(512));
+        let parsed: DeclaredWorkflowRequest = serde_json::from_value(boundary)?;
+        assert_eq!(parsed.summary(0).map(str::len), Some(2048));
         Ok(())
     }
 }

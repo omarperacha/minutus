@@ -26,9 +26,12 @@ fn display(
  }).collect::<Result<Vec<_>,IpcError>>()?;
     Ok(ApprovalDisplay {
         kind: ReviewKind::OutboundPermission,
-        title: "Allow contract workflow data to leave this Mac?".into(),
+        title: "Allow contract data lookups?".into(),
+        technical_details: String::new(),
+        model_summary: None,
+        final_disclaimer: String::new(),
         body: format!(
-            "Provider origin: {}\nAccount: {}\nNetwork: {}\nExact ordered calls: {}\nScope commitment: {}\n\nBefore transaction approval, the provider sees account/target addresses, queried storage keys and public transaction hashes for source/state/receipt proofs; these queries may reveal intent. Execution remains local. The new transaction calldata and signature reach the provider only after that step's exact native approval, fresh password and signed validation. This permission covers only the displayed fixed ordered calls and bounded status/proof refreshes during this request. Every target must match the reviewed compiled token family before any write. Each write requires separate exact native approval and fresh password. This outbound consent authorises no transaction. A prior allowance may remain if a later step is denied, fails or is uncertain; no automatic cleanup or retry.",
+            "DATA ACCESS PERMISSION — NO TRANSACTION APPROVAL\n\nThis permission allows the public RPC lookups described below. It does not approve a transfer or contract transaction. Exact transaction review and a fresh signing password come later, separately.\n\nProvider origin: {}\nAccount: {}\nNetwork: {}\nExact ordered calls: {}\nScope commitment: {}\n\nBefore transaction approval, the provider sees account/target addresses, queried storage keys and public transaction hashes for source/state/receipt proofs; these queries may reveal intent. Execution remains local. The new transaction calldata and signature reach the provider only after that step's exact native approval, fresh password and signed validation. This permission covers only the displayed fixed ordered calls and bounded status/proof refreshes during this request. Every target must match the reviewed compiled token family before any write. Each write requires separate exact native approval and fresh password. This outbound consent authorises no transaction. A prior allowance may remain if a later step is denied, fails or is uncertain; no automatic cleanup or retry.",
             endpoint.public_origin(),
             scope.intent().account,
             scope.intent().network,
@@ -63,7 +66,7 @@ mod tests {
             assert!(!view.body.contains(secret));
         }
         assert_eq!(view.kind, ReviewKind::OutboundPermission);
-        assert_eq!(view.approval_button_title(), "Allow outbound data");
+        assert_eq!(view.approval_button_title(), "Allow data lookups");
         assert!(view.body.contains("authorises no transaction"));
         Ok(())
     }

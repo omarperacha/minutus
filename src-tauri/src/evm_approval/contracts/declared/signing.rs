@@ -34,6 +34,7 @@ pub(super) async fn review_and_send(
     completed: &[CompletedStep],
     cancel: &TransferCancellation,
     progress: &mut StepLifecycle,
+    summary: Option<&str>,
 ) -> Result<Option<StoredEvmTransaction>, IpcError> {
     context.check(wallet, cancel)?;
     let session = uuid::Uuid::now_v7().to_string();
@@ -52,6 +53,7 @@ pub(super) async fn review_and_send(
         evidence,
         audit_warning_codes,
     } = prepared;
+    let display = display.with_model_summary(summary)?;
     let audit = super::super::audit::Audit {
         core,
         evidence: &evidence,

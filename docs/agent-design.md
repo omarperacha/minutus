@@ -73,6 +73,15 @@ Read this reference when changing agent behaviour, tools or orchestration; the
 - Put stable outcome-oriented judgment in the system policy once. Put changing
   counters, warnings and request state in host-owned dynamic context rather than
   accumulating task recipes in permanent prompt prose.
+- A contract workflow may carry a bounded per-step model-written explanation for
+  the native transaction review. Capture it with the tool request, before host
+  work, and retain exact step association. It is optional presentation data,
+  excluded from stored intent, commitments, effect qualification and signing
+  evidence. Show it as quoted untrusted text beside host-verified transaction
+  facts. Reject control/invisible formatting and oversized text; never truncate
+  trusted review facts to fit an explanation. The final disclaimer begins with
+  the warning that the model summary may be wrong. Do not insert another model
+  pass after approval or use summary text to authorise an action.
 
 ## Planning and admission
 
