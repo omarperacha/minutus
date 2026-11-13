@@ -3,15 +3,11 @@
 use super::{
     DeploymentProof, QualificationError, QualifiedContractCandidate,
     action::{allowance_slot, balance_slot, parse_address},
-    deployment, profile,
+    inclusion, profile,
 };
 use crate::{EvmNetwork, EvmRpcUrl, local_simulation};
-use alloy_consensus::{
-    Eip658Value, Header, Receipt, ReceiptWithBloom, SignableTransaction, Signed, TxEip1559,
-};
-use alloy_primitives::{Address, B256, U256, keccak256};
-use alloy_rlp::Decodable;
-use alloy_trie::{Nibbles, proof::verify_proof};
+use alloy_consensus::{Header, SignableTransaction};
+use alloy_primitives::{Address, U256};
 use evm_simulation::{SimulationControl, StateQuery};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -325,65 +321,24 @@ pub(crate) fn verify_inclusion(
     expected_hash: &str,
     proof: &DeploymentProof,
 ) -> Result<(), QualificationError> {
+    let checked = inclusion::verify(header, expected_hash, proof)?;
     let reject = QualificationError::SnapshotMismatch;
-    let transaction = deployment::hex(&proof.transaction, 8192, false)?;
-    let expected = B256::from_str(expected_hash).map_err(|_| reject)?;
-    if header.hash_slow() != B256::from_str(&proof.block_hash).map_err(|_| reject)?
-        || keccak256(&transaction) != expected
-    {
-        return Err(reject);
-    }
-    let mut remaining = transaction.as_slice();
-    let signed = Signed::<TxEip1559>::eip2718_decode(&mut remaining).map_err(|_| reject)?;
-    if !remaining.is_empty()
-        || {
-            let mut canonical = Vec::new();
-            signed.eip2718_encode(&mut canonical);
-            canonical != transaction
-        }
-        || signed.signature().normalize_s().is_some()
-        || signed.tx().encoded_for_signing() != payload
-        || signed.recover_signer().map_err(|_| reject)?
+    if !checked.succeeded
+        || checked.signed.tx().encoded_for_signing() != payload
+        || checked.signed.recover_signer().map_err(|_| reject)?
             != Address::from_str(account).map_err(|_| reject)?
     {
         return Err(reject);
     }
-    let receipt = deployment::hex(&proof.receipt, 4096, false)?;
-    let mut remaining = receipt.strip_prefix(&[2]).ok_or(reject)?;
-    let decoded = ReceiptWithBloom::<Receipt>::decode(&mut remaining).map_err(|_| reject)?;
-    let mut canonical = vec![2];
-    canonical.extend(alloy_rlp::encode(&decoded));
-    if !remaining.is_empty()
-        || canonical != receipt
-        || decoded.receipt.status != Eip658Value::Eip658(true)
-        || decoded.receipt.cumulative_gas_used == 0
-        || decoded.receipt.cumulative_gas_used > header.gas_used
-        || decoded.logs_bloom != decoded.receipt.bloom_slow()
-    {
-        return Err(reject);
-    }
-    let key = Nibbles::unpack(alloy_rlp::encode(proof.transaction_index));
-    verify_proof(
-        header.transactions_root,
-        key,
-        Some(transaction),
-        &deployment::proof_nodes(&proof.transaction_proof)?,
-    )
-    .map_err(|_| reject)?;
-    verify_proof(
-        header.receipts_root,
-        key,
-        Some(receipt),
-        &deployment::proof_nodes(&proof.receipt_proof)?,
-    )
-    .map_err(|_| reject)
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{Signature, TxKind};
-    use alloy_trie::nodes::LeafNode;
+    use alloy_consensus::{Eip658Value, Receipt, Signed, TxEip1559};
+    use alloy_primitives::{B256, Signature, TxKind, keccak256};
+    use alloy_trie::{Nibbles, nodes::LeafNode};
     fn inclusion(index: u64, bytes: &[u8]) -> (B256, Vec<String>) {
         let node = alloy_rlp::encode(LeafNode::new(
             Nibbles::unpack(alloy_rlp::encode(index)),

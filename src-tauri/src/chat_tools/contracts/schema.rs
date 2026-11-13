@@ -34,5 +34,6 @@ pub(in crate::chat_tools) fn definitions() -> Vec<PromptToolDefinition> {
     if crate::evm_approval::contracts::available() {
         definitions.push(super::write::definition());
     }
+    definitions.push(super::reconciliation::definition());
     definitions
 }

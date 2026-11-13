@@ -116,6 +116,12 @@ struct ToolCatalogueMetadata {
 
 const TOOL_CATALOGUE_METADATA: &[ToolCatalogueMetadata] = &[
     ToolCatalogueMetadata {
+        name: "contract.reconcile_transaction",
+        category: ToolCategory::Contracts,
+        action_class: Some(ToolActionClass::Read),
+        common: false,
+    },
+    ToolCatalogueMetadata {
         name: "contract.request_workflow",
         category: ToolCategory::Contracts,
         action_class: Some(ToolActionClass::ExternalWrite),
@@ -336,6 +342,7 @@ pub(crate) fn common_tool(name: &str) -> bool {
 /// Canonical consumers promoted beside their producer, never an authority rule.
 pub(crate) fn tool_companions(name: &str) -> &'static [&'static str] {
     match name {
+        "contract.request_workflow" => &["contract.reconcile_transaction"],
         "filesystem.inspect_image" | "filesystem.collect_evidence" => {
             &["filesystem.write_delimited_table"]
         }
@@ -357,6 +364,12 @@ pub(crate) fn tool_has_bulk_arguments(name: &str) -> bool {
 /// Bounded intent aliases for discovery, never authorization or operation names.
 pub(super) fn tool_search_aliases(name: &str) -> &'static [&'static str] {
     match name {
+        "contract.reconcile_transaction" => &[
+            "receipt",
+            "confirmation",
+            "transaction status",
+            "reconciliation",
+        ],
         "contract.request_workflow" => &[
             "contract workflow",
             "source qualified ABI call",

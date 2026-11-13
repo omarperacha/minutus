@@ -11,12 +11,14 @@ mod envelope;
 pub use deployment::DeploymentProof;
 mod error;
 mod identity;
+mod inclusion;
 mod material;
 mod profile;
 mod qualified;
 mod receipt;
 pub(crate) use receipt::verify_inclusion as verify_transaction_inclusion;
 mod source;
+mod submitted;
 pub use qualified::{
     QualifiedContractCandidate, RefreshedQualifiedCandidate, ValidatedContractExecution,
     prepare_qualified_contract, refresh_qualified_contract,
@@ -26,6 +28,7 @@ pub use receipt::{
     verify_contract_receipt_predicates,
 };
 pub use source::qualify_contract_workflow_source;
+pub use submitted::{VerifiedSubmittedTransaction, verify_submitted_transaction};
 
 pub use action::ContractAction;
 pub use candidate::{QualifiedWriteCandidate, prepare_qualified_contract_with_worker};

@@ -1,4 +1,5 @@
 //! macOS-owned modal consent and transaction decision surface.
+mod wait;
 
 use ipc_types::{EvmApprovalDecision, IpcError};
 use objc2::{MainThreadMarker, rc::autoreleasepool};
@@ -24,7 +25,10 @@ pub(super) async fn show(
         let _ = sender.send(decision);
     })
     .map_err(|_| IpcError::internal())?;
-    receiver.await.map_err(|_| IpcError::internal())?
+    wait::decision(receiver, cancellation, || {
+        crate::wallet_lifecycle::native::modal::ModalAbort::queue_cancelled(app);
+    })
+    .await
 }
 
 /// Shared native renderer; a display alone carries no signing authority.
@@ -85,13 +89,15 @@ fn present_request(
         }
         alert.addButtonWithTitle(&NSString::from_str("Dismiss"));
         let _modal = request.register(alert.window())?;
-        Ok(match alert.runModal() {
+        let decision = match alert.runModal() {
             response if response == NSAlertFirstButtonReturn => EvmApprovalDecision::Denied,
             response if response == NSAlertSecondButtonReturn && display.approval_allowed => {
                 EvmApprovalDecision::Approved
             }
             _ => EvmApprovalDecision::Dismissed,
-        })
+        };
+        alert.window().close();
+        Ok(decision)
     })
 }
 

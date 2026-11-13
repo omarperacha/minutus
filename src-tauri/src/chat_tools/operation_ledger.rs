@@ -131,6 +131,7 @@ impl OperationLedger {
                 | "contract.inspect"
                 | "contract.read"
                 | "contract.request_workflow"
+                | "contract.reconcile_transaction"
         ) {
             return None;
         }

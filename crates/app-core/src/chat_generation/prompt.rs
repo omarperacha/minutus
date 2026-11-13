@@ -8,6 +8,7 @@ use std::{
 #[cfg(feature = "test-support")]
 mod test_support;
 
+mod host_final;
 mod token_count;
 
 #[cfg(test)]
@@ -797,8 +798,8 @@ impl AppCore {
 
     /// Counts generated text with the exact tokenizer bound to `binding`.
     ///
-    /// This is used only for content-free development telemetry; the text is
-    /// never retained by diagnostics. A missing or stale tokenizer is returned
+    /// This supports content-free telemetry and bounded host-report admission;
+    /// the text is never retained by diagnostics. A missing or stale tokenizer is returned
     /// as an error rather than approximated.
     ///
     /// # Errors

@@ -98,10 +98,10 @@ pub use app_storage::{
 };
 mod contract_workflows;
 pub use contract_workflows::{
-    ContractWorkflowAttempt, ContractWorkflowDeclaration, ContractWorkflowScope,
-    ContractWorkflowSession, ContractWorkflowStepWork, DeclaredContractCompletion,
-    DeclaredContractWorkflowSession, DeclaredContractWorkflowStep, PreparedContractWorkflowStep,
-    PreparedDeclaredContractStep,
+    ContractReconciliation, ContractWorkflowAttempt, ContractWorkflowDeclaration,
+    ContractWorkflowScope, ContractWorkflowSession, ContractWorkflowStepWork,
+    DeclaredContractCompletion, DeclaredContractWorkflowSession, DeclaredContractWorkflowStep,
+    PreparedContractWorkflowStep, PreparedDeclaredContractStep,
 };
 
 mod evm_transactions;

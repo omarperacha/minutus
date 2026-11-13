@@ -336,6 +336,7 @@ fn plan_batch(prepared: &[PreparedChatTool]) -> BatchPlan {
                 | "contract.inspect"
                 | "contract.read"
                 | "contract.request_workflow"
+                | "contract.reconcile_transaction"
         ) {
             execution_order.push(index);
         } else if let Some(first) = first_by_key.get(&key) {
@@ -628,7 +629,8 @@ fn estimated_output_bytes(call: &ParsedToolCall) -> usize {
         | "x402.request"
         | "wallet.request_transfer"
         | "contract.read"
-        | "contract.request_workflow" => 64 * 1024,
+        | "contract.request_workflow"
+        | "contract.reconcile_transaction" => 64 * 1024,
         "web.search" => 32 * 1024,
         _ => usize::MAX,
     }

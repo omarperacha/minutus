@@ -884,6 +884,7 @@ pub(super) fn persist_recovery_exchange(
         core,
         request_id,
         conversation,
+        &generated.activities,
         std::mem::take(&mut generated.reasoning),
         std::mem::take(&mut generated.content),
         exchanges,

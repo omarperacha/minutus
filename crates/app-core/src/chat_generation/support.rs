@@ -184,6 +184,7 @@ pub(crate) const fn tool_name(name: &ToolName) -> &'static str {
         ToolName::ContractInspect => "contract.inspect",
         ToolName::ContractRead => "contract.read",
         ToolName::ContractRequestWorkflow => "contract.request_workflow",
+        ToolName::ContractReconcileTransaction => "contract.reconcile_transaction",
         ToolName::WalletRequestTransfer => "wallet.request_transfer",
         ToolName::FilesystemList => "filesystem.list",
         ToolName::FilesystemFindPaths => "filesystem.find_paths",

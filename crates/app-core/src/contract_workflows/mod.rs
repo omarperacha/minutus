@@ -9,6 +9,7 @@ mod declared_scope;
 mod declared_tests;
 mod execution;
 mod qualified;
+mod reconciliation;
 mod scope;
 #[cfg(test)]
 mod tests;
@@ -19,4 +20,5 @@ pub use declared_execution::{DeclaredContractWorkflowSession, DeclaredContractWo
 pub use declared_qualification::{DeclaredContractCompletion, PreparedDeclaredContractStep};
 pub use execution::{ContractWorkflowSession, ContractWorkflowStepWork};
 pub use qualified::PreparedContractWorkflowStep;
+pub use reconciliation::ContractReconciliation;
 pub use scope::ContractWorkflowScope;

@@ -35,6 +35,7 @@ pub(super) fn execute_chat_generation_round(
         request_id,
         sequence,
         model_pass_activity(
+            request_id,
             round,
             TaskActivityStatus::InProgress,
             "Preparing next pass".to_owned(),
@@ -75,6 +76,7 @@ pub(super) fn execute_chat_generation_round(
         &tool_state.prompt_continuation,
     )?;
     let preparation_ms = preparation_started.elapsed().as_millis();
+    tool_state.contract_report.bind(&prepared.binding);
     #[cfg(debug_assertions)]
     let admitted_prompt_tokens = prepared.admitted_prompt_tokens;
     #[cfg(debug_assertions)]
@@ -219,7 +221,12 @@ pub(super) fn execute_chat_generation_round(
         &conversation.id,
         request_id,
         sequence,
-        model_pass_activity(round, TaskActivityStatus::InProgress, provider_detail),
+        model_pass_activity(
+            request_id,
+            round,
+            TaskActivityStatus::InProgress,
+            provider_detail,
+        ),
     );
     emit_chat_phase(
         app,
@@ -259,6 +266,7 @@ pub(super) fn execute_chat_generation_round(
                         request_id,
                         sequence,
                         model_pass_activity(
+                            request_id,
                             round,
                             TaskActivityStatus::InProgress,
                             "Receiving model output".to_owned(),
@@ -386,6 +394,7 @@ pub(super) fn execute_chat_generation_round(
     }
     #[allow(unused_mut)]
     let mut generated = ChatGenerationRound {
+        activities: Vec::new(),
         reasoning,
         content,
         calls,
@@ -440,7 +449,7 @@ pub(super) fn execute_chat_generation_round(
         final_output_tokens,
     );
     let detail = model_pass_timing_detail(metrics, preparation_ms);
-    let activity = model_pass_activity(round, TaskActivityStatus::Completed, detail);
+    let activity = model_pass_activity(request_id, round, TaskActivityStatus::Completed, detail);
     emit_model_pass_activity(
         app,
         &conversation.id,
@@ -449,16 +458,18 @@ pub(super) fn execute_chat_generation_round(
         activity.clone(),
     );
     model_passes.push(activity);
+    generated.activities.clone_from(model_passes);
     Ok(generated)
 }
 
 pub(super) fn model_pass_activity(
+    request_id: &RequestId,
     round: usize,
     status: TaskActivityStatus,
     detail: String,
 ) -> TaskActivity {
     TaskActivity {
-        id: format!("model-pass-{round}"),
+        id: format!("model-pass-{}-{round}", request_id.0),
         kind: TaskActivityKind::ModelPass,
         title: format!("Model pass {}", round + 1),
         detail: Some(detail),
@@ -523,7 +534,8 @@ fn emit_model_pass_activity(
 
 #[cfg(test)]
 mod tests {
-    use super::{format_model_pass_duration, model_pass_timing_detail};
+    use super::{format_model_pass_duration, model_pass_activity, model_pass_timing_detail};
+    use ipc_types::{RequestId, TaskActivityStatus};
     use model_runtime::GenerationMetrics;
 
     #[test]
@@ -538,5 +550,21 @@ mod tests {
         );
         assert_eq!(detail, "Reading context 4m 22s · Generating 2m 47s");
         assert_eq!(format_model_pass_duration(325_201), "5m 25s");
+    }
+    #[test]
+    fn pass_updates_share_an_id_but_another_request_cannot_replace_them() {
+        let request = RequestId("first".into());
+        let pending =
+            model_pass_activity(&request, 0, TaskActivityStatus::InProgress, String::new());
+        let completed =
+            model_pass_activity(&request, 0, TaskActivityStatus::Completed, String::new());
+        let retry = model_pass_activity(
+            &RequestId("second".into()),
+            0,
+            TaskActivityStatus::Completed,
+            String::new(),
+        );
+        assert_eq!(pending.id, completed.id);
+        assert_ne!(completed.id, retry.id);
     }
 }

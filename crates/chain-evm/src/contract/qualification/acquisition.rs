@@ -111,12 +111,21 @@ pub fn acquire_contract_transaction_proof(
     transaction_hash: &str,
     cancelled: &AtomicBool,
 ) -> Result<DeploymentProof, QualificationError> {
+    let control = SimulationControl::start(cancelled);
+    acquire_with_header(network, endpoint, transaction_hash, &control).map(|(_, proof)| proof)
+}
+
+pub(super) fn acquire_with_header(
+    network: EvmNetwork,
+    endpoint: &EvmRpcUrl,
+    transaction_hash: &str,
+    control: &SimulationControl<'_>,
+) -> Result<(Header, DeploymentProof), QualificationError> {
     let expected =
         B256::from_str(transaction_hash).map_err(|_| QualificationError::InvalidIntent)?;
-    let control = SimulationControl::start(cancelled);
     let mut reader = Acquisition {
         rpc: RpcClient::new(endpoint).map_err(|_| SimulationError::StateUnavailable)?,
-        control: &control,
+        control,
         bytes: 0,
     };
     let own = reader.call("eth_getTransactionReceipt", &json!([transaction_hash]))?;
@@ -162,7 +171,7 @@ pub fn acquire_contract_transaction_proof(
     if transactions[selected].len() > 8192 || receipts[selected].len() > 4096 {
         return Err(SimulationError::Limit.into());
     }
-    Ok(proof)
+    Ok((header, proof))
 }
 fn hash(value: &Value, name: &str) -> Result<B256, QualificationError> {
     value

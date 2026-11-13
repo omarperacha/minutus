@@ -39,6 +39,10 @@ pub(crate) fn tool_activity(call_id: &str, tool_name: &str) -> TaskActivity {
             TaskActivityKind::TransactionPreparation,
             "Requested a contract workflow",
         ),
+        "contract.reconcile_transaction" => (
+            TaskActivityKind::TransactionStatus,
+            "Reconciled a retained contract transaction",
+        ),
         "wallet.request_transfer" => (
             TaskActivityKind::TransactionPreparation,
             "Requested a native-reviewed wallet transfer",

@@ -208,6 +208,21 @@ Read this reference when changing agent behaviour, tools or orchestration; the
   A write-derived cursor advance alone must keep tools available: one stage may
   cover several deliverables. A normal final answer needs no extra completion
   calls for unacknowledged advisory stages; preserve their actual status.
+  Once ordinary final-response readiness has already closed the tool surface,
+  the host may render one cohesive contract task directly from this request's
+  actual workflow exchange. This requires one workflow, an unchanged plan
+  revision, contract-only related read/write stages and no unrelated results.
+  Initial planning may adopt earlier `contract.inspect` metadata from the same
+  request; pre-plan reads/writes and subsequent plan revisions remain excluded.
+  Retain all material transaction, receipt, proof, completion, residual and
+  failure facts together with exact requested calls. Later same-scope unsigned
+  reads or receipt reconciliation remain separate observations and cannot
+  establish workflow completion, current goals or causation. The durable raw
+  paired tool result remains unchanged. Unknown shapes, omitted material facts,
+  more than 8 KiB or failure to fit the selected model's exact ordinary final
+  output budget fall back to normal inference. This route creates no model pass,
+  usage, evidence, progress, approval, retry or signing authority. Never retain
+  callable tools or claim cache reuse merely to preserve a final prompt prefix.
   Move rich-input reminders, summaries and mutable ledger projections
   to the tail as well. Measure admitted
   tokens, active tool count and contract bytes, provider prompt/cache metrics,
@@ -220,6 +235,12 @@ Read this reference when changing agent behaviour, tools or orchestration; the
   the provider exposes only prompt count and evaluation duration, keep cache-read
   and cache-write counters absent rather than deriving them from the shared
   prefix or timing.
+- Persist completed model-pass activities with their owning assistant/tool round,
+  using request-scoped identifiers. Final-answer persistence must not replay
+  earlier pass activities after the tools they preceded. These content-free
+  timing records are presentation metadata, omitted from inference, progress
+  credit and authority; an interrupted request must not acquire a phantom answer
+  merely to save its completed tool-round activities.
 - For bounded direct-web answers, do not append a rewritten per-round
   orchestration capsule when the stable policy and fixed tool contracts already
   express the complete route. Keep reasoning strength and provider options

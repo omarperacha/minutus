@@ -1,6 +1,7 @@
 //! Compact host facts beside the full lifecycle, never an error-message diagnosis.
 use super::{
     Authorization, Lifecycle, Progress, Review, Signing, StepLifecycle, Submission, authorization,
+    post_submission,
 };
 use crate::wallet_lifecycle::{WalletAuthorizationEvent, WalletPasswordDecision};
 use serde::Serialize;
@@ -90,6 +91,10 @@ fn summary(lifecycle: &Lifecycle) -> String {
             text.push(' ');
             text.push_str(fact);
         }
+        for fact in post_submission::facts(step) {
+            text.push(' ');
+            text.push_str(fact);
+        }
         if let Some(reason) = step.request_cancellation {
             text.push(' ');
             text.push_str(authorization::cancellation_fact(reason));
@@ -149,9 +154,15 @@ fn progress(value: &Progress, choices: &'static [&str; 3]) -> &'static str {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct StageObservation {
-    stage: Stage,
+    stage: ObservedStage,
     #[serde(skip_serializing_if = "Option::is_none")]
     step_index: Option<usize>,
+}
+#[derive(Serialize)]
+#[serde(untagged)]
+enum ObservedStage {
+    Native(Stage),
+    PostSubmission(post_submission::ObservedStage),
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -192,7 +203,10 @@ enum Stage {
 fn latest(lifecycle: &Lifecycle) -> StageObservation {
     if let Some(step) = lifecycle.steps.iter().max_by_key(|step| step.step_index) {
         return StageObservation {
-            stage: step_stage(step),
+            stage: post_submission::latest_stage(step).map_or_else(
+                || ObservedStage::Native(step_stage(step)),
+                ObservedStage::PostSubmission,
+            ),
             step_index: Some(step.step_index),
         };
     }
@@ -212,7 +226,7 @@ fn latest(lifecycle: &Lifecycle) -> StageObservation {
         },
     };
     StageObservation {
-        stage,
+        stage: ObservedStage::Native(stage),
         step_index: None,
     }
 }
@@ -280,6 +294,7 @@ pub(super) fn maximum_projection_bytes(step_count: usize) -> usize {
         + 3
         + 2 * authorization::maximum_fact_bytes()
         + authorization::maximum_cancellation_bytes();
+    let per_step = per_step + post_submission::maximum_fact_bytes();
     let maximum = longest(&READINESS)
         + longest(&SCOPE)
         + longest(&SOURCE)

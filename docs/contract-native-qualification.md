@@ -74,6 +74,32 @@ is accessed. A fixed historical read receipt tests retained bookkeeping;
 its playback is neither a new observation nor proof of a current chain value.
 This check establishes schema/recovery/plan routing only. Release binaries reject the flag before application setup.
 
+## Post-submission observation and reconciliation
+
+Use synthetic RPC fixtures to exercise pending receipts, eligible transient read
+failures followed by confirmation, cancellation, aggregate deadline exhaustion,
+malformed/hash/chain mismatch and reverted inclusion. Assert that observation has
+no signer/send interface and retains the original hash; no second submission is
+permitted. A null receipt is a normal pending response, while an absent result,
+wrong ID or ambiguous result/error envelope still rejects.
+
+Live workflow results keep submission acknowledgement separate from provider
+receipt reports, canonical inclusion, recorded per-step completion and final
+current goals. Verification-unavailable is a partial submitted result. Zero
+verified completions does not mean zero transactions. A later unsigned getter
+must remain a separate as-of-block observation without receipt or causation
+credit.
+
+The read-only `contract.reconcile_transaction` operation requires a retained hash
+in the same chat and fresh outbound consent. It works from the durable journal
+after restart without wallet unlock or fresh signing authentication. Test unknown
+and cross-chat hashes rejecting before RPC, exact original signer/body/nonce/chain
+binding, canonical inclusion success/revert, reorg/mismatch/cancellation, and
+unchanged possible-send nonce ownership and attempt tombstones. Confirm that all
+later unsent workflow steps remain retired. A receipt-only check cannot restore
+a selected completion certificate or current goals, including when historical
+completion records refer to different receipt blocks.
+
 ## Initial native unlock
 
 An existing selected locked account opens the same native unlock prompt used by

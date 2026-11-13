@@ -9,7 +9,7 @@ use std::{
 };
 
 use reqwest::{StatusCode, blocking::Client, redirect::Policy};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use serde_json::{Value, json};
 
 use crate::EvmRpcUrl;
@@ -199,6 +199,8 @@ fn body_read_error(error: &io::Error) -> RpcError {
     }
 }
 #[cfg(test)]
+mod envelope_tests;
+#[cfg(test)]
 mod header_response_tests;
 #[cfg(test)]
 mod transport_error_tests;
@@ -208,8 +210,23 @@ mod transport_error_tests;
 struct RpcResponse {
     jsonrpc: String,
     id: u64,
+    #[serde(default, deserialize_with = "present_result")]
     result: Option<Value>,
+    #[serde(default, deserialize_with = "present_error")]
     error: Option<RpcResponseError>,
+}
+
+// JSON-RPC result:null is a present result, not a missing envelope member.
+// The distinction is essential for normal pending receipt/transaction reads.
+fn present_result<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Value>, D::Error> {
+    Value::deserialize(deserializer).map(Some)
+}
+fn present_error<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<RpcResponseError>, D::Error> {
+    // An explicitly null error is not a valid JSON-RPC error object. Missing
+    // fields still default to None; result/error mutual exclusion stays strict.
+    RpcResponseError::deserialize(deserializer).map(Some)
 }
 
 #[derive(Deserialize)]

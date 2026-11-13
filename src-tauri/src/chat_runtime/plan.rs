@@ -2,6 +2,7 @@
 
 mod admission;
 mod contract;
+mod contract_report;
 mod direct_transfer;
 pub(super) use direct_transfer::is_standalone_transfer;
 mod forecast;

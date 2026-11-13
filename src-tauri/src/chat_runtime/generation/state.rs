@@ -16,6 +16,7 @@ pub(super) struct GenerationToolState {
     pub(super) argument_corrections: usize,
     pub(super) registry_corrections: usize,
     pub(super) plan_policy: PlanPolicy,
+    pub(super) contract_report: super::contract_report::ContractReportState,
     pub(super) operation_ledger: OperationLedger,
     pub(super) path_references: PathReferenceLedger,
     pub(super) rich_input_presentations: RichInputPresentationLedger,
@@ -552,6 +553,8 @@ impl GenerationToolState {
         calls: &[ParsedToolCall],
         exchanges: &[Result<crate::chat_tools::ChatToolExchange, IpcError>],
     ) {
+        self.contract_report
+            .record(self.plan_policy.revision(), calls, exchanges);
         let stage_contract = self.active_stage_contract.clone();
         let admission_records = self.plan_policy.active().then(|| {
             self.plan_policy.admission_records_with_stage_contract(

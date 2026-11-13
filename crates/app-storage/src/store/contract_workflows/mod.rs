@@ -11,6 +11,7 @@ mod generic_records;
 mod generic_tests;
 mod journal;
 mod observation;
+mod reconciliation;
 mod records;
 mod scope;
 mod scoped;
@@ -33,5 +34,6 @@ pub use generic_records::{
     StoredWorkflowEvidenceKind, StoredWorkflowReceiptAnchor,
 };
 pub use observation::{StoredObserverResult, StoredWorkflowObservation};
+pub use reconciliation::StoredContractReconciliation;
 pub use records::{ContractStepClaim, ContractStepState, ContractWorkflowId, ContractWorkflowStep};
 pub use scope::{StoredWorkflowIntent, StoredWorkflowScope};

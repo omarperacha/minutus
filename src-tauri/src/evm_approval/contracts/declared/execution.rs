@@ -55,11 +55,18 @@ pub(crate) fn execute(
     });
     match outcome {
         Ok(Ok(value)) => Ok(lifecycle.project_success(value)),
-        Ok(Err(failure)) => Err(lifecycle.project_error(
-            failure.error,
+        Ok(Err(failure)) => match lifecycle.project_verification_unavailable(
+            &failure.error,
             failure.completed_steps,
             &failure.partial_facts,
-        )),
+        ) {
+            Some(value) => Ok(value),
+            None => Err(lifecycle.project_error(
+                failure.error,
+                failure.completed_steps,
+                &failure.partial_facts,
+            )),
+        },
         Err(error) => Err(lifecycle.project_error(error, 0, &Value::Null)),
     }
 }
@@ -219,7 +226,7 @@ async fn run_steps(
             context.remember(step.shared_candidate())?;
             let progress=lifecycle.step(usize::from(step.index())).ok_or_else(IpcError::internal)?;
             let record=match super::signing::review_and_send(app,core,wallet,context,&step,&completed,cancel,progress,request.summary(step.index())).await{Ok(Some(record))=>record,Ok(None)=>return Ok(json!({"state":"deniedOrDismissed","completedSteps":completed.len(),"partialFacts":reporting::partial(context,&completed),"retryAutomatically":false})),Err(error)=>{let _=step.stop_before_send(ContractStepState::Failed);return Err(error);}};
-            completed.push(wait_and_verify(context,wallet,cancel,core,step,record).await?);
+            completed.push(wait_and_verify(context,wallet,cancel,core,step,record,progress).await?);
         }
         if session.declaration().intent().goals.is_empty() {
             return Ok(json!({"state":"executionConfirmed","goalsDeclared":false,"goalStatus":"undeclared; exact included execution does not establish a business/task outcome","scopeCommitment":session.declaration().commitment(),"partialFacts":reporting::partial(context,&completed),"retryAutomatically":false,"automaticCleanup":false}));

@@ -160,6 +160,39 @@ freshness rules, cancellation and qualification limits.
 
 ### Source-qualified contract workflows
 
+Post-submission monitoring is observation only. A valid JSON-RPC `result: null`
+means a receipt or transaction lookup is pending/absent, not a malformed missing
+result. Reviewed transport/time-out/HTTP read failures may be retried within the
+existing 120-second monotonic receipt budget, with every request charged against
+remaining time and a fixed attempt cap. Chain/hash/shape/proof mismatches do not
+unlock retries. No observation path signs, resubmits, replaces or releases a
+possible-send nonce.
+
+Receipt status reported by RPC, canonical transaction/receipt inclusion, declared
+per-step completion and final current goals are distinct observations. A later
+verification failure preserves acknowledgement, the known hash and earlier
+effects. Chat presents submitted/possibly sent with verification unavailable as a
+partial result; a getter returning the desired value cannot establish that the
+transaction or workflow succeeded.
+
+`contract.reconcile_transaction` accepts only a hash already retained for a
+dispatched version 2 workflow in the same conversation. The host selects its
+original network, account, nonce and signing digest from validated immutable
+journal bindings. Unknown/cross-chat hashes reject before RPC. Fresh native
+data-only consent covers the configured provider and bounded public block/proof
+queries; no wallet unlock, password or signing is involved. A new sealed
+inclusion certificate checks the exact EIP-1559 body, recovered signer, nonce,
+chain and signed hash against canonical transaction and receipt trie roots.
+Successful receipt inclusion establishes execution only; a proved revert is
+separate. The original acquisition limits and final canonical recheck apply.
+
+Receipt-only reconciliation records confirmed-but-unverified or reverted status,
+clears selected completion evidence and retains immutable historical evidence
+as historical records. It atomically retires later planned/reviewing steps while
+preserving later possible sends, nonce/dispatch fences and attempt tombstones.
+It never creates a completion certificate, verifies current goals, resumes writes
+or grants retry/cleanup authority. Canonical-at-observation does not mean finality.
+
 Qualification builds passing packaged compiler and isolated-worker admission can
 separately advertise [version 2 declared contract workflows](generic-contract-qualification.md).
 Release availability remains disabled pending native interaction qualification

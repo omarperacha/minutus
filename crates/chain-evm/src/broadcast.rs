@@ -7,8 +7,13 @@ use sha3::{Digest, Keccak256};
 use zeroize::Zeroizing;
 
 use crate::{
-    BaseNetwork, EvmRpcUrl, PublicEvmAddress, RpcChainIdError,
+    BaseNetwork, EvmRpcUrl, RpcChainIdError,
     rpc::{RpcClient, RpcError, Uint256},
+};
+
+mod monitor;
+pub use monitor::{
+    MonitorCause, MonitorFailure, MonitorStage, monitor_transaction, monitor_transaction_bounded,
 };
 
 const MAX_SIGNED_TRANSACTION_BYTES: usize = 256 * 1024;
@@ -170,61 +175,6 @@ pub fn broadcast_signed_transaction_with_admission(
     Ok(BroadcastReceipt {
         explorer_url: explorer_url(network, &accepted),
         transaction_hash: accepted,
-    })
-}
-
-/// Refreshes one submitted transaction using receipt, pool and sender nonce.
-///
-/// # Errors
-///
-/// Returns a bounded chain or RPC failure. An unavailable refresh is not
-/// rewritten into an on-chain failure and callers should retain the prior
-/// confirmed observation separately.
-pub fn monitor_transaction(
-    network: BaseNetwork,
-    endpoint: &EvmRpcUrl,
-    transaction_hash: &TransactionHash,
-    sender: &str,
-    submitted_nonce: &str,
-) -> Result<TransactionObservation, BroadcastError> {
-    let sender = PublicEvmAddress::new(sender).map_err(|_| BroadcastError::InvalidSender)?;
-    let submitted_nonce = Uint256::from_decimal(submitted_nonce)
-        .map_err(|_| BroadcastError::InvalidSubmittedNonce)?;
-    let client = RpcClient::new(endpoint)?;
-    validate_chain(network, &client)?;
-    let receipt = client.value_result(
-        "eth_getTransactionReceipt",
-        &json!([transaction_hash.as_str()]),
-    )?;
-    if !receipt.is_null() {
-        return receipt_observation(network, transaction_hash, &receipt);
-    }
-    let transaction = client.value_result(
-        "eth_getTransactionByHash",
-        &json!([transaction_hash.as_str()]),
-    )?;
-    let lifecycle = if transaction.is_null() {
-        let current_nonce = client.string_result(
-            "eth_getTransactionCount",
-            &json!([sender.as_str(), "latest"]),
-        )?;
-        let current_nonce = Uint256::from_quantity(&current_nonce)
-            .map_err(|_| BroadcastError::MalformedRpcResponse)?;
-        if current_nonce > submitted_nonce {
-            TransactionLifecycle::DroppedOrReplaced
-        } else {
-            TransactionLifecycle::Pending
-        }
-    } else {
-        validate_pending_transaction(transaction_hash, &transaction)?;
-        TransactionLifecycle::Pending
-    };
-    Ok(TransactionObservation {
-        transaction_hash: transaction_hash.clone(),
-        lifecycle,
-        block_number: None,
-        block_hash: None,
-        explorer_url: explorer_url(network, transaction_hash),
     })
 }
 

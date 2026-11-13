@@ -1,8 +1,10 @@
 //! Request-local host observations, never permission or proof of durable state.
 mod authorization;
 mod outcome;
+mod post_submission;
 use crate::wallet_lifecycle::{TransferCancellationReason, WalletAuthorizationEvent};
 use ipc_types::{EvmApprovalDecision, IpcError, WalletAvailability};
+pub(super) use post_submission::{MAX_MONITOR_ATTEMPTS, ObservationStop};
 use serde::Serialize;
 use serde_json::{Value, json};
 
@@ -72,13 +74,35 @@ impl Lifecycle {
         // observations of approval, signing and transport.
         error.message = outcome::project(
             self,
-            json!({"state":"stopped","message":error.message,
+            json!({"state":if self.submitted_verification_unavailable(){"submittedVerificationUnavailable"}else{"stopped"},"message":error.message,
             "completedSteps":completed_steps,"partialFacts":partial_facts,
             "lifecycle":self.facts(),"retryAutomatically":false,"automaticCleanup":false}),
         )
         .to_string();
         error.retryable = false;
         error
+    }
+    pub(super) fn submitted_verification_unavailable(&self) -> bool {
+        self.steps
+            .iter()
+            .max_by_key(|step| step.step_index)
+            .is_some_and(StepLifecycle::submitted_verification_unavailable)
+    }
+    pub(super) fn project_verification_unavailable(
+        &self,
+        error: &IpcError,
+        completed_steps: usize,
+        partial_facts: &Value,
+    ) -> Option<Value> {
+        self.submitted_verification_unavailable().then(|| {
+            outcome::project(
+                self,
+                json!({"state":"submittedVerificationUnavailable",
+                "verificationError":{"code":error.code,"message":error.message,"retryable":false},
+                "completedSteps":completed_steps,"partialFacts":partial_facts,
+                "lifecycle":self.facts(),"retryAutomatically":false,"automaticCleanup":false}),
+            )
+        })
     }
     pub(super) fn project_success(&self, mut value: Value) -> Value {
         if let Some(object) = value.as_object_mut() {
@@ -110,6 +134,7 @@ pub(super) struct StepLifecycle {
     transaction_hash: Option<String>,
     authorization_events: Vec<WalletAuthorizationEvent>,
     request_cancellation: Option<TransferCancellationReason>,
+    post_submission: post_submission::Observation,
 }
 impl StepLifecycle {
     pub(super) fn record_authorization_event(
@@ -268,13 +293,18 @@ pub(super) fn maximum_projection_bytes(step_count: usize) -> Option<usize> {
             transaction_hash: Some(format!("0x{}", "f".repeat(64))),
             authorization_events: vec![authorization::largest_event(); MAX_AUTHORIZATION_EVENTS],
             request_cancellation: Some(TransferCancellationReason::WalletEpochChanged),
+            post_submission: post_submission::Observation::default(),
         });
     }
     // The fixed margin covers the outer wrapper's keys and status strings.
+    let mut facts = maximum.facts();
+    if let Some(steps) = facts["observations"]["steps"].as_array_mut() {
+        for step in steps {
+            step["postSubmission"] = post_submission::maximum_observation();
+        }
+    }
     Some(
-        json!({"lifecycle":maximum.facts().to_string()})
-            .to_string()
-            .len()
+        json!({"lifecycle":facts.to_string()}).to_string().len()
             + outcome::maximum_projection_bytes(step_count)
             + 512,
     )

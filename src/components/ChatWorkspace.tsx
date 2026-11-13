@@ -208,6 +208,8 @@ function activityFromToolRequest(request: ToolRequest): TaskActivity {
       return { id: request.callId, kind: "search", title: "Observed unsigned contract data", detail: null, status: "inProgress" };
     case "contract.request_workflow":
       return { id: request.callId, kind: "transactionPreparation", title: "Requested a source-qualified contract workflow", detail: null, status: "inProgress" };
+    case "contract.reconcile_transaction":
+      return { id: request.callId, kind: "transactionStatus", title: "Reconciled a retained contract transaction", detail: "Read-only stored-hash check", status: "inProgress" };
     case "wallet.request_transfer":
       return { id: request.callId, kind: "transactionPreparation", title: "Requested a native-reviewed wallet transfer", detail: null, status: "inProgress" };
     case "x402.request":

@@ -27,8 +27,8 @@ pub use qualification::{
     QualifiedContractCandidate, QualifiedContractIdentity, QualifiedEffects,
     QualifiedMaterialEffects, QualifiedWriteCandidate, RefreshedQualifiedCandidate,
     TokenBalanceEffect, ValidatedContractExecution, VerifiedReceiptPredicates,
-    acquire_contract_transaction_proof, prepare_qualified_base_contract,
-    prepare_qualified_contract, prepare_qualified_contract_with_worker,
-    qualify_contract_workflow_source, refresh_qualified_contract,
-    verify_contract_receipt_predicates,
+    VerifiedSubmittedTransaction, acquire_contract_transaction_proof,
+    prepare_qualified_base_contract, prepare_qualified_contract,
+    prepare_qualified_contract_with_worker, qualify_contract_workflow_source,
+    refresh_qualified_contract, verify_contract_receipt_predicates, verify_submitted_transaction,
 };

@@ -74,6 +74,7 @@ pub(crate) use catalog::{
     project_tool_definitions, terminal_result_completes_stage, tool_action_class, tool_category,
     tool_category_index, tool_category_name, tool_companions, tool_has_bulk_arguments,
 };
+pub(crate) use contracts::{HostContractReport, contract_host_report};
 #[cfg(test)]
 pub(crate) use filesystem::ipc_json_value;
 pub(crate) use forecast_contract::{

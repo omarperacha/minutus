@@ -1,6 +1,6 @@
 //! Full synthetic loopback JSON-RPC acquisition; never a public RPC or signer.
 use super::*;
-use alloy_consensus::{Signed, TxEip1559, TxEnvelope};
+use alloy_consensus::{SignableTransaction, Signed, TxEip1559, TxEnvelope};
 use alloy_primitives::{Signature, TxKind};
 use std::{
     io::{Read, Write},
@@ -19,6 +19,7 @@ enum Fault {
     ReceiptIdentity,
     ReceiptRoot,
     Reorg,
+    ReorgAfterVerification,
     Large,
     Timeout,
     Cancel,
@@ -37,6 +38,9 @@ struct Fixture {
 }
 impl Fixture {
     fn new(count: usize) -> Result<Self, Box<dyn std::error::Error>> {
+        Self::with_status(count, true)
+    }
+    fn with_status(count: usize, succeeded: bool) -> Result<Self, Box<dyn std::error::Error>> {
         let mut raw = Vec::new();
         let mut receipts = Vec::new();
         let mut transactions = Vec::new();
@@ -62,6 +66,7 @@ impl Fixture {
             signed.eip2718_encode(&mut bytes);
             raw.push(bytes);
             let mut value = receipt();
+            value["status"] = json!(if succeeded { "0x1" } else { "0x0" });
             value["cumulativeGasUsed"] = json!(format!("0x{:x}", 21_000 * (index + 1)));
             receipts.push(value);
         }
@@ -211,6 +216,93 @@ fn standard_batches_cover_more_than_sixty_four_transactions_without_raw_rpc()
 }
 
 #[test]
+fn receipt_only_reconciliation_proves_exact_success_and_revert_without_submission()
+-> Result<(), Box<dyn std::error::Error>> {
+    for succeeded in [false, true] {
+        let fixture = Fixture::with_status(1, succeeded)?;
+        let (sender, digest) = expected_submission(&fixture)?;
+        let hash = fixture.hashes[0].clone();
+        let block_hash = fixture.block["hash"]
+            .as_str()
+            .ok_or("missing hash")?
+            .to_owned();
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let server = Server::new(fixture, Fault::None, cancelled.clone())?;
+        let verified = crate::contract::verify_submitted_transaction(
+            EvmNetwork::EthereumMainnet,
+            &EvmRpcUrl::loopback_test(server.port),
+            &hash,
+            &sender,
+            "0",
+            &digest,
+            &cancelled,
+        )?;
+        assert_eq!(verified.succeeded(), succeeded);
+        assert_eq!(verified.block_hash(), block_hash);
+        assert_eq!(verified.transaction_hash(), hash);
+        assert_eq!(verified.signing_digest(), digest);
+        let requests = server.requests.lock().map_err(|_| "poisoned")?;
+        assert_eq!(
+            requests
+                .iter()
+                .filter(|method| *method == "eth_getBlockByNumber")
+                .count(),
+            3
+        );
+        assert!(requests.iter().all(|method| matches!(
+            method.as_str(),
+            "eth_chainId"
+                | "eth_getTransactionReceipt"
+                | "eth_getBlockByHash"
+                | "eth_getBlockByNumber"
+                | "eth_getBlockReceipts"
+        )));
+    }
+    Ok(())
+}
+
+#[test]
+fn reconciliation_rechecks_canonicality_after_verification_and_retains_strict_failures()
+-> Result<(), Box<dyn std::error::Error>> {
+    for fault in [
+        Fault::ReorgAfterVerification,
+        Fault::ReceiptRoot,
+        Fault::Raw,
+        Fault::Cancel,
+    ] {
+        let fixture = Fixture::new(1)?;
+        let (sender, digest) = expected_submission(&fixture)?;
+        let hash = fixture.hashes[0].clone();
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let server = Server::new(fixture, fault, cancelled.clone())?;
+        assert!(
+            crate::contract::verify_submitted_transaction(
+                EvmNetwork::EthereumMainnet,
+                &EvmRpcUrl::loopback_test(server.port),
+                &hash,
+                &sender,
+                "0",
+                &digest,
+                &cancelled,
+            )
+            .is_err()
+        );
+    }
+    Ok(())
+}
+
+fn expected_submission(fixture: &Fixture) -> Result<(String, String), Box<dyn std::error::Error>> {
+    let TxEnvelope::Eip1559(signed) = serde_json::from_value(fixture.transactions[0].clone())?
+    else {
+        return Err("fixture is not type2".into());
+    };
+    Ok((
+        format!("{:#x}", signed.recover_signer()?),
+        format!("{:#x}", keccak256(signed.tx().encoded_for_signing())),
+    ))
+}
+
+#[test]
 fn receipt_fallback_requires_explicit_unsupported_and_charges_error_bodies()
 -> Result<(), Box<dyn std::error::Error>> {
     for fault in [
@@ -325,7 +417,9 @@ fn fixture_response(
         }
         "eth_getBlockByNumber" => {
             *canonical_reads += 1;
-            if matches!(fault, Fault::Reorg) && *canonical_reads > 1 {
+            if (matches!(fault, Fault::Reorg) && *canonical_reads > 1)
+                || (matches!(fault, Fault::ReorgAfterVerification) && *canonical_reads > 2)
+            {
                 fixture.changed.clone()
             } else {
                 fixture.block.clone()

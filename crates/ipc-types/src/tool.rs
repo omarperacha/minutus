@@ -67,6 +67,10 @@ pub enum ToolName {
     #[serde(rename = "contract.request_workflow")]
     #[ts(rename = "contract.request_workflow")]
     ContractRequestWorkflow,
+    /// Reconcile only a previously dispatched transaction retained by this chat.
+    #[serde(rename = "contract.reconcile_transaction")]
+    #[ts(rename = "contract.reconcile_transaction")]
+    ContractReconcileTransaction,
     /// List one granted workspace directory.
     #[serde(rename = "filesystem.list")]
     #[ts(rename = "filesystem.list")]

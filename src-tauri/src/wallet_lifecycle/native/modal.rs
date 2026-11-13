@@ -174,7 +174,7 @@ impl ModalAbort {
     }
     /// No registry revocation: only the displayed dialog's own stopped context
     /// may justify this abort. A live successor is left untouched.
-    pub(in crate::wallet_lifecycle) fn queue_cancelled(app: &tauri::AppHandle) {
+    pub(crate) fn queue_cancelled(app: &tauri::AppHandle) {
         let _ = app.run_on_main_thread(|| {
             let Some(main_thread) = MainThreadMarker::new() else {
                 return;

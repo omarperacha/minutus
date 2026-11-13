@@ -171,6 +171,7 @@ pub(super) fn prepare_chat_tool(
             | "contract.inspect"
             | "contract.read"
             | "contract.request_workflow"
+            | "contract.reconcile_transaction"
     ) {
         None
     } else {
@@ -228,10 +229,26 @@ pub(super) fn execute_prepared_chat_tool(
     }
     if matches!(
         call.name.as_str(),
-        "contract.inspect" | "contract.read" | "contract.request_workflow"
+        "contract.inspect"
+            | "contract.read"
+            | "contract.request_workflow"
+            | "contract.reconcile_transaction"
     ) {
+        let mut workflow_status = None;
         let outcome = if call.name == "contract.request_workflow" {
-            super::contracts::execute_write(app, conversation, &call, cancellation_requested)
+            super::contracts::execute_write(app, conversation, &call, cancellation_requested).map(
+                |result| {
+                    workflow_status = Some((result.status, result.detail));
+                    result.outcome
+                },
+            )
+        } else if call.name == "contract.reconcile_transaction" {
+            super::contracts::execute_reconciliation(
+                app,
+                conversation,
+                &call,
+                cancellation_requested,
+            )
         } else {
             super::contracts::execute(app, &call, cancellation_requested)
         }
@@ -243,14 +260,21 @@ pub(super) fn execute_prepared_chat_tool(
             ToolOutcome::Completed { .. } => TaskActivityStatus::Completed,
             ToolOutcome::Failed { .. } => TaskActivityStatus::Failed,
         };
-        activity.detail = Some(
-            if call.name == "contract.request_workflow" {
-                "Contract workflow request · separate consent and transaction approval"
-            } else {
-                "Unsigned RPC · separate native outbound review · unverified ABI"
-            }
-            .into(),
-        );
+        if let Some((status, detail)) = workflow_status {
+            activity.status = status;
+            activity.detail = Some(detail.into());
+        } else {
+            activity.detail = Some(
+                if call.name == "contract.reconcile_transaction" {
+                    "Read-only stored-hash reconciliation · no transaction action"
+                } else if call.name == "contract.request_workflow" {
+                    "Contract workflow request · separate consent and transaction approval"
+                } else {
+                    "Unsigned RPC · separate native outbound review · unverified ABI"
+                }
+                .into(),
+            );
+        }
         return ChatToolExchange {
             request: request.clone(),
             result: ToolResult {

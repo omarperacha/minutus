@@ -103,6 +103,7 @@ pub(crate) fn validated_chat_tool_request(
             | ToolName::ContractInspect
             | ToolName::ContractRead
             | ToolName::ContractRequestWorkflow
+            | ToolName::ContractReconcileTransaction
     ) {
         if name == ToolName::OrchestrationRecall {
             super::recall::arguments(call)?;
@@ -116,6 +117,8 @@ pub(crate) fn validated_chat_tool_request(
             super::contracts::validate_call(call)?;
         } else if name == ToolName::ContractRequestWorkflow {
             super::contracts::validate_write_call(call)?;
+        } else if name == ToolName::ContractReconcileTransaction {
+            super::contracts::validate_reconciliation(call)?;
         } else if name == ToolName::WalletRequestTransfer {
             super::wallet_transfer::validate_call(call)?;
         } else if name == ToolName::X402Request {
@@ -304,6 +307,10 @@ pub(super) fn chat_tool_contract(name: &str) -> Option<(ToolName, &'static [&'st
                 "outputs",
                 "target",
             ][..],
+        ),
+        "contract.reconcile_transaction" => (
+            ToolName::ContractReconcileTransaction,
+            &["transactionHash"][..],
         ),
         "wallet.request_transfer" => (
             ToolName::WalletRequestTransfer,
