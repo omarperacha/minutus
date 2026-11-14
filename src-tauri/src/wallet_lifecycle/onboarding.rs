@@ -22,11 +22,46 @@ pub(super) async fn password(
     prompt: PasswordPrompt,
     job: &PasswordVaultJob,
 ) -> Result<WalletPassword, IpcError> {
-    job.check().map_err(password_error)?;
-    let password = native::request_password(app, prompt)
-        .await?
-        .ok_or_else(cancelled_error)?;
-    job.check().map_err(password_error)?;
+    password_observed(app, prompt, job, &mut |_| {}).await
+}
+pub(super) async fn password_observed(
+    app: &tauri::AppHandle,
+    prompt: PasswordPrompt,
+    job: &PasswordVaultJob,
+    observer: &mut impl FnMut(super::WalletAuthorizationEvent),
+) -> Result<WalletPassword, IpcError> {
+    use super::{WalletAuthorizationEvent as Event, WalletAuthorizationStage as Stage};
+    if let Err(error) = job.check() {
+        observer(Event::JobInvalidated {
+            stage: Stage::BeforePassword,
+        });
+        return Err(password_error(error));
+    }
+    let purpose = prompt.purpose();
+    observer(Event::PasswordRequested { purpose });
+    let response = match native::request_password_observed(app, prompt, job).await {
+        Ok(response) => response,
+        Err(error) => {
+            if job.check().is_err() {
+                observer(Event::JobInvalidated {
+                    stage: Stage::BeforePassword,
+                });
+            }
+            return Err(error);
+        }
+    };
+    observer(Event::PasswordPresented { purpose });
+    observer(Event::PasswordDecision {
+        purpose,
+        decision: response.decision,
+    });
+    if let Err(error) = job.check() {
+        observer(Event::JobInvalidated {
+            stage: Stage::AfterPassword,
+        });
+        return Err(password_error(error));
+    }
+    let password = response.password?.ok_or_else(cancelled_error)?;
     Ok(password)
 }
 pub(super) async fn confirmed_password(
@@ -87,7 +122,7 @@ pub(super) async fn verified_seed(
 ) -> Result<RecoverySeed, IpcError> {
     job.check().map_err(password_error)?;
     let phrase = RecoveryPhrase::generate().map_err(|_| IpcError::internal())?;
-    let mut phrase = native::present_recovery_phrase(app, phrase)
+    let mut phrase = native::present_recovery_phrase(app, job, phrase)
         .await?
         .ok_or_else(cancelled_error)?;
     job.check().map_err(password_error)?;
@@ -105,6 +140,7 @@ pub(super) async fn verified_seed(
         job.check().map_err(password_error)?;
         let mut answer = native::request_secret_owned(
             app,
+            job,
             "Verify recovery phrase",
             &format!("Enter word {}", position.number()),
         )
@@ -189,6 +225,7 @@ pub(super) async fn restore(
     .map_err(|_| IpcError::internal())?;
     let mut words = native::request_secret_owned(
         app,
+        &prep.job,
         "Restore recovery phrase",
         "Enter the complete 24-word recovery phrase",
     )
@@ -239,6 +276,7 @@ pub(super) async fn imported_entry(
 ) -> Result<AppVaultEntry, IpcError> {
     let mut value = native::request_secret_owned(
         app,
+        job,
         "Import private key",
         "Enter a 32-byte hexadecimal EVM private key",
     )

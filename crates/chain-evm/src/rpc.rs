@@ -1,14 +1,21 @@
 //! Bounded credential-redacting JSON-RPC transport and exact uint256 values.
 
-use std::{cmp::Ordering, fmt, fmt::Write as _, io::Read, time::Duration};
+use std::{
+    cmp::Ordering,
+    fmt,
+    fmt::Write as _,
+    io::{self, Read},
+    time::Duration,
+};
 
 use reqwest::{StatusCode, blocking::Client, redirect::Policy};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use serde_json::{Value, json};
 
 use crate::EvmRpcUrl;
 
 const MAX_RPC_RESPONSE_BYTES: u64 = 64 * 1024;
+const MAX_RPC_HEADER_RESPONSE_BYTES: u64 = 512 * 1024;
 const RPC_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const RPC_REQUEST_TIMEOUT: Duration = Duration::from_secs(12);
 
@@ -37,11 +44,40 @@ impl<'a> RpcClient<'a> {
     }
 
     pub(crate) fn value_result(&self, method: &str, params: &Value) -> Result<Value, RpcError> {
-        let response = self.response(method, params)?;
+        self.value_result_with_timeout(method, params, RPC_REQUEST_TIMEOUT)
+    }
+
+    pub(crate) fn value_result_with_timeout(
+        &self,
+        method: &str,
+        params: &Value,
+        timeout: Duration,
+    ) -> Result<Value, RpcError> {
+        let response = self.response_with_timeout(method, params, timeout)?;
         if let Some(error) = response.error {
             return Err(RpcError::Rejected(error.code));
         }
         response.result.ok_or(RpcError::MalformedResponse)
+    }
+
+    /// Host-only bounded batch acquisition. The outer result covers transport,
+    /// decoding and size faults; RPC errors retain their received byte charge so
+    /// an explicitly unsupported batch cannot reset the aggregate IO budget.
+    pub(crate) fn value_result_with_limit(
+        &self,
+        method: &str,
+        params: &Value,
+        timeout: Duration,
+        max_response_bytes: u64,
+    ) -> Result<(Result<Value, RpcError>, usize), RpcError> {
+        let (response, charge) =
+            self.bounded_response(method, params, timeout, max_response_bytes)?;
+        let result = if let Some(error) = response.error {
+            Err(RpcError::Rejected(error.code))
+        } else {
+            response.result.ok_or(RpcError::MalformedResponse)
+        };
+        Ok((result, charge))
     }
 
     pub(crate) fn call_outcome(&self, params: &Value) -> Result<RpcCallOutcome, RpcError> {
@@ -71,47 +107,126 @@ impl<'a> RpcClient<'a> {
     }
 
     fn response(&self, method: &str, params: &Value) -> Result<RpcResponse, RpcError> {
+        self.response_with_timeout(method, params, RPC_REQUEST_TIMEOUT)
+    }
+
+    fn response_with_timeout(
+        &self,
+        method: &str,
+        params: &Value,
+        timeout: Duration,
+    ) -> Result<RpcResponse, RpcError> {
+        // Standard false/fullTransactions block responses still contain every
+        // transaction hash. Bound those public headers separately; this is not
+        // a proof or a caller-selected limit, and full bodies retain 64 KiB.
+        let limit = if matches!(method, "eth_getBlockByNumber" | "eth_getBlockByHash")
+            && params
+                .as_array()
+                .is_some_and(|values| matches!(values.as_slice(), [_, Value::Bool(false)]))
+        {
+            MAX_RPC_HEADER_RESPONSE_BYTES
+        } else {
+            MAX_RPC_RESPONSE_BYTES
+        };
+        self.bounded_response(method, params, timeout, limit)
+            .map(|(response, _)| response)
+    }
+
+    fn bounded_response(
+        &self,
+        method: &str,
+        params: &Value,
+        timeout: Duration,
+        max_response_bytes: u64,
+    ) -> Result<(RpcResponse, usize), RpcError> {
+        if max_response_bytes == 0 || max_response_bytes > 4 * 1024 * 1024 {
+            return Err(RpcError::ResponseTooLarge);
+        }
         let request = json!({
             "jsonrpc": "2.0",
             "id": 1,
             "method": method,
             "params": params,
         });
-        let mut response = self
+        let request = self
             .client
             .post(self.endpoint.expose_sensitive())
-            .json(&request)
-            .send()
-            .map_err(|_| RpcError::Transport)?;
+            .timeout(timeout.min(RPC_REQUEST_TIMEOUT))
+            .json(&request);
+        // An offline worker without authenticated actual-reap evidence cannot
+        // be followed by another online broker operation in this process.
+        evm_simulation::ensure_worker_runtime_available().map_err(|_| RpcError::Transport)?;
+        let mut response = request.send().map_err(|error| transport_error(&error))?;
         if response.status() != StatusCode::OK {
             return Err(RpcError::HttpStatus(response.status().as_u16()));
         }
         if response
             .content_length()
-            .is_some_and(|length| length > MAX_RPC_RESPONSE_BYTES)
+            .is_some_and(|length| length > max_response_bytes)
         {
             return Err(RpcError::ResponseTooLarge);
         }
         let mut bytes = Vec::new();
         response
             .by_ref()
-            .take(MAX_RPC_RESPONSE_BYTES + 1)
+            .take(max_response_bytes + 1)
             .read_to_end(&mut bytes)
-            .map_err(|_| RpcError::Transport)?;
-        if bytes.len() as u64 > MAX_RPC_RESPONSE_BYTES {
+            .map_err(|error| body_read_error(&error))?;
+        if bytes.len() as u64 > max_response_bytes {
             return Err(RpcError::ResponseTooLarge);
         }
-        decode_response(&bytes)
+        Ok((decode_response(&bytes)?, bytes.len()))
     }
 }
+
+fn transport_error(error: &reqwest::Error) -> RpcError {
+    if error.is_timeout() {
+        RpcError::TimedOut
+    } else {
+        RpcError::Transport
+    }
+}
+fn body_read_error(error: &io::Error) -> RpcError {
+    if error.kind() == io::ErrorKind::TimedOut
+        || error
+            .get_ref()
+            .and_then(|source| source.downcast_ref::<reqwest::Error>())
+            .is_some_and(reqwest::Error::is_timeout)
+    {
+        RpcError::TimedOut
+    } else {
+        RpcError::Transport
+    }
+}
+#[cfg(test)]
+mod envelope_tests;
+#[cfg(test)]
+mod header_response_tests;
+#[cfg(test)]
+mod transport_error_tests;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RpcResponse {
     jsonrpc: String,
     id: u64,
+    #[serde(default, deserialize_with = "present_result")]
     result: Option<Value>,
+    #[serde(default, deserialize_with = "present_error")]
     error: Option<RpcResponseError>,
+}
+
+// JSON-RPC result:null is a present result, not a missing envelope member.
+// The distinction is essential for normal pending receipt/transaction reads.
+fn present_result<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Value>, D::Error> {
+    Value::deserialize(deserializer).map(Some)
+}
+fn present_error<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<RpcResponseError>, D::Error> {
+    // An explicitly null error is not a valid JSON-RPC error object. Missing
+    // fields still default to None; result/error mutual exclusion stays strict.
+    RpcResponseError::deserialize(deserializer).map(Some)
 }
 
 #[derive(Deserialize)]
@@ -162,6 +277,7 @@ pub(crate) enum RpcCallOutcome {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum RpcError {
     Transport,
+    TimedOut,
     HttpStatus(u16),
     ResponseTooLarge,
     MalformedResponse,
@@ -171,7 +287,9 @@ pub(crate) enum RpcError {
 impl fmt::Display for RpcError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Transport => formatter.write_str("The EVM RPC endpoint could not be reached"),
+            Self::Transport | Self::TimedOut => {
+                formatter.write_str("The EVM RPC endpoint could not be reached")
+            }
             Self::HttpStatus(status) => {
                 write!(formatter, "The EVM RPC endpoint returned HTTP {status}")
             }

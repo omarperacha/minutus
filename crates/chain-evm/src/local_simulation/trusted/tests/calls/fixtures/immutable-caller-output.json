@@ -1,0 +1,527 @@
+{
+  "contracts": {
+    "ImmutableCaller.sol": {
+      "ILeaf": {
+        "abi": [
+          {
+            "inputs": [
+              {
+                "internalType": "uint256",
+                "name": "value",
+                "type": "uint256"
+              }
+            ],
+            "name": "store",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+          }
+        ],
+        "evm": {
+          "bytecode": {
+            "linkReferences": {},
+            "object": ""
+          },
+          "deployedBytecode": {
+            "immutableReferences": {},
+            "linkReferences": {},
+            "object": ""
+          },
+          "methodIdentifiers": {
+            "store(uint256)": "6057361d"
+          }
+        },
+        "metadata": "{\"compiler\":{\"version\":\"0.8.38+commit.1835d247\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"store\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"ImmutableCaller.sol\":\"ILeaf\"},\"evmVersion\":\"cancun\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[]},\"sources\":{\"ImmutableCaller.sol\":{\"keccak256\":\"0x2004a09654481522f29b0d39bb17cc50a1c4317f48a514aa49005568649df5a7\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://c25fb9aef6b302dc3a24c37f79d8b78d8463ed3518260b65b8ab5c870ab26d64\",\"dweb:/ipfs/QmVSpdYPoHoAVRvjksi347QRwkSyieYmAvW3fnJrkV1Xpr\"]}},\"version\":1}",
+        "storageLayout": {
+          "storage": [],
+          "types": null
+        }
+      },
+      "ImmutableCaller": {
+        "abi": [
+          {
+            "inputs": [
+              {
+                "internalType": "contract ILeaf",
+                "name": "value",
+                "type": "address"
+              }
+            ],
+            "stateMutability": "nonpayable",
+            "type": "constructor"
+          },
+          {
+            "inputs": [
+              {
+                "internalType": "uint256",
+                "name": "value",
+                "type": "uint256"
+              }
+            ],
+            "name": "route",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+          },
+          {
+            "inputs": [],
+            "name": "target",
+            "outputs": [
+              {
+                "internalType": "contract ILeaf",
+                "name": "",
+                "type": "address"
+              }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+          }
+        ],
+        "evm": {
+          "bytecode": {
+            "linkReferences": {},
+            "object": "60a0604052348015600e575f5ffd5b506040516101d83803806101d8833981016040819052602b91603b565b6001600160a01b03166080526066565b5f60208284031215604a575f5ffd5b81516001600160a01b0381168114605f575f5ffd5b9392505050565b6080516101556100835f395f81816052015260a601526101555ff3fe608060405234801561000f575f5ffd5b5060043610610034575f3560e01c8063b980c78f14610038578063d4b839921461004d575b5f5ffd5b61004b610046366004610108565b610090565b005b6100747f000000000000000000000000000000000000000000000000000000000000000081565b6040516001600160a01b03909116815260200160405180910390f35b604051636057361d60e01b8152600481018290527f00000000000000000000000000000000000000000000000000000000000000006001600160a01b031690636057361d906024015f604051808303815f87803b1580156100ef575f5ffd5b505af1158015610101573d5f5f3e3d5ffd5b5050505050565b5f60208284031215610118575f5ffd5b503591905056fea2646970667358221220ccdac1a598066faee55b0d1d911f3a2392de55337f7658cef353b04422580e5964736f6c63430008260033"
+          },
+          "deployedBytecode": {
+            "immutableReferences": {
+              "10": [
+                {
+                  "length": 32,
+                  "start": 82
+                },
+                {
+                  "length": 32,
+                  "start": 166
+                }
+              ]
+            },
+            "linkReferences": {},
+            "object": "608060405234801561000f575f5ffd5b5060043610610034575f3560e01c8063b980c78f14610038578063d4b839921461004d575b5f5ffd5b61004b610046366004610108565b610090565b005b6100747f000000000000000000000000000000000000000000000000000000000000000081565b6040516001600160a01b03909116815260200160405180910390f35b604051636057361d60e01b8152600481018290527f00000000000000000000000000000000000000000000000000000000000000006001600160a01b031690636057361d906024015f604051808303815f87803b1580156100ef575f5ffd5b505af1158015610101573d5f5f3e3d5ffd5b5050505050565b5f60208284031215610118575f5ffd5b503591905056fea2646970667358221220ccdac1a598066faee55b0d1d911f3a2392de55337f7658cef353b04422580e5964736f6c63430008260033"
+          },
+          "methodIdentifiers": {
+            "route(uint256)": "b980c78f",
+            "target()": "d4b83992"
+          }
+        },
+        "metadata": "{\"compiler\":{\"version\":\"0.8.38+commit.1835d247\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"contract ILeaf\",\"name\":\"value\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"route\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"target\",\"outputs\":[{\"internalType\":\"contract ILeaf\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"ImmutableCaller.sol\":\"ImmutableCaller\"},\"evmVersion\":\"cancun\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[]},\"sources\":{\"ImmutableCaller.sol\":{\"keccak256\":\"0x2004a09654481522f29b0d39bb17cc50a1c4317f48a514aa49005568649df5a7\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://c25fb9aef6b302dc3a24c37f79d8b78d8463ed3518260b65b8ab5c870ab26d64\",\"dweb:/ipfs/QmVSpdYPoHoAVRvjksi347QRwkSyieYmAvW3fnJrkV1Xpr\"]}},\"version\":1}",
+        "storageLayout": {
+          "storage": [],
+          "types": null
+        }
+      }
+    }
+  },
+  "sources": {
+    "ImmutableCaller.sol": {
+      "ast": {
+        "absolutePath": "ImmutableCaller.sol",
+        "exportedSymbols": {
+          "ILeaf": [
+            7
+          ],
+          "ImmutableCaller": [
+            34
+          ]
+        },
+        "id": 35,
+        "license": "MIT",
+        "nodeType": "SourceUnit",
+        "nodes": [
+          {
+            "id": 1,
+            "literals": [
+              "solidity",
+              "0.8",
+              ".38"
+            ],
+            "nodeType": "PragmaDirective",
+            "src": "32:23:0"
+          },
+          {
+            "abstract": false,
+            "baseContracts": [],
+            "canonicalName": "ILeaf",
+            "contractDependencies": [],
+            "contractKind": "interface",
+            "fullyImplemented": false,
+            "id": 7,
+            "linearizedBaseContracts": [
+              7
+            ],
+            "name": "ILeaf",
+            "nameLocation": "66:5:0",
+            "nodeType": "ContractDefinition",
+            "nodes": [
+              {
+                "functionSelector": "6057361d",
+                "id": 6,
+                "implemented": false,
+                "kind": "function",
+                "modifiers": [],
+                "name": "store",
+                "nameLocation": "83:5:0",
+                "nodeType": "FunctionDefinition",
+                "parameters": {
+                  "id": 4,
+                  "nodeType": "ParameterList",
+                  "parameters": [
+                    {
+                      "constant": false,
+                      "id": 3,
+                      "mutability": "mutable",
+                      "name": "value",
+                      "nameLocation": "97:5:0",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 6,
+                      "src": "89:13:0",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      },
+                      "typeName": {
+                        "id": 2,
+                        "name": "uint256",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "89:7:0",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      },
+                      "visibility": "internal"
+                    }
+                  ],
+                  "src": "88:15:0"
+                },
+                "returnParameters": {
+                  "id": 5,
+                  "nodeType": "ParameterList",
+                  "parameters": [],
+                  "src": "112:0:0"
+                },
+                "scope": 7,
+                "src": "74:39:0",
+                "stateMutability": "nonpayable",
+                "virtual": false,
+                "visibility": "external"
+              }
+            ],
+            "scope": 35,
+            "src": "56:59:0",
+            "usedErrors": [],
+            "usedEvents": []
+          },
+          {
+            "abstract": false,
+            "baseContracts": [],
+            "canonicalName": "ImmutableCaller",
+            "contractDependencies": [],
+            "contractKind": "contract",
+            "fullyImplemented": true,
+            "id": 34,
+            "linearizedBaseContracts": [
+              34
+            ],
+            "name": "ImmutableCaller",
+            "nameLocation": "125:15:0",
+            "nodeType": "ContractDefinition",
+            "nodes": [
+              {
+                "constant": false,
+                "functionSelector": "d4b83992",
+                "id": 10,
+                "mutability": "immutable",
+                "name": "target",
+                "nameLocation": "166:6:0",
+                "nodeType": "VariableDeclaration",
+                "scope": 34,
+                "src": "143:29:0",
+                "stateVariable": true,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_contract$_ILeaf_$7",
+                  "typeString": "contract ILeaf"
+                },
+                "typeName": {
+                  "id": 9,
+                  "nodeType": "UserDefinedTypeName",
+                  "pathNode": {
+                    "id": 8,
+                    "name": "ILeaf",
+                    "nameLocations": [
+                      "143:5:0"
+                    ],
+                    "nodeType": "IdentifierPath",
+                    "referencedDeclaration": 7,
+                    "src": "143:5:0"
+                  },
+                  "referencedDeclaration": 7,
+                  "src": "143:5:0",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_contract$_ILeaf_$7",
+                    "typeString": "contract ILeaf"
+                  }
+                },
+                "visibility": "public"
+              },
+              {
+                "body": {
+                  "id": 20,
+                  "nodeType": "Block",
+                  "src": "199:17:0",
+                  "statements": [
+                    {
+                      "expression": {
+                        "id": 18,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "lValueRequested": false,
+                        "leftHandSide": {
+                          "id": 16,
+                          "name": "target",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 10,
+                          "src": "201:6:0",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_contract$_ILeaf_$7",
+                            "typeString": "contract ILeaf"
+                          }
+                        },
+                        "nodeType": "Assignment",
+                        "operator": "=",
+                        "rightHandSide": {
+                          "id": 17,
+                          "name": "value",
+                          "nodeType": "Identifier",
+                          "overloadedDeclarations": [],
+                          "referencedDeclaration": 13,
+                          "src": "208:5:0",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_contract$_ILeaf_$7",
+                            "typeString": "contract ILeaf"
+                          }
+                        },
+                        "src": "201:12:0",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_ILeaf_$7",
+                          "typeString": "contract ILeaf"
+                        }
+                      },
+                      "id": 19,
+                      "nodeType": "ExpressionStatement",
+                      "src": "201:12:0"
+                    }
+                  ]
+                },
+                "id": 21,
+                "implemented": true,
+                "kind": "constructor",
+                "modifiers": [],
+                "name": "",
+                "nameLocation": "-1:-1:-1",
+                "nodeType": "FunctionDefinition",
+                "parameters": {
+                  "id": 14,
+                  "nodeType": "ParameterList",
+                  "parameters": [
+                    {
+                      "constant": false,
+                      "id": 13,
+                      "mutability": "mutable",
+                      "name": "value",
+                      "nameLocation": "192:5:0",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 21,
+                      "src": "186:11:0",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_contract$_ILeaf_$7",
+                        "typeString": "contract ILeaf"
+                      },
+                      "typeName": {
+                        "id": 12,
+                        "nodeType": "UserDefinedTypeName",
+                        "pathNode": {
+                          "id": 11,
+                          "name": "ILeaf",
+                          "nameLocations": [
+                            "186:5:0"
+                          ],
+                          "nodeType": "IdentifierPath",
+                          "referencedDeclaration": 7,
+                          "src": "186:5:0"
+                        },
+                        "referencedDeclaration": 7,
+                        "src": "186:5:0",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_contract$_ILeaf_$7",
+                          "typeString": "contract ILeaf"
+                        }
+                      },
+                      "visibility": "internal"
+                    }
+                  ],
+                  "src": "185:13:0"
+                },
+                "returnParameters": {
+                  "id": 15,
+                  "nodeType": "ParameterList",
+                  "parameters": [],
+                  "src": "199:0:0"
+                },
+                "scope": 34,
+                "src": "174:42:0",
+                "stateMutability": "nonpayable",
+                "virtual": false,
+                "visibility": "public"
+              },
+              {
+                "body": {
+                  "id": 32,
+                  "nodeType": "Block",
+                  "src": "256:24:0",
+                  "statements": [
+                    {
+                      "expression": {
+                        "arguments": [
+                          {
+                            "id": 29,
+                            "name": "value",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 23,
+                            "src": "271:5:0",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_uint256",
+                              "typeString": "uint256"
+                            }
+                          }
+                        ],
+                        "expression": {
+                          "argumentTypes": [
+                            {
+                              "typeIdentifier": "t_uint256",
+                              "typeString": "uint256"
+                            }
+                          ],
+                          "expression": {
+                            "id": 26,
+                            "name": "target",
+                            "nodeType": "Identifier",
+                            "overloadedDeclarations": [],
+                            "referencedDeclaration": 10,
+                            "src": "258:6:0",
+                            "typeDescriptions": {
+                              "typeIdentifier": "t_contract$_ILeaf_$7",
+                              "typeString": "contract ILeaf"
+                            }
+                          },
+                          "id": 28,
+                          "isConstant": false,
+                          "isLValue": false,
+                          "isPure": false,
+                          "lValueRequested": false,
+                          "memberLocation": "265:5:0",
+                          "memberName": "store",
+                          "nodeType": "MemberAccess",
+                          "referencedDeclaration": 6,
+                          "src": "258:12:0",
+                          "typeDescriptions": {
+                            "typeIdentifier": "t_function_external_nonpayable$_t_uint256_$returns$__$",
+                            "typeString": "function (uint256) external"
+                          }
+                        },
+                        "id": 30,
+                        "isConstant": false,
+                        "isLValue": false,
+                        "isPure": false,
+                        "kind": "functionCall",
+                        "lValueRequested": false,
+                        "nameLocations": [],
+                        "names": [],
+                        "nodeType": "FunctionCall",
+                        "src": "258:19:0",
+                        "tryCall": false,
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_tuple$__$",
+                          "typeString": "tuple()"
+                        }
+                      },
+                      "id": 31,
+                      "nodeType": "ExpressionStatement",
+                      "src": "258:19:0"
+                    }
+                  ]
+                },
+                "functionSelector": "b980c78f",
+                "id": 33,
+                "implemented": true,
+                "kind": "function",
+                "modifiers": [],
+                "name": "route",
+                "nameLocation": "226:5:0",
+                "nodeType": "FunctionDefinition",
+                "parameters": {
+                  "id": 24,
+                  "nodeType": "ParameterList",
+                  "parameters": [
+                    {
+                      "constant": false,
+                      "id": 23,
+                      "mutability": "mutable",
+                      "name": "value",
+                      "nameLocation": "240:5:0",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 33,
+                      "src": "232:13:0",
+                      "stateVariable": false,
+                      "storageLocation": "default",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      },
+                      "typeName": {
+                        "id": 22,
+                        "name": "uint256",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "232:7:0",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      },
+                      "visibility": "internal"
+                    }
+                  ],
+                  "src": "231:15:0"
+                },
+                "returnParameters": {
+                  "id": 25,
+                  "nodeType": "ParameterList",
+                  "parameters": [],
+                  "src": "256:0:0"
+                },
+                "scope": 34,
+                "src": "217:63:0",
+                "stateMutability": "nonpayable",
+                "virtual": false,
+                "visibility": "external"
+              }
+            ],
+            "scope": 35,
+            "src": "116:166:0",
+            "usedErrors": [],
+            "usedEvents": []
+          }
+        ],
+        "src": "32:251:0"
+      },
+      "id": 0
+    }
+  }
+}

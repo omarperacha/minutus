@@ -1,4 +1,7 @@
 //! Bounded repair and recovery for rejected model tool calls.
+mod stage_pair;
+#[cfg(debug_assertions)]
+pub(crate) use stage_pair::qualify_stage_argument_recovery;
 
 #[cfg(debug_assertions)]
 use super::*;
@@ -246,7 +249,11 @@ pub(super) fn is_direct_discovery_call_batch(calls: &[ParsedToolCall]) -> bool {
             }
             matches!(
                 call.name.as_str(),
-                "web.search" | "web.retrieve" | "filesystem.list" | "filesystem.find_paths"
+                "web.search"
+                    | "web.retrieve"
+                    | "filesystem.list"
+                    | "filesystem.find_paths"
+                    | "contract.inspect"
             )
         })
 }
@@ -459,6 +466,27 @@ pub(super) fn recover_invalid_tool_arguments(
         "tool_validation",
         &error.message,
     );
+    if let Some(pair) =
+        stage_pair::prepare(tool_state, &generated.calls, &invalid, all_tools, &error)?
+    {
+        let exchanges = crate::chat_tools::emit_stage_operation_argument_corrections(
+            app,
+            request_id,
+            sequence,
+            conversation,
+            pair,
+        );
+        trace_and_persist_recovery(
+            core,
+            request_id,
+            conversation,
+            round,
+            &tool_state.plan_policy,
+            generated,
+            exchanges,
+        )?;
+        return Ok(Some(true));
+    }
     let mixed_read_only_repair = invalid.len() == 1
         && mixed_read_only_argument_repair_allowed(tool_state, &generated.calls, *invalid_index);
     let plan_prefixed_operation_repair = invalid.len() == 1
@@ -839,7 +867,7 @@ pub(super) fn prospective_plan_tools(
 pub(super) fn tool_preparation_terminal_error() -> IpcError {
     IpcError {
         code: IpcErrorCode::Unsupported,
-        message: "Minutus could not safely repair the emitted workspace batch because it was not one known, bounded operation in the current capability catalogue. Continue by choosing an advertised operation, materially revising the plan around an unavailable capability, or clarifying the required outcome."
+        message: "Minutus could not safely repair the emitted tool batch within its capability and correction limits. Use an advertised operation with its exact schema, revise the plan when a capability is unavailable, or clarify the required outcome."
             .to_owned(),
         retryable: true,
     }
@@ -856,6 +884,7 @@ pub(super) fn persist_recovery_exchange(
         core,
         request_id,
         conversation,
+        &generated.activities,
         std::mem::take(&mut generated.reasoning),
         std::mem::take(&mut generated.content),
         exchanges,

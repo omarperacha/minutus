@@ -1,0 +1,4 @@
+# Match the desktop's minimum supported macOS. cc-rs and rustc both consume
+# this value; preserve an explicit caller override for qualification builds.
+[env]
+MACOSX_DEPLOYMENT_TARGET = { value = "13.3", force = false }

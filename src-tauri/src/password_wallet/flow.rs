@@ -99,7 +99,7 @@ async fn verified_seed(
     job: &PasswordVaultJob,
 ) -> Result<RecoverySeed, IpcError> {
     let phrase = RecoveryPhrase::generate().map_err(|_| IpcError::internal())?;
-    let mut phrase = secret::present_recovery_phrase(app, phrase)
+    let mut phrase = secret::present_recovery_phrase(app, job, phrase)
         .await?
         .ok_or_else(cancelled)?;
     job.check().map_err(error)?;
@@ -117,6 +117,7 @@ async fn verified_seed(
         job.check().map_err(error)?;
         let mut answer = secret::request_secret_owned(
             app,
+            job,
             "Verify recovery phrase",
             &format!("Enter word {}", position.number()),
         )

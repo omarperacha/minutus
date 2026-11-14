@@ -36,6 +36,7 @@ pub(crate) enum ToolCategory {
     Computation,
     Web,
     Payments,
+    Contracts,
     Orchestration,
 }
 
@@ -55,6 +56,7 @@ impl ToolCategory {
             "workspace_write" => Some(Self::WorkspaceWrite),
             "computation" => Some(Self::Computation),
             "web" => Some(Self::Web),
+            "contracts" => Some(Self::Contracts),
             "payments" => Some(Self::Payments),
             "orchestration" => Some(Self::Orchestration),
             _ => None,
@@ -69,6 +71,7 @@ impl ToolCategory {
             Self::Computation => "computation",
             Self::Web => "web",
             Self::Payments => "payments",
+            Self::Contracts => "contracts",
             Self::Orchestration => "orchestration",
         }
     }
@@ -90,6 +93,9 @@ impl ToolCategory {
             Self::Web => {
                 "Search or retrieve external evidence through separately mediated network operations."
             }
+            Self::Contracts => {
+                "Observe public EVM code and unsigned calls; separately qualified profile-limited writes require explicit native approval."
+            }
             Self::Payments => {
                 "Request a trusted human-approved payment through a narrowly scoped host flow."
             }
@@ -109,6 +115,30 @@ struct ToolCatalogueMetadata {
 }
 
 const TOOL_CATALOGUE_METADATA: &[ToolCatalogueMetadata] = &[
+    ToolCatalogueMetadata {
+        name: "contract.reconcile_transaction",
+        category: ToolCategory::Contracts,
+        action_class: Some(ToolActionClass::Read),
+        common: false,
+    },
+    ToolCatalogueMetadata {
+        name: "contract.request_workflow",
+        category: ToolCategory::Contracts,
+        action_class: Some(ToolActionClass::ExternalWrite),
+        common: false,
+    },
+    ToolCatalogueMetadata {
+        name: "contract.inspect",
+        category: ToolCategory::Contracts,
+        action_class: Some(ToolActionClass::Read),
+        common: false,
+    },
+    ToolCatalogueMetadata {
+        name: "contract.read",
+        category: ToolCategory::Contracts,
+        action_class: Some(ToolActionClass::Read),
+        common: false,
+    },
     ToolCatalogueMetadata {
         name: "filesystem.list",
         category: ToolCategory::WorkspaceDiscovery,
@@ -287,12 +317,14 @@ pub(crate) fn terminal_result_completes_stage(
     arguments: &std::collections::BTreeMap<String, serde_json::Value>,
     outcome: &ipc_types::ToolOutcome,
 ) -> bool {
-    (name == "wallet.request_transfer"
-        || (name == "x402.request"
-            && arguments
-                .get("operation")
-                .and_then(serde_json::Value::as_str)
-                .is_some_and(|operation| matches!(operation, "purchase" | "purchase_url"))))
+    (matches!(
+        name,
+        "wallet.request_transfer" | "contract.request_workflow"
+    ) || (name == "x402.request"
+        && arguments
+            .get("operation")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|operation| matches!(operation, "purchase" | "purchase_url"))))
         && match outcome {
             ipc_types::ToolOutcome::Completed { .. } => true,
             ipc_types::ToolOutcome::Failed { error } => !error.retryable,
@@ -310,6 +342,7 @@ pub(crate) fn common_tool(name: &str) -> bool {
 /// Canonical consumers promoted beside their producer, never an authority rule.
 pub(crate) fn tool_companions(name: &str) -> &'static [&'static str] {
     match name {
+        "contract.request_workflow" => &["contract.reconcile_transaction"],
         "filesystem.inspect_image" | "filesystem.collect_evidence" => {
             &["filesystem.write_delimited_table"]
         }
@@ -331,6 +364,35 @@ pub(crate) fn tool_has_bulk_arguments(name: &str) -> bool {
 /// Bounded intent aliases for discovery, never authorization or operation names.
 pub(super) fn tool_search_aliases(name: &str) -> &'static [&'static str] {
     match name {
+        "contract.reconcile_transaction" => &[
+            "receipt",
+            "confirmation",
+            "transaction status",
+            "reconciliation",
+        ],
+        "contract.request_workflow" => &[
+            "contract workflow",
+            "source qualified ABI call",
+            "declared contract conditions",
+            "qualified token transfer",
+            "self allowance",
+            "dependent token pull",
+        ],
+        "contract.inspect" => &[
+            "contract metadata",
+            "runtime code",
+            "ABI provenance",
+            "compiled ABI",
+            "storage layout",
+            "source fields",
+        ],
+        "contract.read" => &[
+            "read contract",
+            "allowance",
+            "balanceOf",
+            "unsigned call",
+            "eth_call",
+        ],
         "wallet.request_transfer" => &[
             "send ETH",
             "send USDC",
@@ -396,6 +458,7 @@ pub(crate) fn tool_category_index(
         ToolCategory::Computation,
         ToolCategory::Web,
         ToolCategory::Payments,
+        ToolCategory::Contracts,
         ToolCategory::Orchestration,
     ]
     .into_iter()
@@ -516,6 +579,7 @@ pub(crate) fn chat_tool_definitions(
     );
     computation.push(super::x402::tool_definition());
     computation.push(super::wallet_transfer::tool_definition());
+    computation.extend(super::contracts::definitions());
     computation.extend(
         web_search_tool_registry()
             .map_err(|_| IpcError::internal())?

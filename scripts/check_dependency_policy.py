@@ -5,6 +5,9 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from simulation_dependency_policy import (
+    APPLICABILITY_DEADLINE, EXTRA_PASTE_PARENTS, REGISTRY, validate_simulation_dependencies,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 REVIEW_DEADLINE = date(2027, 10, 13)
@@ -29,19 +32,32 @@ def validate_paste_exception(metadata, today):
         for node in metadata['resolve']['nodes']
         if any(dependency['pkg'] == paste['id'] for dependency in node['deps'])
     }
-    if dependents != {('tokenizers', '0.22.2')}:
-        raise ValueError('The paste dependency path changed; only tokenizers 0.22.2 is approved')
+    original = {('tokenizers', '0.22.2')}
+    if dependents == original:
+        return
+    if dependents != original | EXTRA_PASTE_PARENTS:
+        raise ValueError('The paste dependency path changed; exact tokenizers and EVM compile-time parents required')
+    if today >= APPLICABILITY_DEADLINE:
+        raise ValueError('The EVM compile-time paste applicability review expired on 2027-01-30')
+    if paste.get('source') != REGISTRY or any(
+            item.get('source') != REGISTRY for item in packages.values()
+            if (item['name'], item['version']) in EXTRA_PASTE_PARENTS):
+        raise ValueError('The paste compile-time dependency source changed')
 
 
 def main():
     try:
         today = datetime.now(timezone.utc).date()
-        # Fail on expiry before any metadata fetching or dependency checks.
+        # Fail on either review expiry before any metadata fetching.
+        if today >= APPLICABILITY_DEADLINE:
+            raise ValueError('The local EVM dependency applicability review expired on 2027-01-30')
         if today >= REVIEW_DEADLINE:
             raise ValueError('The temporary paste exception expired on 2027-10-13; review or remove it before release')
         output = subprocess.check_output(
             ['cargo', 'metadata', '--locked', '--all-features', '--format-version', '1'], cwd=ROOT, text=True)
-        validate_paste_exception(json.loads(output), today)
+        metadata = json.loads(output)
+        validate_paste_exception(metadata, today)
+        validate_simulation_dependencies(metadata, ROOT)
         return subprocess.run(['cargo', 'deny', '--locked', 'check', '--hide-inclusion-graph'], cwd=ROOT, check=False).returncode
     except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
         print(f'Dependency policy failed: {error}', file=sys.stderr)

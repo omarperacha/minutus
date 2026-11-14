@@ -207,6 +207,13 @@ pub type BaseNetworkDescriptor = EvmNetworkDescriptor;
 pub struct EvmRpcUrl(Zeroizing<String>);
 
 impl EvmRpcUrl {
+    // Synthetic transport tests only: the public runtime constructor remains
+    // HTTPS-only and accepts no exception or insecure-scheme flag.
+    #[cfg(test)]
+    pub(crate) fn loopback_test(port: u16) -> Self {
+        Self(Zeroizing::new(format!("http://127.0.0.1:{port}")))
+    }
+
     /// Validates and takes ownership of a user-supplied custom endpoint.
     ///
     /// Paths, queries and user information are accepted because RPC providers
@@ -242,6 +249,15 @@ impl EvmRpcUrl {
             return Err(EvmRpcUrlError::InvalidPort);
         }
         Ok(Self(value))
+    }
+
+    /// Credential-free origin for native outbound review; excludes path/query.
+    #[must_use]
+    pub fn public_origin(&self) -> String {
+        Url::parse(self.0.as_str()).map_or_else(
+            |_| "Invalid configured provider".into(),
+            |url| url.origin().ascii_serialization(),
+        )
     }
 
     /// Borrows the sensitive URL only for the owning RPC transport operation.

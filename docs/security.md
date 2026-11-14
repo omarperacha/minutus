@@ -92,9 +92,38 @@ Private application data and overlapping workspace roots are excluded from model
 filesystem and computation inputs. Receiving addresses are withheld until password
 authentication; locked envelope metadata is not a trusted deposit destination.
 Transactions require native review of the exact proposal and fresh app-password
-authentication. Approval is bound to the candidate and consumed once. Screen lock,
-sleep and inactivity revoke the unlocked session. A network failure or ambiguous
+authentication after that review. Unlocking the wallet and authorising an approved
+transaction or payment use distinct native password prompts; an unlock password
+does not replace fresh signing authentication. The native password dialog requests
+foreground presentation and requires explicit acceptance. After fresh authentication,
+ordinary switching to another app does not revoke the one-use, selected-account
+app-vault capability while verification, signing and submission continue. This is
+not general background signing: the exact candidate, approval, nonce, expiry,
+document revision, job and wallet epoch remain bound and checked. The historical
+Keychain and isolated password-vault prototype retain their foreground policy.
+Approval is consumed once. Explicit lock, cancellation, account or vault changes,
+screen/session lock, sleep and inactivity revoke pending authority; returning to
+the app or unlocking the screen cannot revive it. A network failure or ambiguous
 broadcast does not authorise an unrestricted repeat payment.
+
+Contract workflows use request cancellation and fixed limits for each source,
+proof, execution and exact-approval phase. They do not share the ordinary
+transfer two-minute whole-operation timer across unlock, scope consent,
+source work, multiple steps and user waiting. Immediately after initial unlock,
+the workflow pins the selected wallet epoch once; later lock, inactivity,
+security events or wallet changes stop that attempt rather than silently
+unlocking it again. Exact transaction approval still expires after 120 seconds,
+and each step requires fresh password authentication and fresh evidence.
+Ordinary transfer deadlines and x402 request/challenge limits remain unchanged.
+
+Native dialogs have an exact generation and window owner. An abort snapshots
+that owner before wallet invalidation and cannot dismiss a successor dialog.
+Queued password and secret/recovery displays also check the original job's
+revocation before presentation. Host results distinguish a native Cancel button,
+host modal abort, other dismissal, invalidated work and an actual authentication
+failure; absence of successful fresh authentication is not evidence that the
+initial unlock was cancelled. These observations are descriptive and cannot
+grant authentication or signing authority.
 
 ## Software releases
 
@@ -123,10 +152,138 @@ Per-turn durable admission blocks automatic repeat attempts. Known transaction
 hashes are retained before submission so uncertain outcomes can be reconciled
 without rebroadcast. Proven-unsent reservations are retired atomically; uncertain
 submissions require a separate native acknowledgement before further chat
-requests. That acknowledgement retains monitoring and grants no signing authority.
+requests. That acknowledgement retains monitoring and grants no signing authority or
+permission to reuse a possible-send nonce. Wallet/chat share a durable
+[nonce owner](evm-nonce-ownership.md) before fresh authentication.
 See [chat transfer boundaries](chat-transfers.md) for
-freshness rules, cancellation and qualification limits. Arbitrary contract calls
-and arbitrary message/typed-data signing remain unavailable.
+freshness rules, cancellation and qualification limits.
+
+### Source-qualified contract workflows
+
+Post-submission monitoring is observation only. A valid JSON-RPC `result: null`
+means a receipt or transaction lookup is pending/absent, not a malformed missing
+result. Reviewed transport/time-out/HTTP read failures may be retried within the
+existing 120-second monotonic receipt budget, with every request charged against
+remaining time and a fixed attempt cap. Chain/hash/shape/proof mismatches do not
+unlock retries. No observation path signs, resubmits, replaces or releases a
+possible-send nonce.
+
+Receipt status reported by RPC, canonical transaction/receipt inclusion, declared
+per-step completion and final current goals are distinct observations. A later
+verification failure preserves acknowledgement, the known hash and earlier
+effects. Chat presents submitted/possibly sent with verification unavailable as a
+partial result; a getter returning the desired value cannot establish that the
+transaction or workflow succeeded.
+
+Receipt gas validation uses the expected network and the canonical header's
+timestamp under the maintained fork policy. Historical single-counter receipts
+retain their positive cumulative-gas bound against header gas used. Reviewed
+Amsterdam receipts use separate transaction-total and block-resource counters;
+their cumulative total is bounded by twice header gas used, with widened
+arithmetic. This does not relax canonical header, exact signed-body/signer,
+receipt encoding/status/bloom or either trie-root check. Historical receipt
+policy grants no permission to execute an unsupported historical VM fork.
+Unreviewed future receipt rules reject.
+
+The live controller records verified inclusion only after receiving an opaque
+certificate from the complete candidate-bound inclusion phase. Acquiring trie
+nodes alone cannot advance that lifecycle stage. Later source/state/completion
+failure retains the proved inclusion fact without granting completion or current
+goal credit; an inclusion-phase rejection remains inclusion-unavailable.
+
+Post-inclusion completion uses private pending condition data until the final
+receipt and current-state anchors pass. It retains proof-reader canonicality,
+source identity, typed predicates and the original cohort freshness clock, while
+performing the final cohort/head recheck once under the original aggregate
+control. Pending data is not a condition or completion certificate and cannot
+escape that owner. Standalone condition checks retain their own final recheck.
+This avoids duplicate network work without increasing proof deadlines or
+accepting a result after expiry, cancellation or reorganisation.
+
+`contract.reconcile_transaction` accepts only a hash already retained for a
+dispatched version 2 workflow in the same conversation. The host selects its
+original network, account, nonce and signing digest from validated immutable
+journal bindings. Unknown/cross-chat hashes reject before RPC. Fresh native
+data-only consent covers the configured provider and bounded public block/proof
+queries; no wallet unlock, password or signing is involved. A new sealed
+inclusion certificate checks the exact EIP-1559 body, recovered signer, nonce,
+chain and signed hash against canonical transaction and receipt trie roots.
+Successful receipt inclusion establishes execution only; a proved revert is
+separate. The original acquisition limits and final canonical recheck apply.
+
+Receipt-only reconciliation records confirmed-but-unverified or reverted status,
+clears selected completion evidence and retains immutable historical evidence
+as historical records. It atomically retires later planned/reviewing steps while
+preserving later possible sends, nonce/dispatch fences and attempt tombstones.
+It never creates a completion certificate, verifies current goals, resumes writes
+or grants retry/cleanup authority. Canonical-at-observation does not mean finality.
+
+Qualification builds passing packaged compiler and isolated-worker admission can
+separately advertise [version 2 declared contract workflows](generic-contract-qualification.md).
+Release availability remains disabled pending native interaction qualification
+and final human security review. Packaging pins alone cannot promote this
+capability. The earlier bundled-profile API remains compatible.
+
+Contract workflows consume their current-turn attempt before initial native
+wallet readiness. A locked selected account prompts unlock in chat through the
+shared wallet owner before account-bound outbound consent. Cancellation leaves
+the turn consumed and starts no source/RPC acquisition. Initial unlock grants no
+transaction approval or fresh signing authority: every write still needs exact
+native approval and separate fresh password authentication, with the existing
+account/epoch, refresh and nonce checks.
+
+Version 2 binds arbitrary ABI declarations to locally reproduced source and
+proof-checked current runtime/dispatch. A pinned official Solidity compiler runs
+in a separate bounded helper. Supported compiler versions and AST features are
+restricted: complete typed snapshot effects must also have an independently
+checked bounded source-field transition envelope. Unsupported state-dependent
+effects, opaque external calls and mutable proxy dispatch reject. Supported
+high-level calls require a complete source-derived graph within the explicitly
+approved business scope, owner-qualified disjoint effects and exact replay frame
+agreement. Compiler-bound immutable values do not imply constructor invariants.
+Historical compilers have a separate restricted scalar feature tier based on
+their original settings and reviewed bug triggers. This is a
+generic analysed subset, not support for every EVM function. Source labels,
+function names, logs and return values do not establish token, authority or
+business semantics. The host does not offer a warning override for missing proof.
+
+Each scope requires native outbound consent before RPC or public-source/compiler
+acquisition. Every write requires independent exact native review and a fresh
+password. Endpoint, account, ordered declarations and qualified source identities
+are bound throughout the request. Historical completion evidence is distinct
+from current prerequisites, so later actions may consume an earlier value without
+erasing its history. Dependencies require declared completion conditions; final
+goals are checked separately. A successful receipt without declared final goals
+reports execution confirmed, not business-goal success. Observations describe
+their proved blocks, not finality, later state or transaction causation.
+
+The durable journal is wired to the native controller and shares Wallet/chat
+turn tombstones and nonce ownership. Its final workflow and nonce admission
+commit atomically. Stored history cannot reconstruct fresh approval or proof
+capabilities. Restart, cancellation, ambiguous send or reorganisation never
+authorise automatic resume, nonce reuse, cleanup or retry. Earlier allowance or
+other authority may remain after a later step fails. Account upgrades and
+arbitrary message/typed-data signing remain unsupported.
+
+Before the first write, the host also bounds the complete historical, goal and
+residual report against its 64 KiB output reservation. This includes actual
+declared paths and worst-case typed values and JSON escaping. Oversized workflows
+reject before submission; evidence is not truncated after a send.
+
+### Unsigned contract observations
+
+[Contract observations](contract-observations.md) use configured host-owned RPC
+endpoints and fresh native outbound consent for exact public target/caller/call
+bytes. They never access a wallet or signer. Calls are zero-value simulations at
+canonical hash-pinned state with strict bounded ABI decoding with resource preflight and canonical re-encoding; declared ABI
+and provider data are untrusted. Canonicality is rechecked, never treated as
+finality. Latest reads bypass request and batch reuse. Cancellation gates each
+RPC dispatch. Missing methods/state, wrong chains and unknown ABI layouts fail
+without weaker proof. Optional `includeSource` inspection separately discloses
+public source/compiler acquisition and returns bounded locally reproduced ABI,
+layout and source identities without comments or documentation. These unsigned
+snapshot observations grant no signing authority. Runtime identity or eth_call
+success alone cannot qualify a workflow's effects or inclusion-time safety.
 
 ### Transfer fee budgets
 
@@ -142,3 +299,23 @@ introduced. Ethereum's Base-fee components remain zero.
 The signed EIP-1559 fields cap execution pricing, not Base's separate L1/operator
 charges at inclusion. The native review discloses that the total budget is checked
 before submission and cannot guarantee those future charges.
+
+
+### Execution trust
+
+The [local EVM workers](local-evm-simulation.md) run pinned upstream engines in
+mandatory macOS sandboxes. The host binds acquired account/storage proofs and
+code to one header/state root; provider chain identity remains trusted. Worker
+JSON is untrusted discovery data and cannot mint a qualified candidate. Generic
+qualification independently replays the frozen proved state with maintained
+Revm in the host. That replay engine and the pinned compiler are explicit trusted
+components; helper image attestation alone does not prove their correctness.
+
+Base material preview excludes fee-sensitive application behaviour and labels
+native balances as conservative maximum prepayment rather than exact settlement.
+Exact signed Base execution then runs in the sealed offline handler over frozen
+state. The signed bytes cannot direct new online acquisition, and post-input
+worker failures collapse to one rejection without child-controlled diagnostics.
+These checks are integrated into the qualification-only native workflow; their
+automated tests do not replace the remaining native interaction and release
+security gates.

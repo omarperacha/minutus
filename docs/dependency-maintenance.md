@@ -1,4 +1,4 @@
-# Temporary tokeniser dependency exception
+# Temporary compile-time dependency exception
 
 The current dependency path `model-runtime → tokenizers 0.22.2 → paste 1.0.15`
 has a temporary maintenance exception, approved on 13 October 2026. Review or
@@ -12,10 +12,12 @@ actually removes `paste` and tokeniser behaviour remains compatible.
 
 ## Scope and enforcement
 
-The approved dependency is a compile-time proc-macro introduced only through
-`model-runtime → tokenizers 0.22.2 → paste 1.0.15`. Maintenance risk remains:
-future defects may have no upstream fix. This exception does not certify code
-security or waive any other vulnerability, source, licence or integrity check.
+The original approved dependency is a compile-time proc-macro through
+`model-runtime → tokenizers 0.22.2 → paste 1.0.15`. Its exact tokeniser and target
+constraints remain intact. A separate 30 October review below admits the exact
+EVM additions until an earlier deadline. Maintenance risk remains: future defects
+may have no upstream fix. Neither exception certifies code security or waives
+other vulnerability, source, licence or integrity checks.
 
 Run the complete policy gate with:
 
@@ -24,13 +26,38 @@ python3 scripts/check_dependency_policy.py
 ```
 
 The wrapper checks the resolved all-feature graph for the exact versions,
-proc-macro target and sole direct dependent before invoking `cargo deny --locked check`. It rejects
-new users, version changes, removal of paste while its exception remains, and
-execution on or after 2027-10-13 UTC. Public CI runs this wrapper.
+proc-macro target and reviewed direct dependents before invoking
+`cargo deny --locked check`. It rejects new users, version changes and removal
+of paste while its exception remains. The original tokeniser-only path expires
+on 2027-10-13 UTC; the EVM additions expire on 2027-01-30 UTC. Public CI runs this
+wrapper.
 
 Direct `cargo deny check` honours the named advisory exception but does not enforce
 this deadline or path guard. Use the wrapper for release qualification. The date
 is an enforced review deadline, not a scheduled reminder.
+
+## EVM compile-time additions, 30 October 2026
+
+The exact additional direct parents of `paste 1.0.15` are `alloy-primitives 1.7.3`,
+`syn-solidity 1.7.3`, and `ark-ff 0.3.0`, `0.4.2` and `0.5.0`. The resolved
+metadata includes the Arkworks parents even where the chosen native precompile
+backend does not compile them. The check deliberately retains this conservative
+scope rather than filtering out optional or other-target paths. The original
+`tokenizers 0.22.2` parent must still be present.
+
+Source review found token pasting for Alloy fixed-map aliases, Solidity syntax
+constructors and Arkworks field arithmetic identifiers; the latter two Arkworks
+versions retain a manifest dependency without a direct source invocation. Paste
+still has only the reviewed proc-macro library target. Generated code affects
+runtime behaviour, and build-time proc-macros are trusted build inputs, so this
+qualification accepts maintenance risk rather than claiming compile-time code
+is harmless. The exact source and archive checksums of paste and all additional
+parents are bound by the [simulation dependency guard](local-simulation-dependency-review.md).
+
+These additions require re-review before **2027-01-30 UTC**. Partial parent sets,
+upgrades, new direct consumers, source changes and an obsolete exception fail the
+gate. The existing 2027-10-13 deadline is not extended. No further paste consumer
+inherits this review; prefer supported upstream removal when available.
 
 ## Removing or renewing the exception
 
@@ -81,3 +108,14 @@ and signature vectors, vault reopen/restore tests, approval expiry and durable
 single-use checks qualify the integration. The duplicate baseline also covers
 exact older HMAC, SHA-2 and RNG trait versions still required by other subsystems;
 these entries affect duplicate warnings only, not vulnerability checks.
+
+
+## Public EVM verification arithmetic, 30 October 2026
+
+Local Revm/Base dependencies reintroduce affected `crypto-bigint 0.5.5` for public
+recovery/verification. The wallet upgrade above remains intact and its graph
+cannot reach that older version. A separate exact applicability exception with
+source/checksum/consumer guards expires on 2027-01-30 UTC; see
+[local simulation dependency review](local-simulation-dependency-review.md).
+The older version remains vulnerable for secret arithmetic. This is not a
+rollback of wallet cryptography, a patched-version claim or a global waiver.

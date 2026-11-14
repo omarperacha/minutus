@@ -1,0 +1,69 @@
+[
+  {
+    "arguments": "[42]",
+    "block": "latest",
+    "function": "store(uint256)",
+    "maxFeePerGasWei": "1000000000",
+    "network": "ethereumSepolia",
+    "target": "0x2738d13E81e30bC615766A0410e7cF199FD59A83",
+    "valueWei": "0"
+  },
+  {
+    "contractVersion": 1.0,
+    "contracts": [
+      {
+        "address": "0x2738d13E81e30bC615766A0410e7cF199FD59A83",
+        "arguments": [
+          42.0
+        ],
+        "function": "store(uint256)",
+        "maxFeePerGasWei": 1000000000.0,
+        "valueWei": 0.0
+      }
+    ],
+    "goals": [
+      "store(42) executed and confirmed"
+    ],
+    "network": "ethereumSepolia",
+    "steps": [
+      {
+        "address": "0x2738d13E81e30bC615766A0410e7cF199FD59A83",
+        "arguments": [
+          42.0
+        ],
+        "function": "store(uint256)",
+        "maxFeePerGasWei": 1000000000.0,
+        "valueWei": 0.0
+      }
+    ]
+  },
+  {
+    "contractVersion": 2.0,
+    "contracts": [
+      {
+        "address": "0x2738d13E81e30bC615766A0410e7cF199FD59A83",
+        "arguments": [
+          42.0
+        ],
+        "function": "store(uint256)",
+        "maxFeePerGasWei": 1000000000.0,
+        "valueWei": 0.0
+      }
+    ],
+    "goals": [
+      "store(42) executed and confirmed"
+    ],
+    "network": "ethereumSepolia",
+    "steps": [
+      {
+        "address": "0x2738d13E81e30bC615766A0410e7cF199FD59A83",
+        "arguments": [
+          42.0
+        ],
+        "function": "store(uint256)",
+        "maxFeePerGasWei": 1000000000.0,
+        "valueWei": 0.0
+      }
+    ]
+  }
+]

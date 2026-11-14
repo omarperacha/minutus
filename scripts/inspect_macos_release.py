@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import plistlib
 import subprocess
+from stage_worker_brokers import ROLES as WORKER_ROLES, verify_bundle as verify_worker_brokers
 
 ROOT = Path(__file__).resolve().parent.parent
 MACH_MAGICS = {bytes.fromhex(value) for value in (
@@ -76,6 +77,7 @@ def verify_manifest(directory, manifest):
 
 
 def inspect(application, verify_unsigned=False):
+    verify_worker_brokers(application, unsigned=verify_unsigned)
     contents = application.resolve() / 'Contents'
     files = safe_files(contents)
     info = plistlib.loads((contents / 'Info.plist').read_bytes())
@@ -142,6 +144,9 @@ def inspect(application, verify_unsigned=False):
     prefix = ('Resources/computation-service' if verify_unsigned else 'XPCServices')
     required.extend(f'{prefix}/com.flowzed.zeta.computation-service.xpc/Contents/MacOS/{name}'
                     for name in ('zeta-computation-service', 'zeta-computation-runner'))
+    worker_prefix='Resources/worker-brokers/services' if verify_unsigned else 'XPCServices'
+    required.extend(f'{worker_prefix}/{role.service}.xpc/Contents/MacOS/{name}'
+                    for role in WORKER_ROLES for name in (role.executable, role.worker))
     for name in required:
         if 'arm64' not in by_path.get(name, {}).get('architectures', []):
             raise ValueError(f'Required executable lacks arm64: {name}')

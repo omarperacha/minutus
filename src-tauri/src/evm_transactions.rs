@@ -180,7 +180,7 @@ fn project_record(
     }
 }
 
-fn ipc_network(caip2_id: &str) -> Result<EvmNetwork, IpcError> {
+pub(crate) fn ipc_network(caip2_id: &str) -> Result<EvmNetwork, IpcError> {
     match caip2_id {
         "eip155:8453" => Ok(EvmNetwork::BaseMainnet),
         "eip155:84532" => Ok(EvmNetwork::BaseSepolia),

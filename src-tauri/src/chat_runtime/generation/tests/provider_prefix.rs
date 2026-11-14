@@ -267,6 +267,7 @@ fn explicit_completed_answer_closes_tools_and_repairs_stale_control() -> Result<
     assert_eq!(final_profile.work, ExecutionWorkKind::FinalResponse);
     assert_eq!(state.execution_state(true), ToolExecutionState::Completion);
     let mut final_round = ChatGenerationRound {
+        activities: Vec::new(),
         reasoning: String::new(),
         content: "Created result/output.csv".to_owned(),
         calls: Vec::new(),

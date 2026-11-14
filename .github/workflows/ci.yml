@@ -29,6 +29,8 @@ jobs:
           rustup show active-toolchain
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
+      - name: Reproduce reviewed contract profile
+        run: python3 scripts/check_contract_profiles.py --reproduce
       - name: Build public native inputs
         run: python3 scripts/bootstrap.py --jobs 3
       - name: Qualify signed XPC execution and containment

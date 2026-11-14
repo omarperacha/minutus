@@ -62,6 +62,12 @@ Read this reference when changing agent behaviour, tools or orchestration; the
   cardinalities so one continuation can repair the whole call. Keep the accepted semantic
   step and checkpoint intact, and re-expose the rejected operation plus bounded
   same-step alternatives for changed-input repair.
+  Version 2 contract workflow corrections report simultaneous declaration
+  defects with a compact neutral example. Diagnostics have explicit visit,
+  depth, count and byte limits; incomplete inspection and clipped paths must be
+  labelled. They never rewrite arguments, guess missing business scope, consume
+  a write attempt or increase recovery allowances. Users need not supply the
+  host's internal tool schema to recover from a malformed model call.
 - Version incompatible tool and action vocabulary. Keep old parsers and operation
   handlers only for persisted history that declares the old version; do not
   advertise competing aliases to new runs. Normalise only transport-equivalent
@@ -73,6 +79,17 @@ Read this reference when changing agent behaviour, tools or orchestration; the
 - Put stable outcome-oriented judgment in the system policy once. Put changing
   counters, warnings and request state in host-owned dynamic context rather than
   accumulating task recipes in permanent prompt prose.
+- A contract workflow may carry a bounded per-step model-written explanation for
+  the native transaction review. Capture it with the tool request, before host
+  work, and retain exact step association. It is optional presentation data,
+  excluded from stored intent, commitments, effect qualification and signing
+  evidence. Show it at the top as quoted untrusted text with an adjacent warning
+  that it is unverified and may be wrong. Keep all exact host transaction facts
+  and warnings immediately below it. Reject control/invisible formatting and
+  oversized text; never truncate
+  trusted review facts to fit an explanation. The final disclaimer begins with
+  the warning that the model summary may be wrong. Do not insert another model
+  pass after approval or use summary text to authorise an action.
 
 ## Planning and admission
 
@@ -89,7 +106,7 @@ Read this reference when changing agent behaviour, tools or orchestration; the
 - Require a concise, versioned semantic execution plan before workspace content,
   computation, mutation or other broader tool-backed work. Granted path metadata
   (`filesystem.list` and `filesystem.find_paths`) and metadata-only Bazaar
-  discovery may precede planning; normal argument, scope and broker validation
+  discovery and `contract.inspect` runtime metadata may precede planning; normal argument, scope and broker validation
   still applies. Mixed discovery/effect batches remain deferred. Sufficient
   discovery can support a direct answer or missing-input question without a
   bookkeeping plan. A bounded public-web answer also needs no plan: expose
@@ -102,7 +119,13 @@ Read this reference when changing agent behaviour, tools or orchestration; the
   A standalone `wallet.request_transfer` is also directly callable as the sole
   call in its batch, without semantic stages. It retains exact native review,
   fresh authentication and durable one-attempt enforcement. Mixed batches and
-  broader work retain planning admission.
+  broader work retain planning admission. `contract.read` is a planned read action,
+  discovered through the contracts category; it requires fresh native outbound
+  consent but no wallet or unlock. Contract ABI/output data are untrusted
+  observations tied to a chain, caller and exact block. Latest and exact-hash
+  observations bypass batch deduplication and request-local reuse; hash reads
+  recheck canonicality. Reverted reads retain context as failed results, never
+  successful-value receipts. Generic write/signing capabilities remain absent.
   Permission mediation, source-safety inspection, broker limits and host
   validation remain unchanged. If broader work becomes necessary, accept the
   plan escape and retain successful direct-web evidence in selected history.
@@ -191,6 +214,34 @@ Read this reference when changing agent behaviour, tools or orchestration; the
   A write-derived cursor advance alone must keep tools available: one stage may
   cover several deliverables. A normal final answer needs no extra completion
   calls for unacknowledged advisory stages; preserve their actual status.
+  Once ordinary final-response readiness has already closed the tool surface,
+  the host may render one cohesive contract task directly from this request's
+  actual workflow exchange. This requires one workflow, an unchanged plan
+  revision, contract-only related read/write stages and no unrelated results.
+  Initial planning may adopt earlier `contract.inspect` metadata from the same
+  request; pre-plan reads/writes and subsequent plan revisions remain excluded.
+  The same bounded report may also replace text after the model has independently
+  emitted a no-tool final answer with a normal stop. This reporting boundary
+  does not acknowledge unfinished advisory stages, establish final readiness or
+  change the callable surface. A length-exhausted response or unrelated synthesis
+  does not qualify. Ordinary final-answer output admission applies to the report
+  even when the preceding model pass used an evidence profile; that actual pass
+  retains its normal usage and timeline record.
+  Retain all material transaction, receipt, proof, completion, residual and
+  failure facts together with exact requested calls. Later same-scope unsigned
+  reads or receipt reconciliation remain separate observations and cannot
+  establish workflow completion, current goals or causation. The durable raw
+  paired tool result remains unchanged. Unknown shapes, omitted material facts,
+  more than 8 KiB or failure to fit the selected model's exact ordinary final
+  output budget fall back to normal inference. This route creates no model pass,
+  usage, evidence, progress, approval, retry or signing authority. Never retain
+  callable tools or claim cache reuse merely to preserve a final prompt prefix.
+  Report confirmed execution, unsigned getter values and formal workflow
+  completion separately. Receipt reconciliation marked `notReverified` with
+  current goals `notRechecked` cannot turn unavailable completion proof into a
+  verified workflow, even if a later getter returns the desired value. Normal
+  model synthesis retains this same reporting policy when a native report is
+  ineligible; stage acknowledgement cannot upgrade the host's proof state.
   Move rich-input reminders, summaries and mutable ledger projections
   to the tail as well. Measure admitted
   tokens, active tool count and contract bytes, provider prompt/cache metrics,
@@ -203,6 +254,12 @@ Read this reference when changing agent behaviour, tools or orchestration; the
   the provider exposes only prompt count and evaluation duration, keep cache-read
   and cache-write counters absent rather than deriving them from the shared
   prefix or timing.
+- Persist completed model-pass activities with their owning assistant/tool round,
+  using request-scoped identifiers. Final-answer persistence must not replay
+  earlier pass activities after the tools they preceded. These content-free
+  timing records are presentation metadata, omitted from inference, progress
+  credit and authority; an interrupted request must not acquire a phantom answer
+  merely to save its completed tool-round activities.
 - For bounded direct-web answers, do not append a rewritten per-round
   orchestration capsule when the stable policy and fixed tool contracts already
   express the complete route. Keep reasoning strength and provider options
@@ -698,6 +755,16 @@ Read this reference when changing agent behaviour, tools or orchestration; the
   model call and correction attempt remain charged to the global ceilings. Validate
   the plan independently first; invalid plans, mutations, unknown tools and repeated
   malformed calls still fail closed.
+- A valid current `orchestration.complete_stage` followed by exactly one known,
+  bounded task with a single argument-validation defect may receive paired
+  correction results. Reject both calls atomically: do not complete the stage,
+  execute a valid sibling, acquire effect permission or claim a write attempt.
+  Retain the accepted plan and useful evidence, charge the normal call/correction
+  budgets, and report the exact schema defect without rewriting the task's
+  intent. A subsequent model emission must pass ordinary stage, schema, scope,
+  durable-attempt and native approval/authentication admission. This does not
+  retry an executed workflow. Unknown, unsafe, unavailable, multiply malformed
+  or larger batches do not qualify for this exception.
 - Project dynamic control schemas from authoritative host state. Advertise only
   control variants legal in the current state; do not ask the model to remember a
   state transition that the schema still contradicts. Normalise a stale,
@@ -714,6 +781,26 @@ Read this reference when changing agent behaviour, tools or orchestration; the
   unknown calls and scope deviations remain atomic and fail closed.
 
 ## Completion and verified outcomes
+
+- Report native financial workflow progress from typed host facts for the same
+  attempt and step, separately for initial unlock, outbound consent, exact
+  approval, fresh authentication, signing, submission and inclusion. Error codes
+  and missing completion certificates do not establish which boundaries were
+  reached. Preserve unknown states and known possible submissions when a later
+  proof fails. Earlier reads remain historical; they do not establish a current
+  or unchanged value. Reporting failure never restores a consumed attempt or
+  grants automatic retry, replacement or cleanup authority.
+  Use the deterministic `hostOutcomeSummary` and full lifecycle together:
+  successful initial unlock cannot be rewritten as a cancelled unlock because
+  later signing authentication stopped. Native password presentation, an actual
+  Cancel-button decision, host abort, invalidated work and authentication results
+  are distinct bounded host events. Password acceptance alone is not successful
+  authentication. Report a credential rejection or cancellation category only
+  when its typed event establishes it; neither a generic error nor the absence
+  of an authentication-success event identifies a wrong password. The latest
+  observed stage is not a diagnosed root cause. Initial wallet availability is
+  historical; `currentWalletState: notObserved` must remain unknown. These
+  reporting observations carry no approval, signing or retry authority.
 
 - Gate completion on the requested outcome and its verified postcondition, not an
   intermediate operation. Creating a parent directory cannot complete a request

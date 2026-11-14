@@ -36,3 +36,14 @@ whisper.cpp archive, records the staged executable digest and rejects unexpected
 host/target or dynamic-library combinations. `../speech-runtime/runtime.lock`
 pins the build inputs, protocol, selected model identity, macOS deployment target,
 permission metadata, helper sandbox and bundled licence notices.
+
+`scripts/stage_evm_workers.py` creates the separate target-suffixed
+`minutus-evm-simulator` and `minutus-base-offline-simulator` helpers. It builds
+Cargo-locked arm64-only binaries, rejects non-system dynamic libraries and signs
+SHA256-only code directories before the host build. Generated SHA256/CDHash pins
+are embedded into the host's immutable Mach-O text section. Runtime capabilities
+accept no caller-provided paths or expected digests; every trusted launch checks
+both file bytes and the running child's kernel code identity before any input.
+The offline helper has no state broker after it receives a signed envelope.
+Bundle signing preserves these pre-signed helpers and verifies them against the
+pins embedded in that exact host. See [the pin format](../evm-workers/README.md).

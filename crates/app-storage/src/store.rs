@@ -25,10 +25,12 @@ mod audit;
 mod chat_transfers;
 mod checkpoints;
 mod compact_results;
+pub(crate) mod contract_workflows;
 mod conversations;
 mod dialogue_continuity;
 mod evm;
 mod evm_dispatch;
+pub(crate) mod evm_nonces;
 mod execution_ledgers;
 pub(crate) mod external_models;
 mod model_installs;
@@ -55,6 +57,8 @@ const ASSET_COLUMNS: &str = "id, storage_key, media_type, content_digest,
 /// This type is intentionally not serializable and is never an IPC value.
 pub struct ApplicationStore {
     connection: Connection,
+    // Live workflow claims cannot cross handles or survive reopening a database.
+    contract_attempt_owner: std::sync::Arc<()>,
 }
 
 impl ApplicationStore {
@@ -71,7 +75,10 @@ impl ApplicationStore {
 
     fn initialize(mut connection: Connection) -> Result<Self, StorageError> {
         migration::initialize(&mut connection)?;
-        Ok(Self { connection })
+        Ok(Self {
+            connection,
+            contract_attempt_owner: std::sync::Arc::new(()),
+        })
     }
 
     /// Returns the version of the validated schema.

@@ -51,6 +51,10 @@ for required in \
   fi
 done
 
+python3 "$REPOSITORY_ROOT/scripts/stage_evm_workers.py" --verify-bundle "$APPLICATION"
+python3 "$REPOSITORY_ROOT/scripts/stage_solidity_compiler.py" --verify-bundle "$APPLICATION"
+python3 "$REPOSITORY_ROOT/scripts/stage_worker_brokers.py" --verify-bundle "$APPLICATION"
+
 read -r SPEECH_DIGEST SPEECH_PATH < "$SPEECH_DIGEST_MANIFEST"
 if [ "$SPEECH_PATH" != "MacOS/zeta-whisper-helper" ] || \
   [ ${#SPEECH_DIGEST} -ne 64 ] || \
@@ -242,10 +246,16 @@ if [ "${ZETA_RELEASE_VERIFICATION:-0}" = "1" ]; then
   fi
   # The codesign identifier alone does not grant Data Protection Keychain access.
   python3 "$SCRIPT_DIRECTORY/macos-wallet-signing.py" verify "$APPLICATION"
-  for release_code in "$APPLICATION" "$WHISPER_HELPER" "$BROKER" "$XPC_SERVICE" "$RUNNER"; do
+  for release_code in "$APPLICATION" "$WHISPER_HELPER" "$BROKER" "$XPC_SERVICE" "$RUNNER" \
+    "$CONTENTS/MacOS/minutus-evm-simulator" \
+    "$CONTENTS/MacOS/minutus-base-offline-simulator" \
+    "$CONTENTS/MacOS/minutus-solidity-compiler" \
+    "$CONTENTS/XPCServices/ai.minutus.worker.compiler.xpc" \
+    "$CONTENTS/XPCServices/ai.minutus.worker.evm-online.xpc" \
+    "$CONTENTS/XPCServices/ai.minutus.worker.base-offline.xpc"; do
     if ! codesign --display --verbose=4 "$release_code" 2>&1 | \
       grep -q '^Authority=Developer ID Application:'; then
-      echo "Release verification requires Developer ID signatures on every computation boundary." >&2
+      echo "Release verification requires Developer ID signatures on every signed helper." >&2
       exit 1
     fi
   done

@@ -1,0 +1,10 @@
+{
+  "reportBytes": 3190,
+  "reportSha256": "5b989f73ffffb5a2d9d1f6d203af046d0c85a261a2455ead0a4b546c7c432232",
+  "exactTokens": 1105,
+  "observedFinalOutputCap": 6144,
+  "modelInference": false,
+  "modelBlob": "sha256-f5f1dd8920d417aac2718b0bda3403da274301efdd6760b4f0f4b864ff2ad57d",
+  "fits": true,
+  "measurement": "Actual bundled vocabulary-only zeta-tokenizer; public Qwen GGUF vocabulary; no inference, RPC or wallet access"
+}
