@@ -2,6 +2,7 @@ use super::{IpcError, ParsedToolCall, PromptToolDefinition};
 
 #[cfg(test)]
 mod tests;
+mod workflow;
 
 #[derive(Debug, Eq, PartialEq)]
 struct SchemaDefect {
@@ -9,10 +10,11 @@ struct SchemaDefect {
     expected: String,
 }
 
-/// Enriches a broker-safe validation failure with one exact, bounded correction.
-/// Schema mismatches identify the first deterministic JSON path; semantic
-/// failures retain `$` as the exact argument-document boundary. The full schema
-/// remains in the advertised tool definition and is not duplicated into history.
+/// Enriches a broker-safe validation failure with exact, bounded corrections.
+/// General mismatches identify the first deterministic JSON path; structured
+/// workflow/table errors report bounded simultaneous defects. Semantic failures
+/// retain `$` as the argument-document boundary. The full schema stays in the
+/// advertised tool definition rather than being duplicated into history.
 pub(crate) fn exact_argument_repair_error(
     call: &ParsedToolCall,
     catalogue: &[PromptToolDefinition],
@@ -34,6 +36,11 @@ pub(crate) fn exact_argument_repair_error(
     }
     if call.name == "filesystem.write_delimited_table"
         && let Some(repair) = delimited_table_repair_error(call, tool, error, &value)
+    {
+        return repair;
+    }
+    if call.name == "contract.request_workflow"
+        && let Some(repair) = workflow::repair_error(tool, error, &value)
     {
         return repair;
     }

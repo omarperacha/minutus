@@ -1,20 +1,28 @@
 //! Successful inclusion and fresh source-field assertions have separate lifetimes.
 //! These private-field certificates cannot be recreated from persisted JSON.
+use super::completion_diagnostics::{self as diagnostics, Stage};
 use super::{
     GenericComparison, GenericCondition, GenericContractCandidate, GenericContractIdentity,
-    GenericError, candidate_read::CandidateStateReader, layout,
+    GenericError, candidate_read::CandidateStateReader,
 };
 use crate::{EvmNetwork, EvmRpcUrl, contract::DeploymentProof, local_simulation};
 
+mod conditions;
+mod failure;
+pub use failure::CompletionDiagnostic;
+use failure::{Phase, Recorder};
+#[cfg(debug_assertions)]
+mod diagnosis;
 mod stages;
 use alloy_primitives::{Address, I256, U256};
-use evm_simulation::{SimulationControl, StateQuery};
+#[cfg(debug_assertions)]
+pub use diagnosis::diagnose_generic_receipt_conditions;
+use evm_simulation::SimulationControl;
 use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 pub use stages::{GenericCompletionFailure, VerifiedGenericInclusion};
 use std::{
-    collections::BTreeMap,
     str::FromStr,
     sync::atomic::AtomicBool,
     time::{Duration, Instant},
@@ -230,7 +238,7 @@ pub fn verify_generic_conditions_at_cohort(
     }
     let control = SimulationControl::start(cancelled);
     let reader = CandidateStateReader::at_cohort(endpoint, cohort, &control)?;
-    prove_conditions(cohort, identities, conditions, &control, reader)
+    prove_conditions(endpoint, cohort, identities, conditions, &control, reader)
 }
 
 /// Proves current requirements using only the candidate's sealed same-cohort
@@ -251,109 +259,20 @@ pub fn verify_generic_candidate_conditions(
     require_candidate_identity(candidate, identities)?;
     let control = SimulationControl::start(cancelled);
     let reader = CandidateStateReader::from_candidate(endpoint, candidate)?;
-    prove_conditions(cohort, identities, conditions, &control, reader)
+    prove_conditions(endpoint, cohort, identities, conditions, &control, reader)
 }
 
 fn prove_conditions(
+    endpoint: &EvmRpcUrl,
     cohort: &super::GenericLiveCohort,
     identities: &[&GenericContractIdentity],
     conditions: &[GenericCondition],
     control: &SimulationControl<'_>,
-    mut reader: CandidateStateReader<'_>,
+    reader: CandidateStateReader<'_>,
 ) -> Result<VerifiedGenericConditions, GenericError> {
-    if identities.is_empty() || identities.len() > 32 || conditions.len() > 16 {
-        return Err(GenericError::Limit);
-    }
-    if !cohort.is_fresh() {
-        return Err(GenericError::Expired);
-    }
-    let network = cohort.network();
-    let block_hash = cohort.block_hash().to_owned();
-    let mut source_commitments = Vec::with_capacity(identities.len());
-    for identity in identities {
-        if identity.network() != network {
-            return Err(GenericError::SnapshotMismatch);
-        }
-        let queries = identity.state_queries();
-        if queries.is_empty() || queries.len() > 32 {
-            return Err(GenericError::Limit);
-        }
-        for query in queries {
-            reader.query(&query, control)?;
-        }
-        source_commitments.push(identity.commitment().into());
-    }
-    let mut reads = BTreeMap::new();
-    let mut observations = Vec::with_capacity(conditions.len());
-    let mut satisfied = true;
-    for condition in conditions {
-        let address = Address::from_str(&condition.target).map_err(|_| GenericError::InvalidAbi)?;
-        if format!("{address:#x}") != condition.target {
-            return Err(GenericError::InvalidAbi);
-        }
-        let artifact = condition_artifact(identities, address)?;
-        let observed = layout::read_condition_path(
-            artifact.storage_layout(),
-            &condition.path,
-            address,
-            |query| {
-                let StateQuery::Storage {
-                    address: target,
-                    slot,
-                } = &query
-                else {
-                    return Err(GenericError::OpaqueEffects);
-                };
-                if target != &condition.target {
-                    return Err(GenericError::SnapshotMismatch);
-                }
-                let slot = U256::from_str(slot).map_err(|_| GenericError::InvalidAbi)?;
-                if let Some(value) = reads.get(&(address, slot)) {
-                    return Ok(*value);
-                }
-                if reads.len() >= 128 {
-                    return Err(GenericError::Limit);
-                }
-                let evm_simulation::StateValue::Storage { value } =
-                    reader.query(&query, control)?
-                else {
-                    return Err(GenericError::MissingState);
-                };
-                let value = U256::from_str(&value).map_err(|_| GenericError::MissingState)?;
-                reads.insert((address, slot), value);
-                Ok(value)
-            },
-        )?;
-        satisfied &= satisfies(condition, &observed.solidity_type, &observed.value)?;
-        observations.push(GenericConditionObservation {
-            condition: condition.clone(),
-            solidity_type: observed.solidity_type,
-            value: observed.value,
-        });
-    }
-    let state = reader.finish_live(cohort, control)?;
-    for identity in identities {
-        identity.verify_state(&state)?;
-    }
-    if !cohort.is_fresh() {
-        return Err(GenericError::Expired);
-    }
-    if !satisfied {
-        return Err(GenericError::ConditionUnsatisfied);
-    }
-    let material = serde_json::json!({"domain":"minutus-generic-condition-proof-v1","network":network.descriptor().caip2_id(),"sources":source_commitments,"block":block_hash,"observations":observations});
-    let proof_commitment = commitment(&material)?;
-    Ok(VerifiedGenericConditions {
-        observed_at: cohort.selected_at,
-        network,
-        source_commitments,
-        block_number: cohort.block_number(),
-        block_hash,
-        proof_commitment,
-        observations,
-    })
+    conditions::collect(cohort, identities, conditions, control, reader)?
+        .finalise(endpoint, control)
 }
-
 /// Checks exact successful inclusion separately from fresh completion conditions.
 ///
 /// # Errors
@@ -394,22 +313,32 @@ pub fn verify_generic_completion_staged(
 ) -> Result<VerifiedGenericCompletion, GenericCompletionFailure> {
     let control = SimulationControl::start(cancelled);
     let network = candidate.intent().network();
-    let header =
+    let header = diagnostics::simulation(Stage::ReceiptHeader, &control, || {
         local_simulation::canonical_header(endpoint, network, &inclusion.block_hash, &control)
-            .map_err(|_| GenericCompletionFailure::Inclusion(GenericError::SnapshotMismatch))?;
-    let checked = stages::verify(
-        network,
-        &header,
-        candidate.payload(),
-        candidate.intent().account(),
-        hash,
-        inclusion,
-        candidate.block_number(),
-    )
+    })
+    .map_err(|_| GenericCompletionFailure::Inclusion(GenericError::SnapshotMismatch))?;
+    let checked = diagnostics::generic(Stage::ExactInclusion, &control, || {
+        stages::verify(
+            network,
+            &header,
+            candidate.payload(),
+            candidate.intent().account(),
+            hash,
+            inclusion,
+            candidate.block_number(),
+        )
+    })
     .map_err(GenericCompletionFailure::Inclusion)?;
-    stages::complete(checked, |checked| {
+    stages::complete_diagnosed(checked, |checked, diagnostic| {
+        let mut recorder = Recorder::new(&control, diagnostic);
         finish_completion(
-            endpoint, candidate, identities, checked, conditions, cancelled, &control,
+            endpoint,
+            candidate,
+            identities,
+            checked,
+            conditions,
+            cancelled,
+            &mut recorder,
         )
     })
 }
@@ -421,26 +350,27 @@ fn finish_completion(
     inclusion: &VerifiedGenericInclusion,
     conditions: &[GenericCondition],
     cancelled: &AtomicBool,
-    control: &SimulationControl<'_>,
+    recorder: &mut Recorder<'_, '_>,
 ) -> Result<VerifiedGenericCompletion, GenericError> {
     let network = candidate.intent().network();
-    require_candidate_identity(candidate, identities)?;
-    let observed = verify_generic_conditions(endpoint, network, identities, conditions, cancelled)?;
-    if observed.block_number < inclusion.receipt_number {
-        return Err(GenericError::SnapshotMismatch);
-    }
-    local_simulation::canonical_header(endpoint, network, &inclusion.receipt_hash, control)
-        .map_err(|_| GenericError::SnapshotMismatch)?;
-    current_anchor(
+    let control = recorder.control();
+    diagnostics::generic(Stage::CandidateIdentity, control, || {
+        require_candidate_identity(candidate, identities)
+    })?;
+    let observed = finish_conditions(
         endpoint,
         network,
-        observed.block_hash(),
-        observed.block_number(),
-        control,
+        identities,
+        (&inclusion.receipt_hash, inclusion.receipt_number),
+        conditions,
+        cancelled,
+        recorder,
     )?;
-    if !observed.is_fresh() {
-        return Err(GenericError::Expired);
-    }
+    // All diagnostic emission is complete. Nothing may extend the original
+    // allowance between this last raw guard and full completion construction.
+    recorder.generic(Phase::FinalCurrentAnchor, || {
+        final_control(control, &observed)
+    })?;
     Ok(VerifiedGenericCompletion {
         candidate_digest: candidate.candidate_digest().into(),
         account: candidate.intent().account().into(),
@@ -449,6 +379,56 @@ fn finish_completion(
         receipt_hash: inclusion.receipt_hash.clone(),
         inclusion_commitment: inclusion.inclusion_commitment.clone(),
         conditions: observed,
+    })
+}
+
+fn final_control(
+    control: &SimulationControl<'_>,
+    observed: &VerifiedGenericConditions,
+) -> Result<(), GenericError> {
+    control.remaining().map_err(|error| match error {
+        evm_simulation::SimulationError::Cancelled | evm_simulation::SimulationError::Limit => {
+            GenericError::Expired
+        }
+        _ => GenericError::MissingState,
+    })?;
+    if !observed.is_fresh() {
+        return Err(GenericError::Expired);
+    }
+    Ok(())
+}
+
+fn finish_conditions(
+    endpoint: &EvmRpcUrl,
+    network: EvmNetwork,
+    identities: &[&GenericContractIdentity],
+    receipt: (&str, u64),
+    conditions: &[GenericCondition],
+    cancelled: &AtomicBool,
+    recorder: &mut Recorder<'_, '_>,
+) -> Result<VerifiedGenericConditions, GenericError> {
+    let control = recorder.control();
+    let pending = recorder.generic(Phase::ConditionCollection, || {
+        diagnostics::generic(Stage::CompletionConditions, control, || {
+            conditions::latest(endpoint, network, identities, conditions, cancelled)
+        })
+    })?;
+    if pending.block_number() < receipt.1 {
+        return recorder.generic(Phase::ConditionCollection, || {
+            Err(GenericError::SnapshotMismatch)
+        });
+    }
+    recorder
+        .simulation(Phase::ReceiptAnchorRecheck, || {
+            diagnostics::simulation(Stage::ReceiptAnchorRecheck, control, || {
+                local_simulation::canonical_header(endpoint, network, receipt.0, control)
+            })
+        })
+        .map_err(|_| GenericError::SnapshotMismatch)?;
+    recorder.generic(Phase::FinalCurrentAnchor, || {
+        diagnostics::generic(Stage::CompletionCurrentAnchor, control, || {
+            pending.finalise(endpoint, control)
+        })
     })
 }
 

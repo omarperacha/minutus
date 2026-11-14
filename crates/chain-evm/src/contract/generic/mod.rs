@@ -5,6 +5,7 @@ mod candidate;
 mod candidate_read;
 mod cohort;
 mod completion;
+mod completion_diagnostics;
 mod condition;
 mod effect_envelope;
 mod effects;
@@ -22,12 +23,14 @@ mod source_metadata;
 
 pub use candidate::GenericContractCandidate;
 pub use cohort::{GenericLiveCohort, select_generic_live_cohort};
+#[cfg(debug_assertions)]
+pub use completion::diagnose_generic_receipt_conditions;
 pub use completion::{
-    GenericCompletionFailure, GenericConditionObservation, VerifiedGenericCompletion,
-    VerifiedGenericConditions, VerifiedGenericGoals, VerifiedGenericInclusion,
-    VerifiedGenericPrerequisites, bind_generic_prerequisites, bind_refreshed_generic_prerequisites,
-    verify_generic_candidate_conditions, verify_generic_completion,
-    verify_generic_completion_staged, verify_generic_conditions,
+    CompletionDiagnostic, GenericCompletionFailure, GenericConditionObservation,
+    VerifiedGenericCompletion, VerifiedGenericConditions, VerifiedGenericGoals,
+    VerifiedGenericInclusion, VerifiedGenericPrerequisites, bind_generic_prerequisites,
+    bind_refreshed_generic_prerequisites, verify_generic_candidate_conditions,
+    verify_generic_completion, verify_generic_completion_staged, verify_generic_conditions,
     verify_generic_conditions_at_cohort, verify_generic_goals, verify_generic_prerequisites,
     verify_refreshed_generic_conditions,
 };

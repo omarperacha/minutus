@@ -1,5 +1,6 @@
 //! Exact native preparation in an ephemeral journal, without wallet authority.
 mod compiler_seed;
+mod completion;
 mod fixture;
 mod projection;
 mod refresh;
@@ -35,6 +36,20 @@ pub(crate) fn run(arguments: &[OsString]) -> Result<(), IpcError> {
     let mut failed = false;
     for attempt in 1..=count {
         eprintln!("Contract preparation attempt: {attempt}/{count}");
+        if options.completion {
+            match completion::run(
+                &endpoint,
+                &directory.path().join("public-contract-sources"),
+                &cancelled,
+            ) {
+                Ok(text) => println!("{text}"),
+                Err(error) => {
+                    eprintln!("Read-only completion diagnostic failed: {}", error.message);
+                    failed = true;
+                }
+            }
+            continue;
+        }
         let result = fixture::with(
             &directory.path().join(format!("attempt-{attempt}")),
             |fixture| {
@@ -96,6 +111,7 @@ pub(crate) fn run(arguments: &[OsString]) -> Result<(), IpcError> {
 struct Options {
     attempts: u8,
     refresh: bool,
+    completion: bool,
     cached_compiler: Option<PathBuf>,
 }
 impl Options {
@@ -103,6 +119,7 @@ impl Options {
         let mut options = Self {
             attempts: 1,
             refresh: false,
+            completion: false,
             cached_compiler: None,
         };
         let mut arguments = arguments.iter();
@@ -111,6 +128,8 @@ impl Options {
                 options.attempts = 3;
             } else if argument == OsStr::new("--refresh") && !options.refresh {
                 options.refresh = true;
+            } else if argument == OsStr::new("--completion") && !options.completion {
+                options.completion = true;
             } else if argument == OsStr::new("--cached-compiler")
                 && options.cached_compiler.is_none()
             {
@@ -125,9 +144,14 @@ impl Options {
                 options.cached_compiler = Some(PathBuf::from(path));
             } else {
                 return Err(IpcError::invalid_request(
-                    "Expected optional --refresh, --repeat and --cached-compiler path once each for the fixed public preparation fixture",
+                    "Expected optional --refresh or --completion, --repeat and --cached-compiler path once each for the fixed public read-only fixture",
                 ));
             }
+        }
+        if options.refresh && options.completion {
+            return Err(IpcError::invalid_request(
+                "Completion diagnosis cannot refresh or prepare a write candidate",
+            ));
         }
         Ok(options)
     }
@@ -146,6 +170,9 @@ mod tests {
             assert!(Options::parse(&[argument.into()]).is_err());
         }
         assert!(Options::parse(&["--repeat".into(), "--repeat".into()]).is_err());
+        assert!(Options::parse(&["--completion".into()])?.completion);
+        assert!(Options::parse(&["--completion".into(), "--refresh".into()]).is_err());
+        assert!(Options::parse(&["--completion".into(), "--completion".into()]).is_err());
         assert_eq!(
             Options::parse(&[
                 "--cached-compiler".into(),

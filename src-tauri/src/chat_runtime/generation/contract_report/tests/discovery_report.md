@@ -1,3 +1,8 @@
+Authoritative outcome:
+Canonical transaction inclusion is not established by this workflow report; submission and receipt reports remain separate facts.
+Formal workflow completion: unverified. Confirmed execution or a desired getter value cannot establish it.
+Separate unsigned reads retain their own values and blocks; they do not establish workflow completion or causation.
+
 Contract workflow: stopped.
 
 Initial wallet unlock succeeded; the initial unlock was not cancelled. Outbound data-access consent was approved. Source preflight succeeded. Step 1: Exact transaction review was approved. Fresh signing authentication succeeded. A signature was returned to the host. Pre-send refresh succeeded. Submission was acknowledged; acknowledgement alone does not establish inclusion or goal completion. The native password dialog was accepted; acceptance alone does not establish successful authentication. Native password authentication succeeded. These facts describe this invocation only. Current wallet lock state was not observed. A generic error code does not establish the cause. Do not retry or clean up automatically.

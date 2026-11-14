@@ -191,6 +191,15 @@ nodes alone cannot advance that lifecycle stage. Later source/state/completion
 failure retains the proved inclusion fact without granting completion or current
 goal credit; an inclusion-phase rejection remains inclusion-unavailable.
 
+Post-inclusion completion uses private pending condition data until the final
+receipt and current-state anchors pass. It retains proof-reader canonicality,
+source identity, typed predicates and the original cohort freshness clock, while
+performing the final cohort/head recheck once under the original aggregate
+control. Pending data is not a condition or completion certificate and cannot
+escape that owner. Standalone condition checks retain their own final recheck.
+This avoids duplicate network work without increasing proof deadlines or
+accepting a result after expiry, cancellation or reorganisation.
+
 `contract.reconcile_transaction` accepts only a hash already retained for a
 dispatched version 2 workflow in the same conversation. The host selects its
 original network, account, nonce and signing digest from validated immutable

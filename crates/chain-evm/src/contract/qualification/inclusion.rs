@@ -13,6 +13,25 @@ pub(super) struct CheckedInclusion {
     pub(super) succeeded: bool,
 }
 
+#[cfg(debug_assertions)]
+pub(crate) fn verify_public_success(
+    network: EvmNetwork,
+    header: &Header,
+    proof: &DeploymentProof,
+) -> Result<(), QualificationError> {
+    let transaction = deployment::hex(&proof.transaction, 8192, false)?;
+    let checked = verify(
+        network,
+        header,
+        &format!("{:#x}", keccak256(transaction)),
+        proof,
+    )?;
+    if !checked.succeeded || checked.signed.recover_signer().is_err() {
+        return Err(QualificationError::SnapshotMismatch);
+    }
+    Ok(())
+}
+
 pub(super) fn verify(
     network: EvmNetwork,
     header: &Header,

@@ -62,6 +62,12 @@ Read this reference when changing agent behaviour, tools or orchestration; the
   cardinalities so one continuation can repair the whole call. Keep the accepted semantic
   step and checkpoint intact, and re-expose the rejected operation plus bounded
   same-step alternatives for changed-input repair.
+  Version 2 contract workflow corrections report simultaneous declaration
+  defects with a compact neutral example. Diagnostics have explicit visit,
+  depth, count and byte limits; incomplete inspection and clipped paths must be
+  labelled. They never rewrite arguments, guess missing business scope, consume
+  a write attempt or increase recovery allowances. Users need not supply the
+  host's internal tool schema to recover from a malformed model call.
 - Version incompatible tool and action vocabulary. Keep old parsers and operation
   handlers only for persisted history that declares the old version; do not
   advertise competing aliases to new runs. Normalise only transport-equivalent
@@ -214,6 +220,13 @@ Read this reference when changing agent behaviour, tools or orchestration; the
   revision, contract-only related read/write stages and no unrelated results.
   Initial planning may adopt earlier `contract.inspect` metadata from the same
   request; pre-plan reads/writes and subsequent plan revisions remain excluded.
+  The same bounded report may also replace text after the model has independently
+  emitted a no-tool final answer with a normal stop. This reporting boundary
+  does not acknowledge unfinished advisory stages, establish final readiness or
+  change the callable surface. A length-exhausted response or unrelated synthesis
+  does not qualify. Ordinary final-answer output admission applies to the report
+  even when the preceding model pass used an evidence profile; that actual pass
+  retains its normal usage and timeline record.
   Retain all material transaction, receipt, proof, completion, residual and
   failure facts together with exact requested calls. Later same-scope unsigned
   reads or receipt reconciliation remain separate observations and cannot
@@ -223,6 +236,12 @@ Read this reference when changing agent behaviour, tools or orchestration; the
   output budget fall back to normal inference. This route creates no model pass,
   usage, evidence, progress, approval, retry or signing authority. Never retain
   callable tools or claim cache reuse merely to preserve a final prompt prefix.
+  Report confirmed execution, unsigned getter values and formal workflow
+  completion separately. Receipt reconciliation marked `notReverified` with
+  current goals `notRechecked` cannot turn unavailable completion proof into a
+  verified workflow, even if a later getter returns the desired value. Normal
+  model synthesis retains this same reporting policy when a native report is
+  ineligible; stage acknowledgement cannot upgrade the host's proof state.
   Move rich-input reminders, summaries and mutable ledger projections
   to the tail as well. Measure admitted
   tokens, active tool count and contract bytes, provider prompt/cache metrics,

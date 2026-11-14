@@ -88,7 +88,7 @@ impl HostContractReport {
         }
     }
 
-    fn reconciliation(&self, request: &Value, value: &Value) -> Option<Value> {
+    pub(super) fn reconciliation(&self, request: &Value, value: &Value) -> Option<Value> {
         let hash = TransactionHash::new(request["transactionHash"].as_str()?).ok()?;
         if !self.hashes.contains(hash.as_str())
             || value["transactionHash"] != hash.as_str()
@@ -108,6 +108,20 @@ impl HostContractReport {
             )
         {
             return None;
+        }
+        if matches!(
+            value["state"].as_str()?,
+            "executionConfirmed" | "executionReverted"
+        ) {
+            let number = value["receiptBlockNumber"].as_str()?;
+            if number.parse::<u64>().ok()?.to_string() != number
+                || TransactionHash::new(value["receiptBlockHash"].as_str()?).is_err()
+                || value["canonicalAtObservation"] != true
+                || value["workflowCompletion"] != "notReverified"
+                || value["currentGoals"] != "notRechecked"
+            {
+                return None;
+            }
         }
         Some(value.clone())
     }

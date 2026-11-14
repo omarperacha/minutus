@@ -112,6 +112,26 @@ while a later completion failure retains an actual opaque inclusion certificate
 without completing the workflow. These fixtures do not grant signing authority
 or replace live source/state completion qualification.
 
+Debug-only `--qualify-contract-preparation --completion` diagnoses the retained
+Sepolia transaction
+`0x7080f780fc5bada96b17756bf702b191b8b62994afa606a6c37bfb2da4aa5b0c`
+and current source-field condition `number == 42` without application/vault
+startup, candidate construction, signing or submission. It reuses public
+inclusion acquisition, reproduced source and the production post-inclusion
+condition/final-anchor path under unchanged controls. It does not restore the
+historical workflow's approved-body binding or completion certificate. Normal
+release binaries reject the mode before native RPC settings are accessed.
+Opt-in closed stage diagnostics distinguish failed proof operations and budget
+exhaustion without provider prose, credentials, code, calldata or signatures.
+
+The captured malformed workflow calls and the later confirmed execution plus
+unavailable formal completion are separate regressions. Verify bounded multi-path
+argument corrections without execution, and truthful deterministic reporting
+when a cohesive contract task ends with a normal no-tool model final answer
+before its last advisory bookkeeping stage is acknowledged. Neither correction
+nor reporting can advance the plan, grant a write, or upgrade a getter into a
+workflow completion proof.
+
 ## Initial native unlock
 
 An existing selected locked account opens the same native unlock prompt used by

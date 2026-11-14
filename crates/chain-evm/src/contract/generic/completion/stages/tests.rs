@@ -145,3 +145,41 @@ fn valid_exact_inclusion_survives_later_source_condition_or_anchor_failure()
     }
     Ok(())
 }
+
+#[test]
+fn closed_failure_metadata_preserves_the_original_legacy_error() -> Result<(), GenericError> {
+    use crate::contract::generic::completion::failure::{Phase, Recorder};
+    use std::sync::atomic::AtomicBool;
+    for error in [
+        GenericError::SnapshotMismatch,
+        GenericError::ConditionUnsatisfied,
+    ] {
+        let (header, payload, account, hash, proof) = fixture()?;
+        let seal = verify(
+            EvmNetwork::EthereumMainnet,
+            &header,
+            &payload,
+            &account,
+            &hash,
+            &proof,
+            100,
+        )?;
+        let cancelled = AtomicBool::new(true);
+        let control = evm_simulation::SimulationControl::start(&cancelled);
+        let Err(failure) = complete_diagnosed::<()>(seal, |_, diagnostic| {
+            let mut recorder = Recorder::new(&control, diagnostic);
+            recorder.generic(Phase::FinalCurrentAnchor, || Err(error))
+        }) else {
+            return Err(GenericError::ExecutionRejected);
+        };
+        let diagnostic = failure
+            .diagnostic()
+            .ok_or(GenericError::ExecutionRejected)?;
+        let text = diagnostic.to_string();
+        assert!(text.contains("phase=FinalCurrentAnchor"));
+        assert!(text.contains("originalControl=cancelled"));
+        assert!(text.len() < 384);
+        assert_eq!(failure.into_error(), error);
+    }
+    Ok(())
+}

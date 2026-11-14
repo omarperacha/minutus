@@ -701,8 +701,27 @@ fn execute_chat_generation_inner(
             );
             continue;
         }
-        if let Some(terminal) = terminal_without_tool_calls(&mut generated, &tool_state.plan_policy)
+        if let Some(mut terminal) =
+            terminal_without_tool_calls(&mut generated, &tool_state.plan_policy)
         {
+            if let Some(report) = tool_state.contract_report.after_model_final(
+                core,
+                &conversation,
+                &tool_state.plan_policy,
+                &terminal,
+                execution_profile,
+            ) {
+                if cancellation_requested.load(Ordering::Acquire) {
+                    return ChatTerminal::Cancelled;
+                }
+                terminal = report;
+                #[cfg(debug_assertions)]
+                core.record_development_tool_trace(&serde_json::json!({
+                    "event":"host_terminal_report","requestId":request_id.0,
+                    "conversationId":conversation.id.0,"source":"nativeContractOutcome",
+                    "afterModelFinalDecision":true,"modelPassStarted":true
+                }));
+            }
             telemetry.finish_round_post(
                 core,
                 request_id,

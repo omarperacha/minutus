@@ -103,7 +103,8 @@ impl ContractReportState {
                 return None;
             }
         }
-        Some(rendered)
+        let rendered = format!("{}\n\n{rendered}", report.status_summary(&self.exchanges)?);
+        (rendered.len() <= MAX_REPORT_BYTES).then_some(rendered)
     }
 
     pub(super) fn terminal(
@@ -129,6 +130,62 @@ impl ContractReportState {
             reason: FinishReason::Stop,
             mutation_applied: false,
         })
+    }
+
+    fn model_final_text(&self, policy: &PlanPolicy, terminal: &ChatTerminal) -> Option<String> {
+        if !matches!(
+            terminal,
+            ChatTerminal::Final {
+                reason: FinishReason::Stop,
+                ..
+            }
+        ) || !policy.contract_report_eligible()
+        {
+            return None;
+        }
+        // The model already chose to finish. Reporting the actual outcomes does
+        // not acknowledge pending stages or narrow any callable tool surface.
+        self.render(policy.revision())
+    }
+
+    pub(super) fn after_model_final(
+        &self,
+        core: &AppCore,
+        conversation: &Conversation,
+        policy: &PlanPolicy,
+        terminal: &ChatTerminal,
+        profile: ExecutionProfileDecision,
+    ) -> Option<ChatTerminal> {
+        let rendered = self.model_final_text(policy, terminal)?;
+        let final_profile = reporting_profile(profile);
+        if !core
+            .admit_host_final_report(
+                conversation,
+                self.binding.as_ref()?,
+                &rendered,
+                final_profile,
+            )
+            .ok()?
+        {
+            return None;
+        }
+        Some(ChatTerminal::Final {
+            reasoning: None,
+            text: rendered,
+            reason: FinishReason::Stop,
+            mutation_applied: false,
+        })
+    }
+}
+
+fn reporting_profile(profile: ExecutionProfileDecision) -> ExecutionProfileDecision {
+    // The model's explicit final decision selects ordinary final-report work,
+    // not a new provider pass or any caller-selected output-token allowance.
+    ExecutionProfileDecision {
+        work: agent_core::ExecutionWorkKind::FinalResponse,
+        bounded_action: false,
+        bulk_arguments: false,
+        ..profile
     }
 }
 

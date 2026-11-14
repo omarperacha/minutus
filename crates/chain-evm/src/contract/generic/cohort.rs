@@ -1,5 +1,6 @@
 //! Host-selected live snapshots retain the selection clock through every proof.
 use super::GenericError;
+use super::completion_diagnostics::{self as diagnostics, Stage};
 use crate::{EvmNetwork, EvmRpcUrl, local_simulation};
 use evm_simulation::SimulationControl;
 use std::{
@@ -77,8 +78,10 @@ pub fn select_generic_live_cohort(
 ) -> Result<GenericLiveCohort, GenericError> {
     let selected_at = Instant::now();
     let control = SimulationControl::start(cancelled);
-    let header = local_simulation::latest_header(endpoint, network, &control)
-        .map_err(|_| GenericError::SnapshotMismatch)?;
+    let header = diagnostics::simulation(Stage::ConditionCohortSelection, &control, || {
+        local_simulation::latest_header(endpoint, network, &control)
+    })
+    .map_err(|_| GenericError::SnapshotMismatch)?;
     let cohort = GenericLiveCohort {
         network,
         block_hash: format!("{:#x}", header.hash_slow()),
@@ -99,10 +102,14 @@ pub(super) fn canonical_live_anchor(
     number: u64,
     control: &SimulationControl<'_>,
 ) -> Result<(), GenericError> {
-    let head = local_simulation::latest_header(endpoint, network, control)
-        .map_err(|_| GenericError::SnapshotMismatch)?;
-    let anchor = local_simulation::canonical_header(endpoint, network, hash, control)
-        .map_err(|_| GenericError::SnapshotMismatch)?;
+    let head = diagnostics::simulation(Stage::LiveHeadRecheck, control, || {
+        local_simulation::latest_header(endpoint, network, control)
+    })
+    .map_err(|_| GenericError::SnapshotMismatch)?;
+    let anchor = diagnostics::simulation(Stage::LiveAnchorRecheck, control, || {
+        local_simulation::canonical_header(endpoint, network, hash, control)
+    })
+    .map_err(|_| GenericError::SnapshotMismatch)?;
     check_heights(number, anchor.number, head.number)
 }
 fn check_heights(expected: u64, anchor: u64, head: u64) -> Result<(), GenericError> {

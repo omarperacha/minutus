@@ -9,6 +9,8 @@ pub(crate) struct HostContractReport {
     network: String,
     targets: Vec<String>,
     pub(super) hashes: BTreeSet<String>,
+    pub(super) workflow_verified: bool,
+    pub(super) inclusion_verified: bool,
     rendered: String,
 }
 impl HostContractReport {
@@ -105,6 +107,10 @@ pub(crate) fn from_exchange(exchange: &ChatToolExchange) -> Option<HostContractR
         network,
         targets,
         hashes,
+        workflow_verified: state == "verified",
+        inclusion_verified: steps
+            .iter()
+            .any(|step| step["postSubmission"]["inclusionProof"] == "verified"),
         rendered,
     })
 }

@@ -4,8 +4,11 @@ use std::collections::BTreeSet;
 
 impl PlanPolicy {
     pub(in crate::chat_runtime) fn contract_report_ready(&self) -> bool {
-        self.final_response_ready()
-            && self.contract_version == Some(PlanContractVersion::SemanticExecutionV6)
+        self.final_response_ready() && self.contract_report_eligible()
+    }
+    /// Reporting eligibility grants neither stage completion nor final readiness.
+    pub(in crate::chat_runtime) fn contract_report_eligible(&self) -> bool {
+        self.contract_version == Some(PlanContractVersion::SemanticExecutionV6)
             && self.semantic_contract.as_ref().is_some_and(cohesive)
     }
 }

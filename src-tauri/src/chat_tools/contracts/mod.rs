@@ -9,6 +9,7 @@ mod review;
 mod schema;
 mod source;
 mod workflow_schema;
+pub(in crate::chat_tools) use workflow_schema::WORKFLOW_V2_EXAMPLE;
 mod write;
 
 pub(super) use execution::execute;

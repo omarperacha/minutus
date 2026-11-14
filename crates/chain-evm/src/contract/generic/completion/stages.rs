@@ -1,5 +1,5 @@
 //! Only the exact inclusion verifier can produce the post-inclusion stage seal.
-use super::{GenericError, commitment};
+use super::{CompletionDiagnostic, GenericError, commitment};
 use crate::{
     EvmNetwork,
     contract::{DeploymentProof, qualification::verify_transaction_inclusion},
@@ -15,6 +15,7 @@ pub struct VerifiedGenericInclusion {
     pub(super) receipt_number: u64,
     pub(super) receipt_hash: String,
     pub(super) inclusion_commitment: String,
+    diagnostic: Option<Box<CompletionDiagnostic>>,
 }
 impl VerifiedGenericInclusion {
     /// Exact signed transaction whose inclusion passed verification.
@@ -38,6 +39,14 @@ pub enum GenericCompletionFailure {
     },
 }
 impl GenericCompletionFailure {
+    /// Closed post-inclusion failure facts, with no change to the legacy error.
+    #[must_use]
+    pub fn diagnostic(&self) -> Option<&CompletionDiagnostic> {
+        match self {
+            Self::Inclusion(_) => None,
+            Self::Completion { inclusion, .. } => inclusion.diagnostic.as_deref(),
+        }
+    }
     /// Returns the original legacy error without granting stage evidence.
     #[must_use]
     pub fn into_error(self) -> GenericError {
@@ -47,11 +56,26 @@ impl GenericCompletionFailure {
     }
 }
 
+#[cfg(test)]
 pub(super) fn complete<T>(
     inclusion: VerifiedGenericInclusion,
     operation: impl FnOnce(&VerifiedGenericInclusion) -> Result<T, GenericError>,
 ) -> Result<T, GenericCompletionFailure> {
-    operation(&inclusion).map_err(|error| GenericCompletionFailure::Completion { inclusion, error })
+    complete_diagnosed(inclusion, |checked, _| operation(checked))
+}
+
+pub(super) fn complete_diagnosed<T>(
+    mut inclusion: VerifiedGenericInclusion,
+    operation: impl FnOnce(
+        &VerifiedGenericInclusion,
+        &mut Option<CompletionDiagnostic>,
+    ) -> Result<T, GenericError>,
+) -> Result<T, GenericCompletionFailure> {
+    let mut diagnostic = None;
+    operation(&inclusion, &mut diagnostic).map_err(|error| {
+        inclusion.diagnostic = diagnostic.map(Box::new);
+        GenericCompletionFailure::Completion { inclusion, error }
+    })
 }
 
 pub(super) fn verify(
@@ -73,6 +97,7 @@ pub(super) fn verify(
         receipt_number: header.number,
         receipt_hash: proof.block_hash.clone(),
         inclusion_commitment: commitment(proof)?,
+        diagnostic: None,
     })
 }
 

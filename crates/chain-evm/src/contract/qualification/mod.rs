@@ -12,6 +12,8 @@ pub use deployment::DeploymentProof;
 mod error;
 mod identity;
 mod inclusion;
+#[cfg(debug_assertions)]
+pub(crate) use inclusion::verify_public_success as verify_public_successful_inclusion;
 mod material;
 mod profile;
 mod qualified;

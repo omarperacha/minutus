@@ -4,6 +4,7 @@ use serde_json::Value;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 mod ordering;
+mod reconciled;
 fn fixtures() -> Result<Vec<(ParsedToolCall, ChatToolExchange)>, Box<dyn std::error::Error>> {
     let values: Vec<Value> = serde_json::from_str(include_str!(
         "../../../chat_tools/contracts/host_report/public_postsubmit_fixture.json"

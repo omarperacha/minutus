@@ -1,4 +1,5 @@
 //! Exact-root reads borrow sealed replay evidence; missing facts remain proof IO.
+use super::completion_diagnostics::{self as diagnostics, Stage};
 use super::{GenericContractCandidate, GenericError, GenericLiveCohort};
 use crate::{
     EvmNetwork, EvmRpcUrl,
@@ -24,8 +25,10 @@ impl<'a> CandidateStateReader<'a> {
         cohort: &'a GenericLiveCohort,
         control: &SimulationControl<'_>,
     ) -> Result<Self, GenericError> {
-        let reader = ProvedReader::new(endpoint, cohort.network(), cohort.block_hash(), control)
-            .map_err(state_error)?;
+        let reader = diagnostics::simulation(Stage::ConditionReaderSetup, control, || {
+            ProvedReader::new(endpoint, cohort.network(), cohort.block_hash(), control)
+        })
+        .map_err(state_error)?;
         if reader.block_number() != cohort.block_number() {
             return Err(GenericError::SnapshotMismatch);
         }
@@ -90,34 +93,41 @@ impl<'a> CandidateStateReader<'a> {
             return Ok(value);
         }
         if self.missing.is_none() {
-            let reader = ProvedReader::new(self.endpoint, self.network, self.hash, control)
-                .map_err(state_error)?;
+            let reader = diagnostics::simulation(Stage::ConditionReaderSetup, control, || {
+                ProvedReader::new(self.endpoint, self.network, self.hash, control)
+            })
+            .map_err(state_error)?;
             if reader.block_number() != self.number || reader.state_root() != self.root {
                 return Err(GenericError::SnapshotMismatch);
             }
             self.missing = Some(reader);
         }
-        self.missing
-            .as_mut()
-            .ok_or(GenericError::MissingState)?
-            .query(query, control)
-            .map_err(state_error)
+        diagnostics::simulation(Stage::ReaderQuery, control, || {
+            self.missing
+                .as_mut()
+                .ok_or(evm_simulation::SimulationError::StateUnavailable)?
+                .query(query, control)
+        })
+        .map_err(state_error)
     }
     pub(super) fn finish(
         self,
         control: &SimulationControl<'_>,
     ) -> Result<ProvedState, GenericError> {
         if self.missing.is_none() {
-            let header =
+            let header = diagnostics::simulation(Stage::ReaderCanonicalFinish, control, || {
                 local_simulation::canonical_header(self.endpoint, self.network, self.hash, control)
-                    .map_err(state_error)?;
+            })
+            .map_err(state_error)?;
             if header.number != self.number || header.state_root != self.root {
                 return Err(GenericError::SnapshotMismatch);
             }
         }
         self.collect(control)
     }
-    pub(super) fn finish_live(
+    // This releases only private proof state, never a condition certificate.
+    // Its caller must finalise the retained cohort before exposing conditions.
+    pub(super) fn finish_pending(
         self,
         cohort: &GenericLiveCohort,
         control: &SimulationControl<'_>,
@@ -128,15 +138,16 @@ impl<'a> CandidateStateReader<'a> {
         {
             return Err(GenericError::SnapshotMismatch);
         }
-        let endpoint = self.endpoint;
-        let state = self.collect(control)?;
-        cohort.check(endpoint, control)?;
-        Ok(state)
+        self.collect(control)
     }
     fn collect(self, control: &SimulationControl<'_>) -> Result<ProvedState, GenericError> {
         let extra = self
             .missing
-            .map(|reader| reader.finish(control))
+            .map(|reader| {
+                diagnostics::simulation(Stage::ReaderCanonicalFinish, control, || {
+                    reader.finish(control)
+                })
+            })
             .transpose()
             .map_err(state_error)?;
         match (self.before, extra) {

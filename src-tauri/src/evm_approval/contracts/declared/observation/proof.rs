@@ -36,14 +36,27 @@ impl ProofFailure {
 }
 impl From<GenericCompletionFailure> for ProofFailure {
     fn from(error: GenericCompletionFailure) -> Self {
+        let diagnostic = error.diagnostic().copied();
         match error {
             GenericCompletionFailure::Inclusion(error) => Self::Inclusion(error.into()),
             GenericCompletionFailure::Completion { inclusion, error } => Self::Completion {
                 inclusion,
-                failure: error.into(),
+                failure: diagnosed_failure(error, diagnostic),
             },
         }
     }
+}
+
+fn diagnosed_failure(
+    error: GenericError,
+    diagnostic: Option<chain_evm::contract::generic::CompletionDiagnostic>,
+) -> ObservationFailure {
+    let mut failure = ObservationFailure::from(error);
+    if let (ObservationFailure::Unknown(error), Some(diagnostic)) = (&mut failure, diagnostic) {
+        use std::fmt::Write as _;
+        let _ = write!(error.message, "; {diagnostic}");
+    }
+    failure
 }
 
 pub(super) async fn prove(
