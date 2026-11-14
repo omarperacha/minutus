@@ -11,12 +11,21 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import urllib.error
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 PROFILE = ROOT / 'crates/chain-evm/profiles/erc20-oz-5.7.0'
 MANIFEST_SHA256 = '7f90b52883050e63b66d7215d0571f0d18cc3b7f2ab5d299074200af7568044b'
 REVISION = '76df8832488cb0beac36a11b032a1240a39f05202b4c604d580e0485645feef7'
+# The versioned file in Solidity's official solc-bin repository contains the
+# identical compiler bytes. Platform-directory entries there can be symlinks;
+# use the concrete bin artefact, never execute a mirror's unverified payload.
+OFFICIAL_COMPILER_MIRROR = (
+    'https://raw.githubusercontent.com/ethereum/solc-bin/gh-pages/bin/'
+    'soljson-v0.8.38+commit.1835d247.js'
+)
+MAX_COMPILER_BYTES = 64 * 1024 * 1024
 CORE_NAMES = ('schemaVersion', 'profileId', 'sourceRevision', 'sourceBundleSha256',
               'compilerSha256', 'inputSha256', 'runtimeKeccak256', 'abiSha256',
               'storageLayoutSha256')
@@ -62,6 +71,26 @@ def verify_profile(root=PROFILE):
     return manifest
 
 
+def download_compiler(manifest):
+    """Use fixed official sources; reject mismatched bytes before execution."""
+    sources = (manifest['compiler']['downloadUrl'], OFFICIAL_COMPILER_MIRROR)
+    failures = []
+    for url in sources:
+        try:
+            with urllib.request.urlopen(url, timeout=30) as response:
+                data = response.read(MAX_COMPILER_BYTES + 1)
+        except (urllib.error.URLError, TimeoutError) as error:
+            failures.append(f'{url}: {error}')
+            continue
+        if len(data) > MAX_COMPILER_BYTES:
+            raise ValueError('Compiler exceeds reviewed download bound')
+        if sha(data) != manifest['compilerSha256']:
+            raise ValueError('Official build-only compiler checksum mismatch')
+        return data
+    raise RuntimeError('Pinned compiler unavailable from official sources: '
+                       + '; '.join(failures))
+
+
 def reproduce(manifest, compiler, node):
     if sha(compiler.read_bytes()) != manifest['compilerSha256']:
         raise ValueError('Official build-only compiler checksum mismatch')
@@ -81,11 +110,7 @@ def main():
     elif args.reproduce:
         with tempfile.TemporaryDirectory(prefix='minutus-profile-compiler-') as directory:
             compiler = Path(directory) / 'soljson.js'
-            with urllib.request.urlopen(manifest['compiler']['downloadUrl'], timeout=30) as response:
-                data = response.read(64 * 1024 * 1024 + 1)
-            if len(data) > 64 * 1024 * 1024:
-                raise ValueError('Compiler exceeds reviewed download bound')
-            compiler.write_bytes(data)
+            compiler.write_bytes(download_compiler(manifest))
             reproduce(manifest, compiler, args.node)
     print('Reviewed contract profile source, compiler settings and artifacts match immutable pins')
 
