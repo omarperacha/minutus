@@ -1,12 +1,18 @@
 //! macOS-owned wallet secret presentation and input surfaces.
+pub(crate) mod modal;
+mod password_prompt;
+pub(crate) use password_prompt::{PASSWORD_MISMATCH_MESSAGE, PasswordPrompt};
 
 use ipc_types::IpcError;
 use objc2::{MainThreadMarker, rc::autoreleasepool};
+#[cfg(feature = "password-vault-prototype")]
+use objc2_app_kit::NSRunningApplication;
 use objc2_app_kit::{
-    NSAlert, NSAlertFirstButtonReturn, NSAlertStyle, NSApplication, NSRunningApplication,
-    NSSecureTextField, NSTextField,
+    NSAlert, NSAlertFirstButtonReturn, NSAlertSecondButtonReturn, NSAlertStyle, NSApplication,
+    NSModalResponseAbort, NSSecureTextField, NSTextField,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
+#[cfg(feature = "password-vault-prototype")]
 use std::{
     thread,
     time::{Duration, Instant},
@@ -17,10 +23,11 @@ use zeroize::Zeroizing;
 
 /// Reports whether Minutus remains the active macOS application.
 ///
-/// The frontmost application is the relevant signing observation. A native
+/// Legacy prototype authorisation retains its foreground policy. A native
 /// authentication window can temporarily remove focus from the webview
 /// window without backgrounding Minutus, so window focus is not a sound proxy for
 /// this security boundary.
+#[cfg(feature = "password-vault-prototype")]
 pub(crate) fn application_is_active_after_authorization() -> bool {
     const RESTORATION_TIMEOUT: Duration = Duration::from_secs(1);
     const POLL_INTERVAL: Duration = Duration::from_millis(10);
@@ -39,12 +46,15 @@ pub(crate) fn application_is_active_after_authorization() -> bool {
 
 pub(crate) async fn present_recovery_phrase(
     app: &tauri::AppHandle,
+    job: &wallet_core::PasswordVaultJob,
     mut phrase: RecoveryPhrase,
 ) -> Result<Option<RecoveryPhrase>, IpcError> {
     let (sender, receiver) = oneshot::channel();
+    let modal_request = modal::ModalRequest::for_job(job);
     app.run_on_main_thread(move || {
         let result = autoreleasepool(|_| {
             let mtm = MainThreadMarker::new().ok_or_else(IpcError::internal)?;
+            modal_request.check()?;
             let accepted = phrase
                 .present_once_for_onboarding(|words| {
                     let recovery_text = Zeroizing::new(format!(
@@ -56,6 +66,7 @@ pub(crate) async fn present_recovery_phrase(
                     alert.setInformativeText(&NSString::from_str(&recovery_text));
                     alert.addButtonWithTitle(&NSString::from_str("I saved it securely"));
                     alert.addButtonWithTitle(&NSString::from_str("Cancel"));
+                    let Ok(_modal) = modal_request.register(alert.window()) else { return false; };
                     let accepted=alert.runModal() == NSAlertFirstButtonReturn;
                     alert.setInformativeText(&NSString::new());
                     alert.window().close();
@@ -112,15 +123,18 @@ pub(crate) async fn confirm(
     let body = body.to_owned();
     let accept = accept.to_owned();
     let (sender, receiver) = oneshot::channel();
+    let modal_request = modal::ModalRequest::new();
     app.run_on_main_thread(move || {
         let result = autoreleasepool(|_| {
             let mtm = MainThreadMarker::new().ok_or_else(IpcError::internal)?;
+            modal_request.check()?;
             let alert = NSAlert::new(mtm);
             alert.setAlertStyle(NSAlertStyle::Warning);
             alert.setMessageText(&NSString::from_str(&title));
             alert.setInformativeText(&NSString::from_str(&body));
             alert.addButtonWithTitle(&NSString::from_str(&accept));
             alert.addButtonWithTitle(&NSString::from_str("Cancel"));
+            let _modal = modal_request.register(alert.window())?;
             Ok(alert.runModal() == NSAlertFirstButtonReturn)
         });
         let _ = sender.send(result);
@@ -138,14 +152,17 @@ pub(super) async fn show_message(
     let title = title.to_owned();
     let body = body.to_owned();
     let (sender, receiver) = oneshot::channel();
+    let modal_request = modal::ModalRequest::new();
     app.run_on_main_thread(move || {
         let result = autoreleasepool(|_| {
             let mtm = MainThreadMarker::new().ok_or_else(IpcError::internal)?;
+            modal_request.check()?;
             let alert = NSAlert::new(mtm);
             alert.setAlertStyle(NSAlertStyle::Warning);
             alert.setMessageText(&NSString::from_str(&title));
             alert.setInformativeText(&NSString::from_str(&body));
             alert.addButtonWithTitle(&NSString::from_str("OK"));
+            let _modal = modal_request.register(alert.window())?;
             alert.runModal();
             alert.window().close();
             Ok(())
@@ -158,15 +175,18 @@ pub(super) async fn show_message(
 
 pub(crate) async fn request_secret_owned(
     app: &tauri::AppHandle,
+    job: &wallet_core::PasswordVaultJob,
     title: &str,
     prompt: &str,
 ) -> Result<Option<Zeroizing<String>>, IpcError> {
     let title = title.to_owned();
     let prompt = prompt.to_owned();
     let (sender, receiver) = oneshot::channel();
+    let modal_request = modal::ModalRequest::for_job(job);
     app.run_on_main_thread(move || {
         let result = autoreleasepool(|_| {
             let mtm = MainThreadMarker::new().ok_or_else(IpcError::internal)?;
+            modal_request.check()?;
             let alert = NSAlert::new(mtm);
             alert.setMessageText(&NSString::from_str(&title));
             alert.setInformativeText(&NSString::from_str(&prompt));
@@ -177,6 +197,7 @@ pub(crate) async fn request_secret_owned(
                 NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(420.0, 24.0)),
             );
             alert.setAccessoryView(Some(&field));
+            let _modal = modal_request.register(alert.window())?;
             if alert.runModal() != NSAlertFirstButtonReturn {
                 field.setStringValue(&NSString::new());
                 alert.window().close();
@@ -196,81 +217,103 @@ pub(crate) async fn request_secret_owned(
     receiver.await.map_err(|_| IpcError::internal())?
 }
 
-/// Native dialog intent; creation guidance is shown only when choosing a password.
-pub(crate) enum PasswordPrompt {
-    Enter,
-    Existing,
-    Create,
-    Confirm,
-}
-
-pub(crate) const PASSWORD_MISMATCH_MESSAGE: &str = "Passwords do not match; start again";
-
-fn password_input_error(prompt: &PasswordPrompt, message: &str) -> IpcError {
-    // The first entry is already policy-valid. An invalid confirmation cannot
-    // equal it, so explain the mismatch rather than how to choose a password.
-    super::wallet_error(
-        match prompt {
-            PasswordPrompt::Confirm => PASSWORD_MISMATCH_MESSAGE,
-            PasswordPrompt::Enter | PasswordPrompt::Existing => {
-                "Password wallet could not be authenticated"
-            }
-            PasswordPrompt::Create => message,
-        },
-        false,
-    )
-}
-
 /// Captures a bounded credential directly into its wallet-owned zeroising type.
 /// The oneshot also owns that type, so a cancelled receiver cannot discard an
 /// unprotected String containing a password. Framework copies remain a limit.
+#[cfg(feature = "password-vault-prototype")]
 pub(crate) async fn request_password(
     app: &tauri::AppHandle,
     prompt: PasswordPrompt,
 ) -> Result<Option<wallet_core::WalletPassword>, IpcError> {
-    let (title, instructions) = match prompt {
-        PasswordPrompt::Enter => ("Enter password", ""),
-        PasswordPrompt::Existing => ("Enter existing password", ""),
-        PasswordPrompt::Create => (
-            "Enter new password",
-            "Use at least 15 characters. Spaces and Unicode are allowed. Maximum 1024 UTF-8 bytes. A copied vault can be guessed offline; use a strong, unique passphrase. The password cannot recover lost keys; keep a separate backup for every recovery phrase and imported private key.",
-        ),
-        PasswordPrompt::Confirm => ("Confirm new password", "Enter the new password again."),
-    };
+    request_password_with_request(app, prompt, modal::ModalRequest::new())
+        .await?
+        .password
+}
+pub(super) struct PasswordResponse {
+    pub(super) decision: super::WalletPasswordDecision,
+    pub(super) password: Result<Option<wallet_core::WalletPassword>, IpcError>,
+}
+pub(super) async fn request_password_observed(
+    app: &tauri::AppHandle,
+    prompt: PasswordPrompt,
+    job: &wallet_core::PasswordVaultJob,
+) -> Result<PasswordResponse, IpcError> {
+    request_password_with_request(app, prompt, modal::ModalRequest::for_job(job)).await
+}
+async fn request_password_with_request(
+    app: &tauri::AppHandle,
+    prompt: PasswordPrompt,
+    modal_request: modal::ModalRequest,
+) -> Result<PasswordResponse, IpcError> {
+    let presentation = prompt.presentation();
     let (sender, receiver) = oneshot::channel();
     app.run_on_main_thread(move || {
         let result = autoreleasepool(|_| {
             let mtm = MainThreadMarker::new().ok_or_else(IpcError::internal)?;
+            modal_request.check()?;
+            // Request foreground presentation rather than rejecting work that
+            // completed while another app was active. Explicit modal acceptance
+            // and fresh password verification establish presence; focus after
+            // that click is not authority and may already have changed again.
+            activate_password_prompt(mtm);
             let alert = NSAlert::new(mtm);
-            alert.setMessageText(&NSString::from_str(title));
-            alert.setInformativeText(&NSString::from_str(instructions));
-            alert.addButtonWithTitle(&NSString::from_str("Continue"));
+            alert.setMessageText(&NSString::from_str(presentation.title));
+            alert.setInformativeText(&NSString::from_str(presentation.instructions));
+            alert.addButtonWithTitle(&NSString::from_str(presentation.accept));
             alert.addButtonWithTitle(&NSString::from_str("Cancel"));
             let field = NSSecureTextField::initWithFrame(
                 mtm.alloc(),
                 NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(420.0, 24.0)),
             );
             alert.setAccessoryView(Some(&field));
-            let accepted = alert.runModal() == NSAlertFirstButtonReturn;
+            let _modal = modal_request.register(alert.window())?;
+            let decision = password_decision(alert.runModal());
             let text = field.stringValue();
             field.setStringValue(&NSString::new());
             alert.window().close();
-            if !accepted {
-                return Ok(None);
+            if !matches!(decision, super::WalletPasswordDecision::Accepted) {
+                return Ok(PasswordResponse {
+                    decision,
+                    password: Ok(None),
+                });
             }
             // Bound the native→UTF-8 copy before allocation; UTF-16 length is a
             // conservative small-copy guard, and WalletPassword checks exact bytes.
             if text.length() > wallet_core::MAX_WALLET_PASSWORD_BYTES {
-                return Err(password_input_error(&prompt, "Password is too long"));
+                return Ok(PasswordResponse {
+                    decision,
+                    password: Err(prompt.input_error("Password is too long")),
+                });
             }
-            wallet_core::WalletPassword::new(text.to_string())
+            let password = wallet_core::WalletPassword::new(text.to_string())
                 .map(Some)
-                .map_err(|e| password_input_error(&prompt, &e.to_string()))
+                .map_err(|e| prompt.input_error(&e.to_string()));
+            Ok(PasswordResponse { decision, password })
         });
         let _ = sender.send(result);
     })
     .map_err(|_| IpcError::internal())?;
     receiver.await.map_err(|_| IpcError::internal())?
+}
+fn password_decision(response: isize) -> super::WalletPasswordDecision {
+    use super::WalletPasswordDecision as Decision;
+    if response == NSAlertFirstButtonReturn {
+        Decision::Accepted
+    } else if response == NSAlertSecondButtonReturn {
+        Decision::CancelButton
+    } else if response == NSModalResponseAbort {
+        Decision::HostAbort
+    } else {
+        Decision::OtherDismissal
+    }
+}
+
+#[allow(
+    deprecated,
+    reason = "The supported macOS 13.3 floor requires this AppKit activation API for explicit native credential presentation"
+)]
+fn activate_password_prompt(mtm: MainThreadMarker) {
+    NSApplication::sharedApplication(mtm).activateIgnoringOtherApps(true);
 }
 
 /// Visible ordinary field exclusively for an exact public destructive confirmation.
@@ -284,9 +327,11 @@ pub(super) async fn request_confirmation(
     let required = required.to_owned();
     let explanation = explanation.to_owned();
     let (sender, receiver) = oneshot::channel();
+    let modal_request = modal::ModalRequest::new();
     app.run_on_main_thread(move || {
         let result = autoreleasepool(|_| {
             let mtm = MainThreadMarker::new().ok_or_else(IpcError::internal)?;
+            modal_request.check()?;
             let alert = NSAlert::new(mtm);
             alert.setAlertStyle(NSAlertStyle::Warning);
             alert.setMessageText(&NSString::from_str(&title));
@@ -300,6 +345,7 @@ pub(super) async fn request_confirmation(
                 NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(600.0, 24.0)),
             );
             alert.setAccessoryView(Some(&field));
+            let _modal = modal_request.register(alert.window())?;
             let accepted = alert.runModal() == NSAlertFirstButtonReturn;
             let text = field.stringValue();
             field.setStringValue(&NSString::new());
@@ -320,38 +366,22 @@ pub(super) async fn request_confirmation(
     .map_err(|_| IpcError::internal())?;
     receiver.await.map_err(|_| IpcError::internal())?
 }
-pub(crate) fn abort_prompt(app: &tauri::AppHandle) {
-    let _ = app.run_on_main_thread(|| {
-        if let Some(mtm) = MainThreadMarker::new() {
-            NSApplication::sharedApplication(mtm).abortModal();
-        }
-    });
-}
 
 #[cfg(test)]
-mod password_prompt_tests {
+mod password_decision_tests {
     use super::*;
-
     #[test]
-    fn invalid_confirmation_reports_mismatch_while_new_password_keeps_policy_guidance()
-    -> Result<(), Box<dyn std::error::Error>> {
-        for input in [String::new(), "short".to_owned(), "x".repeat(1025)] {
-            let failure = wallet_core::WalletPassword::new(input)
-                .err()
-                .ok_or("synthetic invalid input was accepted")?;
+    fn cancel_button_host_abort_and_unknown_dismissal_remain_distinct() {
+        for (response, expected) in [
+            (NSAlertFirstButtonReturn, "accepted"),
+            (NSAlertSecondButtonReturn, "cancelButton"),
+            (NSModalResponseAbort, "hostAbort"),
+            (-1000, "otherDismissal"),
+        ] {
             assert_eq!(
-                password_input_error(&PasswordPrompt::Confirm, &failure.to_string()).message,
-                PASSWORD_MISMATCH_MESSAGE
-            );
-            assert_eq!(
-                password_input_error(&PasswordPrompt::Create, &failure.to_string()).message,
-                failure.to_string()
+                serde_json::to_value(password_decision(response)).ok(),
+                Some(serde_json::json!(expected))
             );
         }
-        assert_eq!(
-            password_input_error(&PasswordPrompt::Confirm, "Password is too long").message,
-            PASSWORD_MISMATCH_MESSAGE
-        );
-        Ok(())
     }
 }

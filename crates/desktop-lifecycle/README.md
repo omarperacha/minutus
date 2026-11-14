@@ -14,8 +14,10 @@ for Objective-C notification registration. Its safety invariants are:
   callback is `Send + Sync`, receives only a lifecycle reason, revokes host
   readiness atomically, coalesces blocking cleanup and schedules AppKit work
   separately. The password-wallet host ignores ordinary app deactivation to
-  match its existing wallet/x402 session policy. Signing re-observes foreground
-  after authentication; system security events always cancel pending work.
+  match its wallet/x402 session policy. The normal app vault may finish an exact
+  freshly password-authorised attempt after ordinary app switching, while legacy
+  Keychain and isolated prototype signing retain their foreground observation.
+  System security events always cancel pending work.
 - No notification payload is read, no caller-supplied object type is assumed,
   and panics cannot unwind through Objective-C.
 

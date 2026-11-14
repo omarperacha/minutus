@@ -1,4 +1,10 @@
 //! Trusted projection from an independently verified candidate to native text.
+mod generic;
+mod qualified;
+mod review_copy;
+pub(super) use generic::generic_approval;
+pub(super) use qualified::qualified_approval;
+pub(super) use review_copy::{ReviewKind, validate_model_summary};
 
 use std::fmt::Write as _;
 
@@ -19,8 +25,12 @@ use transaction_policy::{APPROVAL_POLICY_REVISION, ApprovalBindingInput, Approva
 use super::{ApprovalCandidate, ApprovalOrigin};
 
 pub(super) struct ApprovalDisplay {
+    pub(super) kind: ReviewKind,
     pub(super) title: String,
     pub(super) body: String,
+    pub(super) technical_details: String,
+    pub(super) model_summary: Option<String>,
+    pub(super) final_disclaimer: String,
     pub(super) has_warnings: bool,
     pub(super) approval_allowed: bool,
 }
@@ -145,6 +155,7 @@ impl ApprovalDisplay {
         let approval_allowed = approval_allowed && !approval_is_expired;
 
         let display = Self {
+            kind: ReviewKind::Transaction,
             title: if !approval_allowed {
                 "⚠ Cannot approve — evidence is stale or discrepant".to_owned()
             } else if warnings.is_empty() {
@@ -153,6 +164,9 @@ impl ApprovalDisplay {
                 format!("⚠ {} warning(s) — review exact transaction", warnings.len())
             },
             body,
+            technical_details: String::new(),
+            model_summary: None,
+            final_disclaimer: "Simulation describes the listed block; inclusion conditions may differ. Approval applies only to this exact transaction and does not establish the recipient's trustworthiness or a verified business outcome.".into(),
             has_warnings: !warnings.is_empty(),
             approval_allowed,
         };
@@ -628,3 +642,6 @@ fn invalid_candidate_error() -> IpcError {
         retryable: false,
     }
 }
+
+#[cfg(any(debug_assertions, test))]
+pub(super) use generic::synthetic_preview;

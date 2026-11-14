@@ -499,7 +499,7 @@ fn hex_nibble(byte: u8) -> Option<u8> {
 
 fn unavailable_summary(error: RpcError) -> &'static str {
     match error {
-        RpcError::Transport | RpcError::HttpStatus(_) => {
+        RpcError::Transport | RpcError::TimedOut | RpcError::HttpStatus(_) => {
             "Simulation unavailable because the RPC endpoint could not complete the exact call"
         }
         RpcError::ResponseTooLarge => {

@@ -3,8 +3,10 @@
 mod authorization;
 mod balance;
 mod broadcast;
+pub mod contract;
 mod execution_fees;
 mod fee_budget;
+pub mod local_simulation;
 mod network;
 mod rpc;
 mod signing_payload;
@@ -22,9 +24,10 @@ pub use balance::{
     trusted_assets,
 };
 pub use broadcast::{
-    BroadcastError, BroadcastReceipt, TransactionHash, TransactionLifecycle,
-    TransactionObservation, broadcast_signed_transaction,
-    broadcast_signed_transaction_with_admission, monitor_transaction, signed_transaction_hash,
+    BroadcastError, BroadcastReceipt, MonitorCause, MonitorFailure, MonitorStage, TransactionHash,
+    TransactionLifecycle, TransactionObservation, broadcast_signed_transaction,
+    broadcast_signed_transaction_with_admission, monitor_transaction, monitor_transaction_bounded,
+    signed_transaction_hash,
 };
 pub use fee_budget::{FeeBudgetError, TransferFeeBudget, execution_fee_cap_covers};
 pub use network::{

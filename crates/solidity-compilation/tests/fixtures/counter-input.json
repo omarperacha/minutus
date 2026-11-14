@@ -1,0 +1,33 @@
+{
+  "language": "Solidity",
+  "settings": {
+    "evmVersion": "cancun",
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "outputSelection": {
+      "*": {
+        "": [
+          "ast"
+        ],
+        "*": [
+          "abi",
+          "metadata",
+          "storageLayout",
+          "evm.bytecode.object",
+          "evm.bytecode.linkReferences",
+          "evm.deployedBytecode.object",
+          "evm.deployedBytecode.linkReferences",
+          "evm.deployedBytecode.immutableReferences",
+          "evm.methodIdentifiers"
+        ]
+      }
+    }
+  },
+  "sources": {
+    "Counter.sol": {
+      "content": "// SPDX-License-Identifier: MIT\npragma solidity 0.8.38;\ncontract Counter { uint256 public number; function setNumber(uint256 newNumber) public { number = newNumber; } function increment() public { number++; } }\n"
+    }
+  }
+}

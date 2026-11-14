@@ -1,0 +1,103 @@
+{
+  "request": {
+    "arguments": {
+      "block": "latest",
+      "includeSource": true,
+      "network": "ethereumSepolia",
+      "target": "0x2738d13E81e30bC615766A0410e7cF199FD59A83"
+    },
+    "callId": "call_aikbleae:round:1",
+    "name": "contract.inspect"
+  },
+  "result": {
+    "callId": "call_aikbleae:round:1",
+    "outcome": {
+      "content": [
+        {
+          "type": "json",
+          "value": {
+            "effectsQualified": false,
+            "freshness": "The block is resolved before compilation and rechecked canonical afterwards; compilation may outlast a block. This is a historical snapshot, not a claim about the current tip. Writes require independent fresh qualification through the separately host-advertised workflow capability.",
+            "observation": {
+              "blockHash": "0x2c567ac22bdec439afaea0eed2c077c11af4501b54344e990f71d5b5f6d552de",
+              "blockNumber": "12125347",
+              "chainId": 11155111.0,
+              "network": "eip155:11155111",
+              "sourceCorrespondence": {
+                "contracts": [
+                  {
+                    "abi": [
+                      {
+                        "inputs": [],
+                        "name": "retrieve",
+                        "outputs": [
+                          {
+                            "internalType": "uint256",
+                            "name": "",
+                            "type": "uint256"
+                          }
+                        ],
+                        "stateMutability": "view",
+                        "type": "function"
+                      },
+                      {
+                        "inputs": [
+                          {
+                            "internalType": "uint256",
+                            "name": "num",
+                            "type": "uint256"
+                          }
+                        ],
+                        "name": "store",
+                        "outputs": [],
+                        "stateMutability": "nonpayable",
+                        "type": "function"
+                      }
+                    ],
+                    "address": "0x2738d13e81e30bc615766a0410e7cf199fd59a83",
+                    "compilerVersion": "0.8.7+commit.e28d00a7",
+                    "immutableBindings": [],
+                    "methodIdentifiers": {
+                      "retrieve()": "2e64cec1",
+                      "store(uint256)": "6057361d"
+                    },
+                    "role": "entrypoint",
+                    "runtimeHash": "0xf8811a5ee0d54eca4880eaee7b102eae4b3963ff343f50a024c0fd3d367cb8cc",
+                    "sourceCommitment": "94e7de8714446cc850a9cfda2dcedb51b461b9c35f753f44134ade861fd4297b",
+                    "storageLayout": {
+                      "storage": [
+                        {
+                          "astId": 4.0,
+                          "contract": "contracts/1_Storage.sol:Storage",
+                          "label": "number",
+                          "offset": 0.0,
+                          "slot": "0",
+                          "type": "t_uint256"
+                        }
+                      ],
+                      "types": {
+                        "t_uint256": {
+                          "encoding": "inplace",
+                          "label": "uint256",
+                          "numberOfBytes": "32"
+                        }
+                      }
+                    }
+                  }
+                ],
+                "entrypoint": "0x2738d13e81e30bc615766a0410e7cf199fd59a83"
+              },
+              "target": "0x2738d13e81e30bc615766a0410e7cf199fd59a83"
+            },
+            "sourceQualification": {
+              "status": "reproduced"
+            },
+            "trust": "Locally reproduced source, ABI, storage layout and immutable bindings correspond to proof-checked runtime and explicitly labelled proxy/source roles at the listed snapshot. Potential implementation roles do not prove an executed dispatch route. Immutable address values are public code facts that may help declare fixed business scope; the actual invocation graph still requires independent fresh verification. Optional invocationRequirements describe direct calls for local hypothetical caller/origin/value context only: no caller account lookup, eth_call or business callee acquisition occurred. Code dependencies remain separately labelled. Required callees remain unqualified; inspect them separately and explicitly declare all business targets before requesting a workflow. This is not a complete recursive call graph or a proved execution. Names and strings remain untrusted source data, with no token/business semantics, account control, effect qualification, signing authority or verified task outcome.",
+            "writeAuthorityGranted": false
+          }
+        }
+      ],
+      "type": "completed"
+    }
+  }
+}

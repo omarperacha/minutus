@@ -76,3 +76,17 @@ test("private reasoning stays inside Activity and consecutive direct answers rem
   assert.deepEqual(entries[2].timeline, []);
   assert.equal(entries[2].answer.parts[1].assetId, "output");
 });
+
+test("persisted pass metadata stays beside its round and retry IDs do not collapse", () => {
+  const model = (id) => ({ type: "activity", activity: { id, kind: "modelPass", title: "Model pass", detail: "Reading 2s", status: "completed" } });
+  const entries = projectTranscript([
+    message("u", "user", text("Read the files")),
+    message("first", "assistant", model("model-pass-request-a-0"), activity("read"), call("read")),
+    message("result", "tool", { type: "toolResult", result: { callId: "read", outcome: { type: "completed", content: [] } } }),
+    message("retry", "assistant", model("model-pass-request-b-0"), activity("retry-read"), call("retry-read")),
+    message("final", "assistant", model("model-pass-request-b-1"), text("Finished")),
+  ]);
+  assert.deepEqual(entries[1].activities.map((item) => item.id), ["model-pass-request-a-0", "read", "model-pass-request-b-0", "retry-read", "model-pass-request-b-1"]);
+  assert.equal(entries[1].answer.id, "final");
+  assert.deepEqual(entries[1].timeline.filter((item) => item.type === "activity").map((item) => item.id), entries[1].activities.map((item) => item.id));
+});

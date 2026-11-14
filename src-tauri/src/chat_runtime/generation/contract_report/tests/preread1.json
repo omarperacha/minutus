@@ -1,0 +1,65 @@
+{
+  "request": {
+    "arguments": {
+      "arguments": [],
+      "block": "latest",
+      "caller": null,
+      "function": "retrieve()",
+      "network": "ethereumSepolia",
+      "outputs": [
+        "uint256"
+      ],
+      "target": "0x2738d13E81e30bC615766A0410e7cF199FD59A83"
+    },
+    "callId": "call_liiz7x7d:round:3",
+    "name": "contract.read"
+  },
+  "result": {
+    "callId": "call_liiz7x7d:round:3",
+    "outcome": {
+      "content": [
+        {
+          "type": "json",
+          "value": {
+            "effectsQualified": false,
+            "freshness": "Observation at the returned block only; latest and canonicality must be fetched again when needed.",
+            "nextStep": "When source or a reproduced ABI/layout is needed, request contract.inspect with includeSource=true under its separate native outbound consent. Determine workflow availability from the host-advertised tools, never from this observation. Source inspection and workflows can still reject unavailable compiler/provider/proof inputs or unsupported source/effects; this observation authorises no write.",
+            "observation": {
+              "arguments": [],
+              "calldata": "0x2e64cec1",
+              "caller": "0x0000000000000000000000000000000000000000",
+              "context": {
+                "blockHash": "0xf90f8188bd7ffa2e7b898728aad6e255b02426f4204fdca95e2ae6ba4413d81f",
+                "blockNumber": "12125374",
+                "canonicalAtObservation": true,
+                "chainId": 11155111.0,
+                "runtimeCodeBytes": 336.0,
+                "runtimeCodeHash": "0xf8811a5ee0d54eca4880eaee7b102eae4b3963ff343f50a024c0fd3d367cb8cc",
+                "target": "0x2738d13e81e30bc615766a0410e7cf199fd59a83"
+              },
+              "function": "retrieve()",
+              "gasLimit": 1000000.0,
+              "outcome": {
+                "data": "0x0000000000000000000000000000000000000000000000000000000000000001",
+                "status": "returned",
+                "values": [
+                  "1"
+                ]
+              },
+              "outputTypes": [
+                "uint256"
+              ],
+              "valueWei": "0"
+            },
+            "sourceQualification": {
+              "status": "notRequested"
+            },
+            "trust": "Untrusted RPC observation and caller-declared ABI. This operation did not look up or reproduce source; it does not establish that source is missing. It grants no source/proxy/effect qualification, account control, signing authority or task postcondition.",
+            "writeAuthorityGranted": false
+          }
+        }
+      ],
+      "type": "completed"
+    }
+  }
+}

@@ -203,6 +203,17 @@ impl PlanPolicy {
         if forecast_count == 1 {
             return Ok(());
         }
+        if calls
+            .iter()
+            .any(|call| call.name == "contract.request_workflow")
+            && !self.ready_step_indices().iter().any(|index| {
+                self.forecast_steps[*index].action_class == Some(PlanActionClass::ExternalWrite)
+            })
+        {
+            return Err(policy_error(
+                "A source-qualified contract workflow requires a ready external_write semantic stage; a read stage grants no write admission",
+            ));
+        }
         if let Some(error) = self.pre_execution_evidence_deviation(calls) {
             return Err(error);
         }

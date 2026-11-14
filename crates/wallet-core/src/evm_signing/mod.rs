@@ -158,23 +158,26 @@ pub struct EvmSigningObservation<'a> {
     binding: ApprovalBindingInput<'a>,
     now_unix: u64,
     now_monotonic: Instant,
-    application_is_active: bool,
+    authorization_context_is_current: bool,
 }
 
 impl<'a> EvmSigningObservation<'a> {
     /// Creates the exact post-authorization observation used by the signer.
+    /// The owning authorizer determines the context: legacy authorization
+    /// requires foreground; fresh app-vault authentication requires its exact
+    /// attempt to remain current, including cancellation and security revocation.
     #[must_use]
     pub const fn new(
         binding: ApprovalBindingInput<'a>,
         now_unix: u64,
         now_monotonic: Instant,
-        application_is_active: bool,
+        authorization_context_is_current: bool,
     ) -> Self {
         Self {
             binding,
             now_unix,
             now_monotonic,
-            application_is_active,
+            authorization_context_is_current,
         }
     }
 }
@@ -327,7 +330,15 @@ impl From<VaultSessionError> for EvmSigningError {
     }
 }
 
+pub(crate) enum AuthorizationContext {
+    ForegroundSession,
+    FreshAppAttempt,
+}
+
 pub(crate) trait SigningAuthorizer {
+    fn authorization_context(&self) -> AuthorizationContext {
+        AuthorizationContext::ForegroundSession
+    }
     fn authorize(
         &self,
         key_id: &VaultKeyId,
@@ -381,13 +392,17 @@ pub(crate) fn authorize_and_sign<'binding>(
         }
     };
     let observation = observe_after_authorization();
-    if !observation.application_is_active {
+    if !observation.authorization_context_is_current {
+        let error = match authorizer.authorization_context() {
+            AuthorizationContext::ForegroundSession => EvmSigningError::ApplicationBackgrounded,
+            AuthorizationContext::FreshAppAttempt => EvmSigningError::AuthorizationCancelled,
+        };
         return terminal_failure(
             commitment,
             ApprovalInvalidationReason::Cancelled,
             observation.now_unix,
             consumption_store,
-            EvmSigningError::ApplicationBackgrounded,
+            error,
         );
     }
     let verified: VerifiedApproval<'_> =

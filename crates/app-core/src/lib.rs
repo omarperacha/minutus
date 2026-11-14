@@ -89,8 +89,26 @@ mod execution_context;
 use execution_context::WorkingPromptAdapterContext;
 pub use execution_context::*;
 
+pub use app_storage::{ContractStepState, StoredWorkflowIntent, StoredWorkflowScope};
+pub use app_storage::{
+    StoredDeclaredWorkflowStep, StoredGenericWorkflowEvidence, StoredGenericWorkflowPreparation,
+    StoredWorkflowComparison, StoredWorkflowCondition, StoredWorkflowConditionResult,
+    StoredWorkflowContract, StoredWorkflowDeclaration, StoredWorkflowEvidenceKind,
+    StoredWorkflowRead, StoredWorkflowReceiptAnchor,
+};
+mod contract_workflows;
+pub use contract_workflows::{
+    ContractReconciliation, ContractWorkflowAttempt, ContractWorkflowDeclaration,
+    ContractWorkflowScope, ContractWorkflowSession, ContractWorkflowStepWork,
+    DeclaredContractCompletion, DeclaredContractWorkflowSession, DeclaredContractWorkflowStep,
+    PreparedContractWorkflowStep, PreparedDeclaredContractStep,
+};
+
 mod evm_transactions;
-pub use app_storage::{StoredEvmDispatchPhase, StoredEvmTransaction, StoredEvmTransactionState};
+pub use app_storage::{
+    EvmNonceClaim, StoredEvmDispatchPhase, StoredEvmTransaction, StoredEvmTransactionState,
+};
+pub use evm_transactions::EvmNonceReservation;
 
 mod wallet_metadata;
 pub use app_storage::PublicWalletMetadata;

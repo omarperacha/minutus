@@ -172,7 +172,35 @@ impl AppCore {
             .conversation(conversation_id)?
             .ok_or(AppCoreError::ConversationNotFound)?;
         let automatic_title = automatic_conversation_title(&conversation);
+        let persisted_passes = conversation
+            .messages
+            .iter()
+            .flat_map(|message| &message.parts)
+            .filter_map(|part| match part {
+                MessagePart::Activity { activity }
+                    if activity.kind == ipc_types::TaskActivityKind::ModelPass =>
+                {
+                    Some(activity.id.as_str())
+                }
+                _ => None,
+            })
+            .collect::<std::collections::BTreeSet<_>>();
+        let activities = activities
+            .into_iter()
+            .filter(|activity| {
+                activity.kind != ipc_types::TaskActivityKind::ModelPass
+                    || !persisted_passes.contains(activity.id.as_str())
+            })
+            .collect::<Vec<_>>();
+        let (passes, activities): (Vec<_>, Vec<_>) = activities
+            .into_iter()
+            .partition(|activity| activity.kind == ipc_types::TaskActivityKind::ModelPass);
         let mut parts = Vec::with_capacity(activities.len() + 2);
+        parts.extend(
+            passes
+                .into_iter()
+                .map(|activity| MessagePart::Activity { activity }),
+        );
         if let Some(reasoning) = reasoning.filter(|reasoning| !reasoning.is_empty()) {
             parts.push(MessagePart::Reasoning { text: reasoning });
         }

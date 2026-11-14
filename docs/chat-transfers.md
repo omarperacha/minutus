@@ -75,8 +75,10 @@ signing authority. Parallel calls cannot bypass the unique claim. No tool result
 contains a password, secret key, raw signature, signed transaction or reusable
 approval handle.
 
-SQLite schema 21 adds a reservation/dispatch journal while preserving schema-20
-turn claims. Each reservation belongs to its exact host review attempt. A worker
+SQLite schema 23 extends the existing reservation/dispatch journal with durable
+[network/account/nonce ownership](evm-nonce-ownership.md), claimed after native
+approval and before fresh password authentication. Each reservation belongs to
+its exact host review attempt and immutable candidate/signed hash. A worker
 must atomically advance that exact reservation before any send; retiring an unsent
 reservation prevents a paused worker from sending or deleting a newer attempt.
 Both Wallet and chat can retire proven-unsent reservations and prepare afresh.
@@ -90,7 +92,8 @@ still need checking in Wallet. If they remain unresolved, a new chat transfer
 request opens a separate native uncertainty review, defaulting to Keep blocked.
 It shows the exact earlier hash/account/network/nonce and warns that allowing
 new requests can cause additional payments. An explicit native acknowledgement
-stops that old hash from blocking future chat requests; it does not claim the
+stops that old hash from blocking different independently reviewed nonce requests;
+it does not release that possible-send nonce or claim the
 old transaction failed, cancel or resend it, or approve spending. Its monitoring
 history remains pending until chain evidence resolves it. Every new transfer
 still requires its own native transaction approval and fresh password.

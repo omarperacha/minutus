@@ -2,13 +2,18 @@
 
 mod admission;
 mod contract;
+mod contract_report;
 mod direct_transfer;
 pub(super) use direct_transfer::is_standalone_transfer;
 mod forecast;
 mod parsing;
 mod projection;
+#[cfg(not(debug_assertions))]
+mod release_qualification;
 mod results;
 mod routing;
+#[cfg(not(debug_assertions))]
+pub(crate) use release_qualification::run as qualify_contract_release_surface;
 
 use forecast::{
     AdmittedPlan, PlanForecast, collector_operations_for_obligation,

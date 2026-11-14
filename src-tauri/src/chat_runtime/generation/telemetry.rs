@@ -956,6 +956,7 @@ pub(super) fn applied_change_incomplete_error() -> IpcError {
 }
 
 pub(super) struct ChatGenerationRound {
+    pub(super) activities: Vec<ipc_types::TaskActivity>,
     pub(super) reasoning: String,
     pub(super) content: String,
     pub(super) calls: Vec<ParsedToolCall>,

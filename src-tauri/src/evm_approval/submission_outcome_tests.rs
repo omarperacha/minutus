@@ -12,3 +12,18 @@ fn pre_send_revocation_is_known_unsent_but_a_transport_failure_after_admission_i
     assert!(!unsent.message.contains("may have been sent"));
     assert!(!unsent.retryable);
 }
+
+#[test]
+fn a_panicked_callback_never_becomes_false_admission_evidence() {
+    assert!(!possible_submission(false, false, false));
+    assert!(!possible_submission(false, true, true));
+    assert!(possible_submission(false, true, false));
+    assert!(possible_submission(true, true, false));
+    assert!(possible_submission(true, true, true));
+    let error = broadcast_failure(
+        chain_evm::BroadcastError::Transport,
+        possible_submission(false, true, false),
+    );
+    assert!(error.message.contains("may have been sent"));
+    assert!(!error.retryable);
+}

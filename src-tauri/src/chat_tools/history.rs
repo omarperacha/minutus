@@ -3,12 +3,13 @@
 use app_core::AppCore;
 use ipc_types::{
     AssetId, Conversation, IpcError, Message, MessageId, MessagePart, MessageRole, RequestId,
-    ToolName, ToolOutcome,
+    TaskActivity, ToolName, ToolOutcome,
 };
 
 use crate::error_mapping::{app_core_error, current_timestamp};
 
 use super::ChatToolExchange;
+mod model_passes;
 
 #[expect(
     clippy::too_many_arguments,
@@ -18,6 +19,7 @@ pub(crate) fn persist_tool_exchanges(
     core: &AppCore,
     request_id: &RequestId,
     conversation: &mut Conversation,
+    model_passes: &[TaskActivity],
     reasoning: String,
     content: String,
     exchanges: Vec<Result<ChatToolExchange, IpcError>>,
@@ -39,7 +41,7 @@ pub(crate) fn persist_tool_exchanges(
             reasoning.clone()
         }
     });
-    let mut parts = Vec::new();
+    let mut parts = model_passes::unpersisted(conversation, model_passes);
     if !reasoning.is_empty() {
         parts.push(MessagePart::Reasoning { text: reasoning });
     }
@@ -128,6 +130,9 @@ fn failed_delimited_table_repair_context(exchanges: &[ChatToolExchange]) -> Opti
     }))
     .ok()
 }
+
+#[cfg(test)]
+mod model_pass_tests;
 
 #[cfg(test)]
 mod tests {

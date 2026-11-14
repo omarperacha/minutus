@@ -59,7 +59,11 @@ pub(crate) fn validated_chat_tool_request(
                 .all(|key| expected.binary_search(&key.as_str()).is_ok())
     } else if matches!(
         call.name.as_str(),
-        "web.search" | "orchestration.complete_stage" | "orchestration.search_tools"
+        "web.search"
+            | "orchestration.complete_stage"
+            | "orchestration.search_tools"
+            | "contract.inspect"
+            | "contract.request_workflow"
     ) {
         required_contract_arguments(&call.name)
             .iter()
@@ -96,6 +100,10 @@ pub(crate) fn validated_chat_tool_request(
             | ToolName::WebSearch
             | ToolName::X402Request
             | ToolName::WalletRequestTransfer
+            | ToolName::ContractInspect
+            | ToolName::ContractRead
+            | ToolName::ContractRequestWorkflow
+            | ToolName::ContractReconcileTransaction
     ) {
         if name == ToolName::OrchestrationRecall {
             super::recall::arguments(call)?;
@@ -105,6 +113,12 @@ pub(crate) fn validated_chat_tool_request(
             web::validate_call(call)?;
         } else if name == ToolName::WebSearch {
             web_search::validate_call(call)?;
+        } else if matches!(name, ToolName::ContractInspect | ToolName::ContractRead) {
+            super::contracts::validate_call(call)?;
+        } else if name == ToolName::ContractRequestWorkflow {
+            super::contracts::validate_write_call(call)?;
+        } else if name == ToolName::ContractReconcileTransaction {
+            super::contracts::validate_reconciliation(call)?;
         } else if name == ToolName::WalletRequestTransfer {
             super::wallet_transfer::validate_call(call)?;
         } else if name == ToolName::X402Request {
@@ -197,6 +211,8 @@ fn contract_argument_error(call: &ParsedToolCall, expected: &[&str]) -> IpcError
 fn required_contract_arguments(operation: &str) -> &'static [&'static str] {
     match operation {
         "web.search" => &["query"],
+        "contract.inspect" => &["block", "network", "target"],
+        "contract.request_workflow" => &["network", "steps"],
         _ => &[],
     }
 }
@@ -271,6 +287,30 @@ pub(super) fn chat_tool_contract(name: &str) -> Option<(ToolName, &'static [&'st
         "web.search" => (
             ToolName::WebSearch,
             &["count", "country", "freshness", "query", "searchLanguage"][..],
+        ),
+        "contract.inspect" => (
+            ToolName::ContractInspect,
+            &["block", "includeSource", "invocation", "network", "target"][..],
+        ),
+        "contract.request_workflow" => (
+            ToolName::ContractRequestWorkflow,
+            &["contractVersion", "contracts", "goals", "network", "steps"][..],
+        ),
+        "contract.read" => (
+            ToolName::ContractRead,
+            &[
+                "arguments",
+                "block",
+                "caller",
+                "function",
+                "network",
+                "outputs",
+                "target",
+            ][..],
+        ),
+        "contract.reconcile_transaction" => (
+            ToolName::ContractReconcileTransaction,
+            &["transactionHash"][..],
         ),
         "wallet.request_transfer" => (
             ToolName::WalletRequestTransfer,

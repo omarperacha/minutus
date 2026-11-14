@@ -26,3 +26,19 @@ fn standalone_transfer_bypasses_plan_deferral_without_becoming_read_only_discove
         assert!(!is_direct_call_batch(&[transfer.clone(), sibling]));
     }
 }
+
+#[test]
+fn runtime_metadata_is_direct_discovery_but_reads_and_mixed_transfers_require_plans() {
+    let inspect = call("inspect", "contract.inspect");
+    let read = call("read", "contract.read");
+    assert!(is_direct_discovery_call_batch(std::slice::from_ref(
+        &inspect
+    )));
+    assert!(is_direct_call_batch(std::slice::from_ref(&inspect)));
+    assert!(!is_direct_call_batch(std::slice::from_ref(&read)));
+    assert!(!is_direct_call_batch(&[inspect.clone(), read]));
+    assert!(!is_direct_call_batch(&[
+        inspect,
+        call("transfer", "wallet.request_transfer")
+    ]));
+}

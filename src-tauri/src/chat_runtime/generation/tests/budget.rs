@@ -79,6 +79,7 @@ fn last_task_allowance_accepts_checkpoint_and_write_in_either_order() -> Result<
         assert!(state.plan_policy.forecast_complete());
         assert!(!state.plan_policy.final_response_ready());
         let mut final_round = ChatGenerationRound {
+            activities: Vec::new(),
             reasoning: String::new(),
             content: "Created the requested table.".to_owned(),
             calls: Vec::new(),

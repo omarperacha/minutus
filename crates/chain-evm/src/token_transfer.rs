@@ -738,7 +738,7 @@ impl Error for TokenTransferError {}
 impl From<RpcError> for TokenTransferError {
     fn from(e: RpcError) -> Self {
         match e {
-            RpcError::Transport => Self::Transport,
+            RpcError::Transport | RpcError::TimedOut => Self::Transport,
             RpcError::HttpStatus(s) => Self::HttpStatus(s),
             RpcError::ResponseTooLarge => Self::ResponseTooLarge,
             RpcError::MalformedResponse => Self::MalformedRpcResponse,

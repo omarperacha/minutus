@@ -78,6 +78,7 @@ fn deferred_original_arguments_and_prior_results_survive_reopen()
         &core,
         &request,
         &mut conversation,
+        &[],
         String::new(),
         "Prior answer".into(),
         earlier.into_iter().map(Ok).collect(),
@@ -89,6 +90,7 @@ fn deferred_original_arguments_and_prior_results_survive_reopen()
         &core,
         &request,
         &mut conversation,
+        &[],
         String::new(),
         String::new(),
         deferred_plan_exchanges(&calls)

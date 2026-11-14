@@ -5,6 +5,9 @@ mod artifact_transform;
 mod catalog;
 mod collect_evidence;
 mod computation;
+mod contracts;
+#[cfg(test)]
+pub(crate) use contracts::declared_workflow_schema_for_tests;
 mod execution;
 mod filesystem;
 mod forecast_contract;
@@ -71,6 +74,7 @@ pub(crate) use catalog::{
     project_tool_definitions, terminal_result_completes_stage, tool_action_class, tool_category,
     tool_category_index, tool_category_name, tool_companions, tool_has_bulk_arguments,
 };
+pub(crate) use contracts::{HostContractReport, contract_host_report};
 #[cfg(test)]
 pub(crate) use filesystem::ipc_json_value;
 pub(crate) use forecast_contract::{
@@ -80,11 +84,12 @@ pub(crate) use forecast_contract::{
 pub(crate) use history::persist_tool_exchanges;
 pub(crate) use operation_ledger::OperationLedger;
 pub(crate) use orchestration::{
-    complete_control_call, execute_chat_tool_batch, inactive_tool_batch_repairable,
-    invalid_tool_batch_repairable, mixed_read_only_invalid_batch_repairable,
-    plan_prefixed_invalid_operation_batch_repairable, reject_final_response_tool_batch,
-    reject_inactive_tool_batch, reject_invalid_tool_batch, reject_plan_deviation_batch,
-    reject_unknown_tool_batch, unknown_tool_batch_repairable,
+    RejectedStageOperationPair, complete_control_call, emit_stage_operation_argument_corrections,
+    execute_chat_tool_batch, inactive_tool_batch_repairable, invalid_tool_batch_repairable,
+    mixed_read_only_invalid_batch_repairable, plan_prefixed_invalid_operation_batch_repairable,
+    reject_final_response_tool_batch, reject_inactive_tool_batch, reject_invalid_tool_batch,
+    reject_plan_deviation_batch, reject_unknown_tool_batch, stage_operation_argument_corrections,
+    unknown_tool_batch_repairable,
 };
 pub(crate) use path_references::PathReferenceLedger;
 pub(crate) use plan_contract::{

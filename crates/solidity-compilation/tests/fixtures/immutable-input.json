@@ -1,0 +1,19 @@
+{
+  "language": "Solidity",
+  "sources": {
+    "ImmutableReview.sol": {
+      "content": "// SPDX-License-Identifier: MIT\npragma solidity 0.8.38;\ncontract Receiver {}\ncontract ImmutableReview { uint256 public number; uint256 public immutable cap; address public immutable owner; bytes4 public immutable tag; int8 public immutable signedLimit; bool public immutable enabled; Receiver public immutable receiver; constructor(uint256 c,address o,bytes4 t,int8 s,bool e,Receiver r) { cap=c;owner=o;tag=t;signedLimit=s;enabled=e;receiver=r; } function store(uint256 value) external { require(msg.sender==owner);require(value<=cap);number=value; } function repeatCap() external view returns(uint256,uint256) { return (cap,cap); } }\n"
+    }
+  },
+  "settings": {
+    "evmVersion": "cancun",
+    "optimizer": {
+      "enabled": false
+    },
+    "viaIR": false,
+    "metadata": {
+      "appendCBOR": true,
+      "bytecodeHash": "ipfs"
+    }
+  }
+}

@@ -47,6 +47,10 @@ use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 mod app_state;
 mod chat_runtime;
 mod chat_tools;
+#[cfg(debug_assertions)]
+mod contract_qualification;
+mod contract_source_qualification;
+mod contract_workflow_qualification;
 mod error_mapping;
 mod evm_approval;
 mod evm_authorizations;
@@ -59,6 +63,7 @@ mod filesystem_commands;
 mod image_commands;
 mod model_commands;
 mod model_file_access;
+mod stage_recovery_qualification;
 use external_model_commands::{
     download_model_module, forget_external_model, register_external_model,
 };
@@ -360,7 +365,85 @@ fn shutdown_app(app: &tauri::AppHandle) {
     }
 }
 
+fn guardian_mode(mut arguments: std::iter::Skip<std::env::ArgsOs>) -> ExitCode {
+    let Some(executable) = arguments.next() else {
+        eprintln!("Minutus's Ollama guardian is missing its executable");
+        return ExitCode::FAILURE;
+    };
+    if arguments.next().is_some() {
+        eprintln!("Minutus's Ollama guardian received unexpected arguments");
+        return ExitCode::FAILURE;
+    }
+    match run_ollama_guardian(Path::new(&executable)) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("Minutus's Ollama guardian failed: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 fn main() -> ExitCode {
+    if let Some(result) = stage_recovery_qualification::dispatch()
+        .or_else(contract_workflow_qualification::dispatch)
+        .or_else(contract_source_qualification::dispatch)
+    {
+        return result;
+    }
+    if std::env::args_os().nth(1).as_deref() == Some(OsStr::new("--qualify-generic-contract")) {
+        #[cfg(debug_assertions)]
+        return match contract_qualification::run(&std::env::args_os().skip(2).collect::<Vec<_>>()) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("Read-only generic contract qualification failed: {error}");
+                ExitCode::FAILURE
+            }
+        };
+        #[cfg(not(debug_assertions))]
+        {
+            eprintln!("Generic contract qualification requires a debug executable");
+            return ExitCode::FAILURE;
+        }
+    }
+    if std::env::args_os().nth(1).as_deref() == Some(OsStr::new("--contract-approval-preview")) {
+        #[cfg(all(debug_assertions, target_os = "macos"))]
+        return match evm_approval::preview_contract_approval() {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("Synthetic contract review preview failed: {error:?}");
+                ExitCode::FAILURE
+            }
+        };
+        #[cfg(not(all(debug_assertions, target_os = "macos")))]
+        {
+            eprintln!(
+                "The synthetic native review preview is available only in macOS debug builds"
+            );
+            return ExitCode::FAILURE;
+        }
+    }
+
+    if std::env::args_os().nth(1).as_deref() == Some(OsStr::new("--qualify-contract-release")) {
+        #[cfg(not(debug_assertions))]
+        return match chat_runtime::qualify_contract_release_surface() {
+            Ok(()) => {
+                println!(
+                    "contract release surface: writes disabled; catalogue, startup and forecast schemas absent; no app setup, vault, RPC, native review or signing executed"
+                );
+                ExitCode::SUCCESS
+            }
+            Err(error) => {
+                eprintln!("Contract release qualification failed: {error}");
+                ExitCode::FAILURE
+            }
+        };
+        #[cfg(debug_assertions)]
+        {
+            eprintln!("Contract release qualification requires a release executable");
+            return ExitCode::FAILURE;
+        }
+    }
+
     if std::env::args_os().nth(1).as_deref() == Some(OsStr::new("--qualify-x402-release")) {
         return match x402_release_qualification::run() {
             Ok(()) => ExitCode::SUCCESS,
@@ -382,21 +465,7 @@ fn main() -> ExitCode {
     }
     let mut arguments = std::env::args_os().skip(1);
     if arguments.next().as_deref() == Some(OsStr::new(OLLAMA_GUARDIAN_ARGUMENT)) {
-        let Some(executable) = arguments.next() else {
-            eprintln!("Minutus's Ollama guardian is missing its executable");
-            return ExitCode::FAILURE;
-        };
-        if arguments.next().is_some() {
-            eprintln!("Minutus's Ollama guardian received unexpected arguments");
-            return ExitCode::FAILURE;
-        }
-        return match run_ollama_guardian(Path::new(&executable)) {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(error) => {
-                eprintln!("Minutus's Ollama guardian failed: {error}");
-                ExitCode::FAILURE
-            }
-        };
+        return guardian_mode(arguments);
     }
 
     match run() {

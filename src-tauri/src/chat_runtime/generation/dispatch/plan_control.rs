@@ -507,6 +507,7 @@ pub(in crate::chat_runtime::generation) fn persist_executed_tool_batch(
         core,
         request_id,
         conversation,
+        &generated.activities,
         generated.reasoning,
         generated.content,
         exchanges,

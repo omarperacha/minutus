@@ -3,6 +3,21 @@
 use super::*;
 
 #[test]
+fn fallback_execution_policy_cannot_promote_a_receipt_and_getter_into_workflow_verification() {
+    let context = ToolOrchestrationContext::new(
+        ToolOperationBudget::new(5, 7, 8, 8, 0, 2),
+        false,
+        ToolOrchestrationPhase::Execution,
+    );
+    let policy = context.stable_policy();
+    assert!(policy.contains("formal workflow completion are distinct"));
+    assert!(policy.contains("completion unavailable, unverified or notReverified"));
+    assert!(policy.contains("even when receipt reconciliation confirms execution"));
+    assert!(policy.contains("current goals were not rechecked"));
+    assert!(policy.contains("Stage acknowledgement cannot upgrade those host proof states"));
+}
+
+#[test]
 fn live_catalogue_explains_read_only_access_even_when_direct_route_has_no_tail() {
     for writable in [false, true] {
         let context = ToolOrchestrationContext::new(
