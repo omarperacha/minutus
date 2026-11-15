@@ -1,6 +1,7 @@
 # Reporting security vulnerabilities
 
 Email private vulnerability reports to [hello@minutus.ai](mailto:hello@minutus.ai).
+You can also [report a vulnerability privately on GitHub](https://github.com/omarperacha/minutus/security/advisories/new).
 You may also use GitHub private vulnerability reporting.
 Do not put exploit details or secrets in a public issue.
 

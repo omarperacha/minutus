@@ -41,6 +41,8 @@ impl PlanPolicy {
                             | "filesystem.list"
                             | "filesystem.find_paths"
                             | "x402.request"
+                            | "wallet.request_transfer"
+                            | "contract.inspect"
                             | PLAN_TOOL
                     )
                 })

@@ -36,11 +36,16 @@ use sha2::{Digest as _, Sha256};
 use time::OffsetDateTime;
 
 mod budget;
+mod contract_report;
+#[cfg(test)]
+mod direct_transfer_tests;
 mod dispatch;
 mod images;
 mod plan_pending;
 mod recall_scope;
 mod recovery_flow;
+#[cfg(debug_assertions)]
+pub(crate) use recovery_flow::qualify_stage_argument_recovery;
 mod round;
 mod state;
 mod stream_display;
@@ -320,7 +325,7 @@ pub(super) fn execute_chat_generation(
     executable: &Path,
     request_id: &RequestId,
     conversation: &Conversation,
-    cancellation_requested: &AtomicBool,
+    cancellation_requested: &Arc<AtomicBool>,
     sequence: &mut u32,
     model_passes: &mut Vec<TaskActivity>,
     settings: ChatGenerationSettings,
@@ -356,7 +361,7 @@ fn execute_chat_generation_inner(
     executable: &Path,
     request_id: &RequestId,
     conversation: &Conversation,
-    cancellation_requested: &AtomicBool,
+    cancellation_requested: &Arc<AtomicBool>,
     sequence: &mut u32,
     model_passes: &mut Vec<TaskActivity>,
     telemetry: &mut RequestExecutionTelemetry,
@@ -411,6 +416,25 @@ fn execute_chat_generation_inner(
             provisional_profile
         };
         let provisional_profile = settings.apply_effort(provisional_profile);
+        if tools.is_empty()
+            && let Some(terminal) = tool_state.contract_report.terminal(
+                core,
+                &conversation,
+                &tool_state.plan_policy,
+                provisional_profile,
+            )
+        {
+            if cancellation_requested.load(Ordering::Acquire) {
+                return ChatTerminal::Cancelled;
+            }
+            #[cfg(debug_assertions)]
+            core.record_development_tool_trace(&serde_json::json!({
+                "event":"host_terminal_report","requestId":request_id.0,
+                "conversationId":conversation.id.0,"source":"nativeContractOutcome",
+                "modelPassStarted":false
+            }));
+            return terminal;
+        }
         let provisional_orchestration = tool_state
             .context(
                 round,
@@ -509,7 +533,7 @@ fn execute_chat_generation_inner(
                 } else {
                     format!("Interrupted after {duration}")
                 };
-                let activity = model_pass_activity(round, status, detail);
+                let activity = model_pass_activity(request_id, round, status, detail);
                 emit_chat_event(
                     app,
                     &conversation.id,
@@ -677,8 +701,27 @@ fn execute_chat_generation_inner(
             );
             continue;
         }
-        if let Some(terminal) = terminal_without_tool_calls(&mut generated, &tool_state.plan_policy)
+        if let Some(mut terminal) =
+            terminal_without_tool_calls(&mut generated, &tool_state.plan_policy)
         {
+            if let Some(report) = tool_state.contract_report.after_model_final(
+                core,
+                &conversation,
+                &tool_state.plan_policy,
+                &terminal,
+                execution_profile,
+            ) {
+                if cancellation_requested.load(Ordering::Acquire) {
+                    return ChatTerminal::Cancelled;
+                }
+                terminal = report;
+                #[cfg(debug_assertions)]
+                core.record_development_tool_trace(&serde_json::json!({
+                    "event":"host_terminal_report","requestId":request_id.0,
+                    "conversationId":conversation.id.0,"source":"nativeContractOutcome",
+                    "afterModelFinalDecision":true,"modelPassStarted":true
+                }));
+            }
             telemetry.finish_round_post(
                 core,
                 request_id,

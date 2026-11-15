@@ -85,7 +85,8 @@ export function EvmNativeTransferPanel({ wallet, initialNetwork = "baseMainnet",
             </header>
             <p className="evm-transfer-summary">Send <strong>{candidate.amountEth} ETH</strong> to <code>{candidate.recipient}</code></p>
             <EvmSimulationResult simulation={candidate.simulation} />
-            <p className="wallet-review-fee">Maximum network fee <strong>{candidate.maximumNetworkFeeEth} ETH</strong></p>
+            <p className="wallet-review-fee">Initial network fee quote <strong>{candidate.maximumNetworkFeeEth} ETH</strong></p>
+            <p className="evm-preparation-note">Your fee budget, including any headroom, is shown in the native review before approval.</p>
             <details className="wallet-review-details"><summary>Transaction details</summary>
             <dl className="evm-transfer-details">
               <div><dt>Sender</dt><dd><code>{candidate.sender}</code></dd></div>
@@ -97,8 +98,8 @@ export function EvmNativeTransferPanel({ wallet, initialNetwork = "baseMainnet",
               <div><dt>Max priority fee / gas</dt><dd><code>{candidate.maxPriorityFeePerGasWei}</code> wei</dd></div>
               <div><dt>Max fee / gas</dt><dd><code>{candidate.maxFeePerGasWei}</code> wei</dd></div>
               <div><dt>Max execution fee</dt><dd><code>{candidate.maximumExecutionFeeWei}</code> wei</dd></div>
-              {candidate.network === "baseMainnet" || candidate.network === "baseSepolia" ? <><div><dt>Max L1 data fee</dt><dd><code>{candidate.maximumL1FeeWei}</code> wei</dd></div><div><dt>Operator fee</dt><dd><code>{candidate.operatorFeeWei}</code> wei</dd></div></> : null}
-              <div className="evm-total-fee"><dt>Maximum network fee</dt><dd><strong>{candidate.maximumNetworkFeeEth} ETH</strong><span><code>{candidate.maximumNetworkFeeWei}</code> wei</span></dd></div>
+              {candidate.network === "baseMainnet" || candidate.network === "baseSepolia" ? <><div><dt>Initial L1 fee quote</dt><dd><code>{candidate.maximumL1FeeWei}</code> wei</dd></div><div><dt>Operator fee</dt><dd><code>{candidate.operatorFeeWei}</code> wei</dd></div></> : null}
+              <div className="evm-total-fee"><dt>Initial network fee quote</dt><dd><strong>{candidate.maximumNetworkFeeEth} ETH</strong><span><code>{candidate.maximumNetworkFeeWei}</code> wei</span></dd></div>
               <div><dt>Transaction</dt><dd>Type {candidate.transactionType} · Data <code>{candidate.data}</code></dd></div>
             </dl>
             </details>

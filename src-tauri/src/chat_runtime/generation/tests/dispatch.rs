@@ -135,6 +135,7 @@ fn model_round_trace_reports_shape_and_limit_without_model_content() {
         updated_at: "2026-08-19T00:00:00Z".to_owned(),
     };
     let generated = ChatGenerationRound {
+        activities: Vec::new(),
         reasoning: "private reasoning".to_owned(),
         content: "private answer".to_owned(),
         calls: Vec::new(),
@@ -238,6 +239,7 @@ fn assert_round_prefix_telemetry(value: &serde_json::Value) {
 fn request_telemetry_uses_verified_digest_counts_not_asset_ids() {
     let mut telemetry = RequestExecutionTelemetry::new();
     let round = |image_ids| ChatGenerationRound {
+        activities: Vec::new(),
         reasoning: "bounded extraction".to_owned(),
         content: String::new(),
         calls: Vec::new(),

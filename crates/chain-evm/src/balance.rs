@@ -283,7 +283,7 @@ impl From<RpcChainIdError> for EvmBalanceError {
 impl From<RpcError> for EvmBalanceError {
     fn from(error: RpcError) -> Self {
         match error {
-            RpcError::Transport => Self::Transport,
+            RpcError::Transport | RpcError::TimedOut => Self::Transport,
             RpcError::HttpStatus(status) => Self::HttpStatus(status),
             RpcError::ResponseTooLarge => Self::ResponseTooLarge,
             RpcError::MalformedResponse => Self::MalformedResponse,

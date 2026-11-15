@@ -95,18 +95,41 @@ silent migration from older wallet storage. See [security](security.md#wallet-re
 
 | Capability | Wallet screen | Chat |
 | --- | --- | --- |
-| ETH and native USDC transfers on Base and Ethereum mainnet | Available, with native review and fresh password authentication | Not available |
-| ETH and native USDC transfers on Base Sepolia and Ethereum Sepolia | Available for testing, with the same approval requirements | Not available |
+| ETH and native USDC transfers on Base and Ethereum mainnet | Available, with native review and fresh password authentication | Available through `wallet.request_transfer`, with the same native controls |
+| ETH and native USDC transfers on Base Sepolia and Ethereum Sepolia | Available for testing, with the same approval requirements | Available through `wallet.request_transfer`, with the same native controls |
 | x402 exact USDC payments on Base mainnet | Initiated through chat | Available for supported public HTTPS services; separate request and payment approval |
-| Arbitrary contract calls, swaps and token approvals | Not available | Not available |
+| Bounded unsigned contract reads/runtime metadata | Not available | Available with separate native outbound approval; reads require a semantic plan |
+| Source-qualified contract writes and declared workflows | Not available | `contract.request_workflow` only in qualification builds when packaged isolated-worker admission succeeds; release availability is disabled pending native interaction and final security review; version2 ABI calls with independently reproduced source and complete structural effects, separate native review and fresh password for each write |
+| Unknown source/proxy writes, swaps and bridges | Not available | Not available |
 | Arbitrary typed-data or message signing | Not available | Not available |
 
-Choose the network explicitly in the Wallet transfer screen. ETH pays network
-fees; token transfers require ETH as well as the token balance. The wallet's
-transaction/authorisation decoder inspects data; it does not provide a general
-signing or contract-execution interface. Chat cannot invoke the Wallet screen's
-transfer commands. The debug-only local x402 qualification tool uses Base Sepolia;
-it does not enable general testnet transactions from chat.
+Choose the network explicitly, whether using Wallet or chat. For example:
+“Send 0.001 ETH on Base Sepolia to 0x1111111111111111111111111111111111111111.”
+Chat transfers accept only ETH or native USDC, exact positive amounts and hexadecimal
+recipients. ETH-to-contract transfers remain available through Wallet's existing
+explicit warned review; chat transfers require a code-free recipient. ENS and “send all” remain unavailable. Start a contract workflow with an existing selected account. If locked, it prompts native unlock while you remain in chat, before outbound scope consent. Cancelling unlock stops that attempt; another attempt needs a fresh user message. Initial unlock does not approve a transaction: every write still needs exact native approval and a separate fresh signing password, and later lock/account changes retain normal readiness and epoch checks. Other contract writes use only the separately advertised [declared workflow](generic-contract-qualification.md). Version2 freezes exact ABI functions, arguments, native values, historical dependencies, fresh prerequisites and final goals. All source/ABI and condition shapes are admitted before the first write; missing or unsupported source/compiler/layout/dispatch/effect evidence rejects. Source field names and logs do not establish economic semantics. The [earlier bundled token profile](contract-qualification.md) remains compatible. A successful earlier approval may leave allowance when a later step stops; there is no automatic cleanup or retry. [Unsigned contract observations](contract-observations.md) use a separate read-only path without wallet unlock. Minutus resolves the sender from the activated wallet and
+uses the same native review and fresh password signing path as Wallet. Read the
+network, sender, recipient, amount, signed execution cap and fee budget in that native window.
+
+Denial, cancellation, expiry or a preparation failure ends that turn's attempt.
+A deliberate retry requires a new user message and fresh review. A submitted
+transaction is pending, not confirmed. If submission is uncertain, check its
+known hash in Wallet before sending again. Proven-unsent work can be retired
+safely. If an earlier transaction remains uncertain, a new chat transfer request
+opens a separate native uncertainty review. Keep blocked is the default. Choosing
+to allow new requests acknowledges the risk of additional payments; it neither
+retries nor cancels the earlier transfer, and every new transfer still requires
+its own exact native approval and fresh password. Monitoring history is retained.
+The preparation screen shows an initial fee quote. Native review shows the fee
+budget before you approve, including 50% headroom on Base L1/operator estimates.
+That budget stays fixed during the attempt. Base's extra fees can change before
+inclusion; they are separate from the execution fee cap in the signed transaction.
+ETH pays network fees; USDC transfers require ETH as well as USDC. Changing chain
+facts can invalidate approval and require a newly prepared transaction.
+
+The transaction/authorisation decoder does not grant general signing or contract
+execution. The separate local x402 qualification tool remains debug-only and
+Base Sepolia-only; ordinary reviewed chat transfers support all four networks.
 
 ## Paid x402 resources
 

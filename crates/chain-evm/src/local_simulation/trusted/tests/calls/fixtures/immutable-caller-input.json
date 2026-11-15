@@ -1,0 +1,33 @@
+{
+  "language": "Solidity",
+  "settings": {
+    "evmVersion": "cancun",
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "outputSelection": {
+      "*": {
+        "": [
+          "ast"
+        ],
+        "*": [
+          "abi",
+          "metadata",
+          "storageLayout",
+          "evm.bytecode.object",
+          "evm.bytecode.linkReferences",
+          "evm.deployedBytecode.object",
+          "evm.deployedBytecode.linkReferences",
+          "evm.deployedBytecode.immutableReferences",
+          "evm.methodIdentifiers"
+        ]
+      }
+    }
+  },
+  "sources": {
+    "ImmutableCaller.sol": {
+      "content": "// SPDX-License-Identifier: MIT\npragma solidity 0.8.38;\ninterface ILeaf { function store(uint256 value) external; }\ncontract ImmutableCaller { ILeaf public immutable target; constructor(ILeaf value) { target=value; } function route(uint256 value) external { target.store(value); } }\n"
+    }
+  }
+}

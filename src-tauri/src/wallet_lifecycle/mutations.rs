@@ -151,6 +151,7 @@ pub(super) async fn reset(
     } else {
         let mut words = native::request_secret_owned(
             app,
+            &job,
             "Reset and recover",
             "Enter the complete 24-word recovery phrase for the account you want to recover",
         )

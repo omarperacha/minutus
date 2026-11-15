@@ -36,7 +36,7 @@ pub(super) fn execute_workspace_tool_round(
     telemetry: &mut RequestExecutionTelemetry,
     generated: ChatGenerationRound,
     round: usize,
-    cancellation_requested: &AtomicBool,
+    cancellation_requested: &std::sync::Arc<AtomicBool>,
 ) -> Option<ChatTerminal> {
     let mut remaining_image_slots =
         MAX_CHAT_ASSETS.saturating_sub(conversation_image_count(conversation));
@@ -256,7 +256,7 @@ pub(super) fn execute_plan_prefixed_round(
     telemetry: &mut RequestExecutionTelemetry,
     generated: ChatGenerationRound,
     round: usize,
-    cancellation_requested: &AtomicBool,
+    cancellation_requested: &std::sync::Arc<AtomicBool>,
 ) -> Option<ChatTerminal> {
     let call = &generated.calls[0];
     let value = admit_plan_control(tool_state, call, all_tools, generated.calls.len());
@@ -433,7 +433,7 @@ pub(super) fn execute_forecast_prefixed_round(
     telemetry: &mut RequestExecutionTelemetry,
     generated: ChatGenerationRound,
     round: usize,
-    cancellation_requested: &AtomicBool,
+    cancellation_requested: &std::sync::Arc<AtomicBool>,
 ) -> Option<ChatTerminal> {
     let call = &generated.calls[0];
     let value = match tool_state.plan_policy.accept_forecast(call, all_tools) {
@@ -554,7 +554,7 @@ pub(super) fn execute_positioned_stage_completion_round(
     telemetry: &mut RequestExecutionTelemetry,
     generated: ChatGenerationRound,
     round: usize,
-    cancellation_requested: &AtomicBool,
+    cancellation_requested: &std::sync::Arc<AtomicBool>,
 ) -> Option<ChatTerminal> {
     let (completion_index, completion_call) = match stage_completion_boundary(&generated.calls) {
         Ok(boundary) => boundary,

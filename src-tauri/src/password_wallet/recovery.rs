@@ -23,6 +23,7 @@ pub(super) async fn restore(
     job.check().map_err(|_| cancelled())?;
     let mut words = native::request_secret_owned(
         app,
+        &job,
         "Restore from recovery phrase",
         "Enter all recovery words for your unfunded test wallet in order, separated by spaces. You will choose a new wallet password after confirming the recovered address.",
     )

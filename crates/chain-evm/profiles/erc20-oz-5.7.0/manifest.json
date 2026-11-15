@@ -1,0 +1,61 @@
+{
+  "abiSha256": "e15a112bebf7604c58292463ae45181ac86e0fb3c83204fac748a26f4ab7952d",
+  "compiler": {
+    "downloadUrl": "https://binaries.soliditylang.org/emscripten-wasm32/solc-emscripten-wasm32-v0.8.38+commit.1835d247.js",
+    "listSnapshotSha256": "f776feb21233e63c6fbccf722063d7debfadba225943f664882d83f3e572efb2",
+    "listUrl": "https://binaries.soliditylang.org/emscripten-wasm32/list.json",
+    "nodeVersion": "v22.23.4",
+    "publishedKeccak256": "0x2388a994707d147a855f59313fe16115750249bd0fe3baf681b7848f9df66160",
+    "publishedSha256": "6c74ffba0ea4cf9521e78b16052a98208770bb7677616de08ced239f4312d390",
+    "runtimeDependency": false,
+    "version": "0.8.38+commit.1835d247.Emscripten.clang"
+  },
+  "compilerSha256": "6c74ffba0ea4cf9521e78b16052a98208770bb7677616de08ced239f4312d390",
+  "contract": "MinutusQualifiedERC20.sol:MinutusQualifiedERC20",
+  "coverage": {
+    "dispatch": "direct code only; no proxies, delegation or nested calls",
+    "nativeValue": "0",
+    "productionAdmission": "requires separate sealed proof-run, semantic effect accounting, native approval/authentication and per-chain fee qualification",
+    "qualifierRequired": true,
+    "rawReturn": "canonical ABI true",
+    "writes": [
+      "approve(address,uint256)",
+      "transfer(address,uint256)",
+      "transferFrom(address,address,uint256)"
+    ]
+  },
+  "filesSha256": {
+    "OpenZeppelin-MIT.txt": "20aebc68b11c063133aa2af0ef4bb29875477c6d16d715718f0daec563938b84",
+    "abi.json": "e15a112bebf7604c58292463ae45181ac86e0fb3c83204fac748a26f4ab7952d",
+    "compiler-record.json": "0a782e562576e585ea083d7082a0ce352e0c00f241e3c187a2210198940a0416",
+    "creation.hex": "f6dfdcc0707672994d32c84a907460f20f69532878d0e77c8f7ceba31bbc6ba5",
+    "input.json": "f301d4a85ef7faa3cee8fd6050df28e11ae8a3355ed8c285bb1b72f461978e04",
+    "metadata.json": "bdb2a66aaf0b0ba79f4c256afbb70bbce8f22a377946e473fe1e31a1964c92d8",
+    "method-identifiers.json": "512c7c69cd2d52161f88f250da9f28cfad45ebad2fec48cb52e6f2bf01520983",
+    "output.json": "72796288d6015d03681842765b84049f4072ba50988650b16655dbad7eab8d2c",
+    "runtime.hex": "6fbf45042028c8a5aadf7961646f6990a6521be054ee7590b0b27714ea2cb472",
+    "storage-layout.json": "4225a39becd4ee2e5a9bea6a4875bb10f740bda402010acd51914b09551fcd0f"
+  },
+  "immutableReferences": {},
+  "inputSha256": "f301d4a85ef7faa3cee8fd6050df28e11ae8a3355ed8c285bb1b72f461978e04",
+  "links": {},
+  "profileCommitmentSha256": "76df8832488cb0beac36a11b032a1240a39f05202b4c604d580e0485645feef7",
+  "profileId": "oz570-solc0838-cancun-erc20-v1",
+  "runtimeBytes": 1764,
+  "runtimeBytesSha256": "64f6b8370f45d7d91648b5a2b885f19a8a39f9d0f973b287678470f0152b3a94",
+  "runtimeKeccak256": "0x34ad9dbf5175a1e9da19c8edb9d390a0026ac815cdf159a903a04f53e39fd841",
+  "schemaVersion": 1,
+  "sourceBundleSha256": "fc3159f9f91d572cfe686fbada04b33fc468bd469ec26b997df9b58061845411",
+  "sourceFilesSha256": {
+    "@openzeppelin/contracts/interfaces/draft-IERC6093.sol": "fa7068f56bc180571a6095be6eaef06d51dbe81e30cb128397d993c9599ecc30",
+    "@openzeppelin/contracts/token/ERC20/ERC20.sol": "50f34ae16a067a41c2c1091445d11d63788e54c717677cb6d6b0e4cdea2ad21d",
+    "@openzeppelin/contracts/token/ERC20/IERC20.sol": "01b6f5c4fa45fd38822b286ecef6daf983d27306dd6362496fa71b3e4600b72c",
+    "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol": "0b7132f17d14d1d84b41b0bb429be62dafdff00fd3470f68724d8018eb07f57a",
+    "@openzeppelin/contracts/utils/Context.sol": "847fda5460fee70f56f4200f59b82ae622bb03c79c77e67af010e31b7e2cc5b6",
+    "MinutusQualifiedERC20.sol": "32ccf7500cb69ff91c1d6fe9564dc3f59f5011e1fc4ea84c72232531f532c16d"
+  },
+  "sourceRelease": "v5.7.0",
+  "sourceRepository": "https://github.com/OpenZeppelin/openzeppelin-contracts",
+  "sourceRevision": "cab19933c33c2ad1d4c7a84864a3601dddfd16f3",
+  "storageLayoutSha256": "4225a39becd4ee2e5a9bea6a4875bb10f740bda402010acd51914b09551fcd0f"
+}

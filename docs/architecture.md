@@ -27,3 +27,17 @@ the public source commit from which the app was built.
 
 Agent/controller changes follow the [agent and tool design reference](agent-design.md).
 General contributor conventions are in [engineering house style](engineering-house-style.md).
+
+## Chat transfer composition
+
+`chat_tools/wallet_transfer/` owns the closed model intent and public result.
+`evm_transfers/preparation` owns shared Wallet/chat candidate preparation and
+freshness checks. `evm_approval/registry` owns immutable pending reviews;
+`evm_approval/execution` composes native review, signing and durable broadcast
+admission. Wallet secret ownership remains in `wallet_lifecycle`/`wallet-core`;
+chain validation and transaction encoding remain in `chain-evm`. SQLite schemas
+20 and 21 add identity-only per-user-turn replay tombstones and public dispatch
+facts respectively. The actual cancellation token crosses the effect path by
+shared ownership; native UI polling is not the authority check. Native uncertainty
+acknowledgement is separate from exact transaction approval and never signs. See
+[chat transfers](chat-transfers.md) for the current security contract.

@@ -22,3 +22,8 @@ mod semantic_contracts;
 mod semantic_evidence;
 mod semantic_routing;
 mod semantic_v6;
+
+mod wallet_transfers;
+
+mod contract_observations;
+mod contract_workflows;

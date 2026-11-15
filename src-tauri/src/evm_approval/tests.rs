@@ -87,7 +87,7 @@ fn native_surface_defaults_to_denial_and_keeps_approval_separate() {
     let source = include_str!("native.rs");
     let deny = source.find("addButtonWithTitle(&NSString::from_str(\"Deny\"))");
     let approve =
-        source.find("addButtonWithTitle(&NSString::from_str(\"Approve exact transaction\"))");
+        source.find("addButtonWithTitle(&NSString::from_str(display.approval_button_title()))");
     assert!(deny.is_some_and(|deny| approve.is_some_and(|approve| deny < approve)));
     assert!(source.contains("NSAlertFirstButtonReturn => EvmApprovalDecision::Denied"));
     assert!(source.contains("NSAlertSecondButtonReturn && display.approval_allowed"));

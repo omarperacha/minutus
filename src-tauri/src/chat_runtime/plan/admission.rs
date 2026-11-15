@@ -20,7 +20,9 @@ use std::collections::BTreeSet;
 
 impl PlanPolicy {
     pub(in crate::chat_runtime) fn initial_plan_required(&self, calls: &[ParsedToolCall]) -> bool {
-        !self.submitted && calls.first().is_none_or(|call| call.name != PLAN_TOOL)
+        !self.submitted
+            && !super::is_standalone_transfer(calls)
+            && calls.first().is_none_or(|call| call.name != PLAN_TOOL)
     }
 
     pub(in crate::chat_runtime) fn correction_available(&self, error: &IpcError) -> bool {
@@ -178,6 +180,11 @@ impl PlanPolicy {
                 "A provisional plan or revision must be the first and only planning call in its tool batch",
             ));
         }
+        if !self.submitted && super::is_standalone_transfer(calls) {
+            // Only planning is bypassed. Argument, wallet, native approval,
+            // cancellation and durable one-attempt checks still run normally.
+            return Ok(());
+        }
         if self.initial_plan_required(calls) {
             return Err(policy_error(
                 "This staged capability was not executed. Submit the semantic plan by itself first; after host acceptance, call the promoted operation in a later response",
@@ -195,6 +202,17 @@ impl PlanPolicy {
         }
         if forecast_count == 1 {
             return Ok(());
+        }
+        if calls
+            .iter()
+            .any(|call| call.name == "contract.request_workflow")
+            && !self.ready_step_indices().iter().any(|index| {
+                self.forecast_steps[*index].action_class == Some(PlanActionClass::ExternalWrite)
+            })
+        {
+            return Err(policy_error(
+                "A source-qualified contract workflow requires a ready external_write semantic stage; a read stage grants no write admission",
+            ));
         }
         if let Some(error) = self.pre_execution_evidence_deviation(calls) {
             return Err(error);

@@ -31,8 +31,12 @@ pub(crate) fn install_host(app: &tauri::AppHandle) -> Result<(), Box<dyn std::er
         let host = app.clone();
         desktop_lifecycle::install_lock_notifications(move |event| {
             if event == desktop_lifecycle::LifecycleEvent::SecurityBoundary {
-                host.state::<WalletControl>().handle_system_sleep();
-                native::abort_prompt(&host);
+                if let Some(abort) = native::modal::ModalAbort::capture_if(|| {
+                    host.state::<WalletControl>().handle_system_sleep();
+                    true
+                }) {
+                    abort.queue(&host);
+                }
             }
         })?;
     }

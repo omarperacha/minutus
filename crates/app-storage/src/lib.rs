@@ -16,8 +16,21 @@ pub use records::{
     AssetFileReference, AssetReference, AuditEvent, AuditEventKind, AuditFilesystemTool,
     AuditOutcome, AuditPermissionDecision, ModelCompanionMetadata, ModelMetadata, Project,
     ProjectWorkspace, PublicWalletMetadata, SettingKey, SettingValue, StoredApprovalFinalization,
-    StoredApprovalFinalizationOutcome, StoredEvmTransaction, StoredEvmTransactionState, Theme,
-    WorkspaceGrant,
+    StoredApprovalFinalizationOutcome, StoredEvmDispatchPhase, StoredEvmTransaction,
+    StoredEvmTransactionState, Theme, WorkspaceGrant,
 };
 pub use store::ApplicationStore;
 pub use store::external_models::{ExternalModelFile, ExternalModelRegistration};
+
+pub use store::contract_workflows::{
+    ContractStepClaim, ContractStepState, ContractWorkflowAttemptClaim, ContractWorkflowId,
+    ContractWorkflowStep, StoredContractObserver, StoredContractReconciliation,
+    StoredDeclaredWorkflowStep, StoredGenericWorkflowEvidence, StoredGenericWorkflowPreparation,
+    StoredObserverPredicate, StoredObserverResult, StoredPredicateComparison,
+    StoredWorkflowCandidate, StoredWorkflowComparison, StoredWorkflowCondition,
+    StoredWorkflowConditionResult, StoredWorkflowContract, StoredWorkflowDeclaration,
+    StoredWorkflowEvidenceKind, StoredWorkflowIntent, StoredWorkflowObservation,
+    StoredWorkflowRead, StoredWorkflowReceiptAnchor, StoredWorkflowScope,
+};
+
+pub use store::evm_nonces::EvmNonceClaim;

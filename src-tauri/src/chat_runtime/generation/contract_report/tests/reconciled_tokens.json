@@ -1,0 +1,11 @@
+{
+  "bytes": 6319,
+  "sha256": "8cf8e1415ffeb3512b1db7ed317fc86b17ba96679ee7ebc44d888b52ac2bdd98",
+  "exactTokens": 2245,
+  "vocabularyOnly": true,
+  "modelInference": false,
+  "modelBlob": "sha256-f5f1dd8920d417aac2718b0bda3403da274301efdd6760b4f0f4b864ff2ad57d",
+  "observedOrdinaryFinalCap": 6144,
+  "observedEvidenceCap": 2048,
+  "qualification": "Captured public report measured by actual bundled vocabulary-only tokenizer; this fixture is not runtime admission or a live model trajectory"
+}

@@ -13,20 +13,20 @@ fn filesystem_tool_registry_uses_aliases() -> Result<(), Box<dyn std::error::Err
         },
         ChatToolWorkspace {
             alias: "additional-1".to_owned(),
-            display_name: "docs".to_owned(),
+            display_name: "private-secondary-workspace-label".to_owned(),
             grant_id: WorkspaceGrantId("another-secret-id".to_owned()),
             permission_level: WorkspacePermissionLevel::ReadOnly,
         },
     ];
     let definitions =
         chat_tool_definitions(&workspaces).map_err(|error| std::io::Error::other(error.message))?;
-    assert_eq!(definitions.len(), 22);
+    assert_eq!(definitions.len(), 26);
     assert_eq!(definitions[0].name, "computation.run");
     let encoded = format!("{definitions:?}");
     assert!(encoded.contains("primary"));
     assert!(encoded.contains("additional-1"));
     assert!(!encoded.contains("zeta-dev"));
-    assert!(!encoded.contains("docs"));
+    assert!(!encoded.contains("private-secondary-workspace-label"));
     assert!(!encoded.contains("secret-grant-id"));
     assert!(!encoded.contains("another-secret-id"));
 
@@ -180,7 +180,7 @@ fn read_only_catalogue_leads_with_discovery_but_omits_mutation() -> Result<(), I
         grant_id: WorkspaceGrantId("grant".to_owned()),
         permission_level: WorkspacePermissionLevel::ReadOnly,
     }])?;
-    assert_eq!(definitions.len(), 18);
+    assert_eq!(definitions.len(), 22);
     assert_eq!(definitions[0].name, "computation.run");
     assert!(definitions.iter().all(|tool| {
         !matches!(
@@ -206,6 +206,10 @@ fn projects_without_folders_receive_pure_computation_web_and_planning() -> Resul
             "computation.run",
             "web.retrieve",
             "x402.request",
+            "wallet.request_transfer",
+            "contract.inspect",
+            "contract.read",
+            "contract.reconcile_transaction",
             "web.search",
             "orchestration.submit_plan",
             "orchestration.complete_stage",
@@ -243,6 +247,10 @@ fn projects_without_folders_receive_pure_computation_web_and_planning() -> Resul
             serde_json::json!("computation.run"),
             serde_json::json!("web.retrieve"),
             serde_json::json!("x402.request"),
+            serde_json::json!("wallet.request_transfer"),
+            serde_json::json!("contract.inspect"),
+            serde_json::json!("contract.read"),
+            serde_json::json!("contract.reconcile_transaction"),
             serde_json::json!("web.search")
         ]
     );
@@ -396,8 +404,9 @@ fn category_metadata_drives_provider_neutral_index_projection_and_complete_schem
                     | ToolCategory::WorkspaceWrite
             ),
             Some("computation") => category == ToolCategory::Computation,
+            Some("contract") => category == ToolCategory::Contracts,
             Some("web") => category == ToolCategory::Web,
-            Some("x402") => category == ToolCategory::Payments,
+            Some("x402" | "wallet") => category == ToolCategory::Payments,
             Some("orchestration") => category == ToolCategory::Orchestration,
             _ => false,
         }

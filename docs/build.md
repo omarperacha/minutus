@@ -55,7 +55,7 @@ helper uses the source hash in `scripts/asr/models.lock.json`. Sources and nativ
 outputs are cached locally and excluded from Git. Runtime archives are sizeable;
 bootstrap does not download speech or chat weights.
 
-Native outputs are local to each checkout and are not copied by source syncs.
+Native outputs are local to each checkout and must be bootstrapped there.
 If a build reports a missing computation runner, tokeniser or speech helper,
 run `python3 scripts/bootstrap.py --jobs 4` before retrying `pnpm release:build`.
 If only the computation runner needs rebuilding, run
@@ -147,3 +147,12 @@ records are not migrated. Production creates a fresh profile after the move.
 If migration stops part-way through, retain its record and snapshots and inspect
 them before retrying; the script does not delete either profile or automatically
 reverse a partial move.
+
+## Chat transfer feature branches
+
+The reviewed chat transfer feature upgrades the local database to schema 21
+(schema 20 stores turn claims; schema 21 adds dispatch recovery facts).
+An older build rejects that profile rather than silently downgrading it. Use
+the separate Staging identity for feature qualification when retaining a release
+profile for the previous build. Building alone does not migrate application data;
+the migration runs when that application profile is opened.

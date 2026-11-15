@@ -202,7 +202,7 @@ impl PendingStop {
 
 fn requires_deferral(state: &GenerationToolState, calls: &[ParsedToolCall]) -> bool {
     !state.plan_policy.active()
-        && !recovery_flow::is_direct_discovery_call_batch(calls)
+        && !recovery_flow::is_direct_call_batch(calls)
         && plan_deferral_batch_is_bounded(calls)
 }
 

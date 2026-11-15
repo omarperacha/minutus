@@ -1,5 +1,10 @@
 //! Native secret orchestration and the sole normal application-wallet boundary.
+mod authorization;
 mod commands;
+pub(crate) use authorization::{
+    WalletAuthenticationFailure, WalletAuthorizationEvent, WalletAuthorizationStage,
+    WalletPasswordDecision, WalletPasswordPurpose,
+};
 mod control;
 #[cfg(target_os = "macos")]
 mod mutations;
@@ -12,8 +17,10 @@ mod signing;
 mod storage;
 #[cfg(target_os = "macos")]
 mod submission;
+mod transfer;
 #[cfg(target_os = "macos")]
 pub(crate) use submission::{WalletSigned, WalletSubmission};
+pub(crate) use transfer::{TransferCancellation, TransferCancellationReason};
 mod watchdog;
 pub(crate) use commands::*;
 pub(crate) use control::WalletControl;

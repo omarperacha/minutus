@@ -63,7 +63,8 @@ export function EvmTokenTransferPanel({ wallet, initialNetwork = "baseMainnet", 
             <header><div><span className={candidate.isTestnet ? "network-kind testnet" : "network-kind"}>{candidate.isTestnet ? "TESTNET" : "MAINNET"}</span><strong>{candidate.networkName}</strong><span>{candidate.caip2Id} · Chain ID {candidate.chainId}</span></div><span className="balance-freshness">DECODED</span></header>
             <p className="evm-transfer-summary">Decoded intent: send <strong>{candidate.decoded.amount} {candidate.decoded.symbol}</strong> to <code>{candidate.decoded.recipient}</code></p>
             <EvmSimulationResult simulation={candidate.simulation} />
-            <p className="wallet-review-fee">Maximum network fee <strong>{candidate.maximumNetworkFeeEth} ETH</strong></p>
+            <p className="wallet-review-fee">Initial network fee quote <strong>{candidate.maximumNetworkFeeEth} ETH</strong></p>
+            <p className="evm-preparation-note">Your fee budget, including any headroom, is shown in the native review before approval.</p>
             <details className="wallet-review-details"><summary>Transaction details</summary>
             <dl className="evm-transfer-details">
               <div><dt>Token contract</dt><dd><code>{candidate.decoded.tokenContract}</code></dd></div>
@@ -80,8 +81,8 @@ export function EvmTokenTransferPanel({ wallet, initialNetwork = "baseMainnet", 
               <div><dt>Max priority fee / gas</dt><dd><code>{candidate.maxPriorityFeePerGasWei}</code> wei</dd></div>
               <div><dt>Max fee / gas</dt><dd><code>{candidate.maxFeePerGasWei}</code> wei</dd></div>
               <div><dt>Max execution fee</dt><dd><code>{candidate.maximumExecutionFeeWei}</code> wei</dd></div>
-              {candidate.network === "baseMainnet" || candidate.network === "baseSepolia" ? <><div><dt>Max L1 data fee</dt><dd><code>{candidate.maximumL1FeeWei}</code> wei</dd></div><div><dt>Operator fee</dt><dd><code>{candidate.operatorFeeWei}</code> wei</dd></div></> : null}
-              <div className="evm-total-fee"><dt>Maximum network fee</dt><dd><strong>{candidate.maximumNetworkFeeEth} ETH</strong><span><code>{candidate.maximumNetworkFeeWei}</code> wei</span></dd></div>
+              {candidate.network === "baseMainnet" || candidate.network === "baseSepolia" ? <><div><dt>Initial L1 fee quote</dt><dd><code>{candidate.maximumL1FeeWei}</code> wei</dd></div><div><dt>Operator fee</dt><dd><code>{candidate.operatorFeeWei}</code> wei</dd></div></> : null}
+              <div className="evm-total-fee"><dt>Initial network fee quote</dt><dd><strong>{candidate.maximumNetworkFeeEth} ETH</strong><span><code>{candidate.maximumNetworkFeeWei}</code> wei</span></dd></div>
               <div><dt>Transaction</dt><dd>Type {candidate.transactionType} · zero native value</dd></div>
               <div><dt>Calldata</dt><dd><code className="evm-calldata">{candidate.data}</code></dd></div>
             </dl>

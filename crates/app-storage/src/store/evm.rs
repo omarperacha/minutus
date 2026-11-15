@@ -116,36 +116,7 @@ impl ApplicationStore {
         &self,
         transaction: &StoredEvmTransaction,
     ) -> Result<(), StorageError> {
-        validate_evm_transaction(transaction)?;
-        self.connection.execute(
-            "INSERT INTO evm_transactions (
-                transaction_hash, network, sender, nonce, candidate_digest,
-                state, block_number, block_hash, submitted_at, updated_at
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
-             ON CONFLICT(transaction_hash) DO UPDATE SET
-                network = excluded.network,
-                sender = excluded.sender,
-                nonce = excluded.nonce,
-                candidate_digest = excluded.candidate_digest,
-                state = excluded.state,
-                block_number = excluded.block_number,
-                block_hash = excluded.block_hash,
-                submitted_at = excluded.submitted_at,
-                updated_at = excluded.updated_at",
-            params![
-                transaction.transaction_hash,
-                transaction.network,
-                transaction.sender,
-                transaction.nonce,
-                transaction.candidate_digest,
-                evm_transaction_state_name(transaction.state),
-                transaction.block_number,
-                transaction.block_hash,
-                transaction.submitted_at,
-                transaction.updated_at,
-            ],
-        )?;
-        Ok(())
+        write_evm_transaction(&self.connection, transaction)
     }
 
     /// Lists submitted EVM transactions in most-recently-updated order.
@@ -432,6 +403,42 @@ fn valid_evm_address(value: &str) -> bool {
     value
         .strip_prefix("0x")
         .is_some_and(|hex| hex.len() == 40 && hex.bytes().all(|byte| byte.is_ascii_hexdigit()))
+}
+
+pub(super) fn write_evm_transaction(
+    connection: &rusqlite::Connection,
+    transaction: &StoredEvmTransaction,
+) -> Result<(), StorageError> {
+    validate_evm_transaction(transaction)?;
+    connection.execute(
+        "INSERT INTO evm_transactions (
+                transaction_hash, network, sender, nonce, candidate_digest,
+                state, block_number, block_hash, submitted_at, updated_at
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+             ON CONFLICT(transaction_hash) DO UPDATE SET
+                network = excluded.network,
+                sender = excluded.sender,
+                nonce = excluded.nonce,
+                candidate_digest = excluded.candidate_digest,
+                state = excluded.state,
+                block_number = excluded.block_number,
+                block_hash = excluded.block_hash,
+                submitted_at = excluded.submitted_at,
+                updated_at = excluded.updated_at",
+        params![
+            transaction.transaction_hash,
+            transaction.network,
+            transaction.sender,
+            transaction.nonce,
+            transaction.candidate_digest,
+            evm_transaction_state_name(transaction.state),
+            transaction.block_number,
+            transaction.block_hash,
+            transaction.submitted_at,
+            transaction.updated_at,
+        ],
+    )?;
+    Ok(())
 }
 
 #[cfg(test)]

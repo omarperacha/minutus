@@ -51,6 +51,7 @@ fn verified_write_allows_model_final_without_fabricating_read_completion() -> Re
         "a previous write must not suppress reasoning for remaining image work"
     );
     let mut final_round = ChatGenerationRound {
+        activities: Vec::new(),
         reasoning: String::new(),
         content: "Created the requested file.".to_owned(),
         calls: Vec::new(),

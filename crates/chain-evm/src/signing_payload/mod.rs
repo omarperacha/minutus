@@ -471,7 +471,7 @@ pub fn decode_and_verify_prepared_transaction(
     Ok(decoded)
 }
 
-fn decode_eip1559(
+pub(crate) fn decode_eip1559(
     account: &str,
     payload: &[u8],
 ) -> Result<DecodedEip1559Transaction, SigningPayloadDecodeError> {
@@ -741,18 +741,20 @@ fn simulation_matches(
 }
 
 #[derive(Clone, Copy)]
-struct CandidateFields<'a> {
-    chain_id: u64,
-    nonce: &'a str,
-    priority_fee: &'a str,
-    max_fee: &'a str,
-    gas_limit: &'a str,
-    destination: &'a str,
-    value: &'a str,
-    data: &'a str,
+pub(crate) struct CandidateFields<'a> {
+    pub(crate) chain_id: u64,
+    pub(crate) nonce: &'a str,
+    pub(crate) priority_fee: &'a str,
+    pub(crate) max_fee: &'a str,
+    pub(crate) gas_limit: &'a str,
+    pub(crate) destination: &'a str,
+    pub(crate) value: &'a str,
+    pub(crate) data: &'a str,
 }
 
-fn encode_candidate(fields: CandidateFields<'_>) -> Result<Vec<u8>, SigningPayloadDecodeError> {
+pub(crate) fn encode_candidate(
+    fields: CandidateFields<'_>,
+) -> Result<Vec<u8>, SigningPayloadDecodeError> {
     let destination = PublicEvmAddress::new(fields.destination)
         .map_err(|_| SigningPayloadDecodeError::InvalidCandidate)?;
     let data = decode_hex(fields.data).ok_or(SigningPayloadDecodeError::InvalidCandidate)?;

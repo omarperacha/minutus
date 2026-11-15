@@ -82,6 +82,16 @@ pub struct PasswordVaultJob {
 }
 
 impl PasswordVaultJob {
+    /// Read-only revocation observation for queued native presentation. This
+    /// cannot authenticate, extend, cancel or rearm a job.
+    pub fn cancellation_check(&self) -> impl Fn() -> bool + Send + Sync + 'static {
+        let state = Arc::clone(&self.state);
+        let generation = self.generation;
+        move || {
+            state.generation.load(Ordering::Acquire) != generation
+                || state.state.lock().map_or(true, |value| !value.active)
+        }
+    }
     pub(crate) fn authentication_failed(&self) {
         if let Ok(mut state) = self.state.state.lock()
             && self.state.generation.load(Ordering::Acquire) == self.generation

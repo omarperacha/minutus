@@ -1,0 +1,31 @@
+[package]
+name = "evm-simulation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+worker-transport.workspace = true
+alloy-consensus.workspace = true
+alloy-primitives.workspace = true
+base-evm.workspace = true
+revm.workspace = true
+revm-base.workspace = true
+rustix.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+mach2.workspace = true

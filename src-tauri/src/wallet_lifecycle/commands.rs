@@ -36,10 +36,16 @@ pub(crate) fn lock_wallet(
     core: State<'_, Arc<AppCore>>,
     control: State<'_, WalletControl>,
 ) -> Result<PublicWalletState, IpcError> {
+    #[cfg(target_os = "macos")]
+    let abort = super::native::modal::ModalAbort::capture_if(|| {
+        control.lock();
+        true
+    });
+    #[cfg(not(target_os = "macos"))]
     control.lock();
     #[cfg(target_os = "macos")]
-    if let Ok(app) = control.app() {
-        super::native::abort_prompt(app);
+    if let (Some(abort), Ok(app)) = (abort, control.app()) {
+        abort.queue(app);
     }
     persist_public(&core, &control)?;
     control.public_state()

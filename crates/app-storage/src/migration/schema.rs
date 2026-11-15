@@ -13,5 +13,22 @@ pub(super) use v10_v17::{
 mod v18;
 pub(super) use v18::MIGRATION_18;
 
+mod v20;
+pub(super) use v20::MIGRATION_20;
+
 mod v19;
 pub(super) use v19::MIGRATION_19;
+
+mod v21;
+pub(super) use v21::MIGRATION_21;
+
+mod v22;
+pub(super) use v22::MIGRATION_22;
+
+mod v23;
+pub(super) use v23::MIGRATION_23;
+
+mod v24;
+pub(super) use v24::MIGRATION_24;
+mod v25;
+pub(super) use v25::MIGRATION_25;
