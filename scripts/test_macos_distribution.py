@@ -31,6 +31,39 @@ class DistributionTests(unittest.TestCase):
             with self.subTest(invalid=invalid), self.assertRaises(ValueError):
                 release.require_runtime_details(invalid, 'TESTTEAM')
 
+    def test_jit_exception_is_exact_and_compiler_only(self):
+        app = Path('/test/Minutus.app')
+        jit = 'com.apple.security.cs.allow-jit'
+        compilers = [app / 'Contents/MacOS/minutus-solidity-compiler',
+                     app / 'Contents/XPCServices/ai.minutus.worker.compiler.xpc/Contents/MacOS/minutus-solidity-compiler']
+        for target in compilers:
+            release.require_runtime_entitlements(target, app, {jit: True})
+            for invalid in [{}, {jit: False}, {jit: True, 'com.apple.security.get-task-allow': True},
+                            {jit: True, 'com.apple.security.cs.disable-library-validation': True}]:
+                with self.subTest(target=target, invalid=invalid), self.assertRaises(ValueError):
+                    release.require_runtime_entitlements(target, app, invalid)
+        for target in [app, app / 'Contents/MacOS/zeta-desktop',
+                       app / 'Contents/Resources/minutus-solidity-compiler',
+                       app / 'Contents/XPCServices/ai.minutus.worker.compiler.xpc/Contents/MacOS/minutus-worker-broker']:
+            with self.subTest(target=target), self.assertRaises(ValueError):
+                release.require_runtime_entitlements(target, app, {jit: True})
+        for key in ['com.apple.security.get-task-allow', 'com.apple.security.cs.disable-library-validation',
+                    'com.apple.security.cs.allow-unsigned-executable-memory']:
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                release.require_runtime_entitlements(app, app, {key: True})
+        release.require_runtime_entitlements(app, app, {'com.apple.security.app-sandbox': True})
+
+    def test_compiler_attestation_failure_stops_before_runtime_exception(self):
+        with patch.object(release, 'preflight'), patch.object(release.wallet, 'profile_identity', return_value=('app', 'team')), \
+                patch.object(release.wallet, 'verify'), \
+                patch('stage_solidity_compiler.verify_bundle', side_effect=ValueError('compiler pin mismatch')), \
+                patch('stage_worker_brokers.verify_bundle') as brokers, \
+                patch.object(release, 'require_runtime_entitlements') as entitlements:
+            with self.assertRaisesRegex(ValueError, 'compiler pin mismatch'):
+                release.verify(Path('/test/Minutus.app'), {'identity': IDENTITY})
+            brokers.assert_not_called()
+            entitlements.assert_not_called()
+
     def test_config_rejects_passwords_wildcard_id_and_relative_profile(self):
         with tempfile.TemporaryDirectory() as directory:
             config = Path(directory) / 'release.json'

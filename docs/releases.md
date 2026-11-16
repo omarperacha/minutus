@@ -72,3 +72,10 @@ credentials, notarise releases automatically, or enrol an updater trust key.
 It separately executes both signed XPC qualification scripts and the Rust and
 JavaScript dependency gates. Ordinary Cargo tests explicitly mark packaged XPC
 fixtures ignored; they are not evidence of completed containment qualification.
+
+The packaged Solidity compiler uses macOS JavaScriptCore in its own contained
+helper. Its two host-pinned copies carry only the reviewed hardened-runtime JIT
+entitlement. Distribution verification attests the compiler and its XPC service
+against the host's embedded identities before accepting that exception; JIT in
+other executable code, debugging, unsigned executable memory and disabled library
+validation remain rejected.

@@ -62,10 +62,32 @@ def require_runtime_details(details, team):
         raise ValueError('Nested release code lacks a secure signing timestamp.')
 
 
+def require_runtime_entitlements(target, application, entitlements):
+    # JavaScriptCore's separately contained compiler is the only reviewed JIT
+    # exception. verify() attests both copies against loaded-host pins first.
+    compiler_paths = {
+        application / 'Contents/MacOS/minutus-solidity-compiler',
+        application / 'Contents/XPCServices/ai.minutus.worker.compiler.xpc/Contents/MacOS/minutus-solidity-compiler',
+    }
+    jit = 'com.apple.security.cs.allow-jit'
+    if target in compiler_paths:
+        if entitlements != {jit: True}:
+            raise ValueError('Compiler runtime entitlements differ from the reviewed JIT-only policy.')
+        return
+    if any(entitlements.get(key) for key in (
+            'com.apple.security.get-task-allow', 'com.apple.security.cs.disable-library-validation',
+            'com.apple.security.cs.allow-unsigned-executable-memory', jit)):
+        raise ValueError('Release code contains an unreviewed runtime exception.')
+
+
 def verify(application, config):
     profile = preflight(config)
     _, team = wallet.profile_identity(profile, datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None))
     wallet.verify(application)
+    from stage_solidity_compiler import verify_bundle as verify_compiler
+    from stage_worker_brokers import verify_bundle as verify_brokers
+    verify_compiler(application)
+    verify_brokers(application)
     requirement = ('=anchor apple generic and certificate leaf = H"' + config['identity']
                    + '" and certificate leaf[field.1.2.840.113635.100.6.1.13] exists')
     targets = [path for path, magic in safe_files(application / 'Contents')
@@ -77,10 +99,7 @@ def verify(application, config):
         require_runtime_details(result.stderr, team)
         raw_entitlements = wallet.capture('codesign', '--display', '--entitlements', '-', str(target))
         entitlements = wallet.signed_entitlements(target) if raw_entitlements.strip() else {}
-        if any(entitlements.get(key) for key in (
-                'com.apple.security.get-task-allow', 'com.apple.security.cs.disable-library-validation',
-                'com.apple.security.cs.allow-unsigned-executable-memory', 'com.apple.security.cs.allow-jit')):
-            raise ValueError('Release code contains an unreviewed runtime exception.')
+        require_runtime_entitlements(target, application, entitlements)
     return len(targets)
 
 

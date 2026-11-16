@@ -20,7 +20,7 @@ dependencies = [
 
 [[package]]
 name = "agent-core"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "base64 0.22.1",
  "model-runtime",
@@ -555,7 +555,7 @@ checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
 name = "app-core"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "agent-core",
  "app-storage",
@@ -587,7 +587,7 @@ dependencies = [
 
 [[package]]
 name = "app-storage"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "agent-core",
  "ipc-types",
@@ -982,7 +982,7 @@ checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
 
 [[package]]
 name = "asset-store"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "app-storage",
  "image",
@@ -1024,14 +1024,14 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "audio-runtime"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "cpal",
 ]
 
 [[package]]
 name = "audit-log"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -1704,7 +1704,7 @@ dependencies = [
 
 [[package]]
 name = "chain-evm"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "alloy-consensus",
  "alloy-dyn-abi",
@@ -1781,7 +1781,7 @@ dependencies = [
 
 [[package]]
 name = "computation-runtime"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "base64 0.22.1",
  "getrandom 0.4.3",
@@ -2390,7 +2390,7 @@ dependencies = [
 
 [[package]]
 name = "desktop-lifecycle"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "block2",
  "objc2",
@@ -2729,7 +2729,7 @@ checksum = "d817e038c30374a4bcb22f94d0a8a0e216958d4c3dcde369b1439fec4bdda6e6"
 
 [[package]]
 name = "evm-simulation"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -2838,7 +2838,7 @@ dependencies = [
 
 [[package]]
 name = "filesystem-tools"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "libc",
  "permissions",
@@ -3822,7 +3822,7 @@ dependencies = [
 
 [[package]]
 name = "ipc-types"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -4345,7 +4345,7 @@ dependencies = [
 
 [[package]]
 name = "model-runtime"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "base64 0.22.1",
  "fs2",
@@ -5091,7 +5091,7 @@ checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
 name = "permissions"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "ipc-types",
 ]
@@ -7032,7 +7032,7 @@ dependencies = [
 
 [[package]]
 name = "solidity-compilation"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "libc",
  "mach2",
@@ -8075,7 +8075,7 @@ dependencies = [
 
 [[package]]
 name = "transaction-policy"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "getrandom 0.4.3",
  "serde",
@@ -8367,7 +8367,7 @@ dependencies = [
 
 [[package]]
 name = "wallet-core"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "argon2",
  "base64 0.22.1",
@@ -8484,7 +8484,7 @@ dependencies = [
 
 [[package]]
 name = "web-retrieval"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "base64 0.22.1",
  "dom_query",
@@ -9129,7 +9129,7 @@ dependencies = [
 
 [[package]]
 name = "worker-transport"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "getrandom 0.4.3",
  "libc",
@@ -9219,7 +9219,7 @@ dependencies = [
 
 [[package]]
 name = "x402-client"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "base64 0.22.1",
  "chain-evm",
@@ -9361,7 +9361,7 @@ dependencies = [
 
 [[package]]
 name = "zeta-desktop"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 dependencies = [
  "agent-core",
  "app-core",

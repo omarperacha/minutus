@@ -3,16 +3,16 @@ members = ["crates/*", "src-tauri"]
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 edition = "2024"
 rust-version = "1.97"
 license = "Apache-2.0"
 authors = ["Minutus contributors"]
 
 [workspace.dependencies]
-worker-transport = { path = "crates/worker-transport", version = "0.1.0-beta.1" }
-solidity-compilation = { path = "crates/solidity-compilation", version = "0.1.0-beta.1" }
-evm-simulation = { path = "crates/evm-simulation", version = "0.1.0-beta.1" }
+worker-transport = { path = "crates/worker-transport", version = "0.1.0-beta.2" }
+solidity-compilation = { path = "crates/solidity-compilation", version = "0.1.0-beta.2" }
+evm-simulation = { path = "crates/evm-simulation", version = "0.1.0-beta.2" }
 # Stable Base v1.5.1; reviewed core-only features, no reth/metrics/provider layer.
 base-evm = { package = "base-common-evm", version = "=1.5.3", git = "https://github.com/base/base", rev = "35fd079386e8c6ca57e0d354e5cca5a9ad29bf46", default-features = false, features = ["std", "portable", "blst", "c-kzg", "memory_limit"] }
 base-consensus = { package = "base-common-consensus", version = "=1.5.3", git = "https://github.com/base/base", rev = "35fd079386e8c6ca57e0d354e5cca5a9ad29bf46", default-features = false, features = ["std", "serde"] }
@@ -27,25 +27,25 @@ alloy-rlp = { version = "=0.3.17", default-features = false, features = ["std"] 
 alloy-dyn-abi = { version = "=1.7.3", default-features = false, features = ["std"] }
 
 argon2 = { version = "=0.6.0", default-features = false, features = ["alloc", "zeroize"] }
-agent-core = { path = "crates/agent-core", version = "0.1.0-beta.1" }
-app-core = { path = "crates/app-core", version = "0.1.0-beta.1" }
-app-storage = { path = "crates/app-storage", version = "0.1.0-beta.1" }
-asset-store = { path = "crates/asset-store", version = "0.1.0-beta.1" }
-audio-runtime = { path = "crates/audio-runtime", version = "0.1.0-beta.1" }
-audit-log = { path = "crates/audit-log", version = "0.1.0-beta.1" }
+agent-core = { path = "crates/agent-core", version = "0.1.0-beta.2" }
+app-core = { path = "crates/app-core", version = "0.1.0-beta.2" }
+app-storage = { path = "crates/app-storage", version = "0.1.0-beta.2" }
+asset-store = { path = "crates/asset-store", version = "0.1.0-beta.2" }
+audio-runtime = { path = "crates/audio-runtime", version = "0.1.0-beta.2" }
+audit-log = { path = "crates/audit-log", version = "0.1.0-beta.2" }
 base64 = "0.22.1"
 block2 = "0.6.2"
-desktop-lifecycle = { path = "crates/desktop-lifecycle", version = "0.1.0-beta.1" }
+desktop-lifecycle = { path = "crates/desktop-lifecycle", version = "0.1.0-beta.2" }
 bip39 = { version = "2.2.2", features = ["zeroize"] }
 bip32 = { version = "0.6.0", default-features = false, features = ["secp256k1", "alloc"] }
 chacha20poly1305 = "0.10.1"
-chain-evm = { path = "crates/chain-evm", version = "0.1.0-beta.1" }
-computation-runtime = { path = "crates/computation-runtime", version = "0.1.0-beta.1" }
+chain-evm = { path = "crates/chain-evm", version = "0.1.0-beta.2" }
+computation-runtime = { path = "crates/computation-runtime", version = "0.1.0-beta.2" }
 cpal = "=0.18.2"
 dom_query = { version = "0.27.0", default-features = false }
-filesystem-tools = { path = "crates/filesystem-tools", version = "0.1.0-beta.1" }
+filesystem-tools = { path = "crates/filesystem-tools", version = "0.1.0-beta.2" }
 fs2 = "0.4.3"
-ipc-types = { path = "crates/ipc-types", version = "0.1.0-beta.1" }
+ipc-types = { path = "crates/ipc-types", version = "0.1.0-beta.2" }
 image = { version = "0.25.9", default-features = false, features = ["jpeg", "png", "webp"] }
 getrandom = "0.4.3"
 hyper = { version = "1.11.0", default-features = false }
@@ -53,11 +53,11 @@ hkdf = "0.12.4"
 libc = "0.2.183"
 mach2 = "0.6.0"
 minisign-verify = "=0.2.5"
-model-runtime = { path = "crates/model-runtime", version = "0.1.0-beta.1" }
+model-runtime = { path = "crates/model-runtime", version = "0.1.0-beta.2" }
 objc2 = "0.6.4"
 objc2-app-kit = { version = "0.3.2", default-features = false }
 objc2-foundation = "0.3.2"
-permissions = { path = "crates/permissions", version = "0.1.0-beta.1" }
+permissions = { path = "crates/permissions", version = "0.1.0-beta.2" }
 reqwest = { version = "0.13.4", default-features = false, features = ["blocking", "json", "native-tls"] }
 regex = "1.13.1"
 rquickjs = { version = "0.12.2", default-features = false, features = ["std"] }
@@ -74,13 +74,13 @@ sha3 = { version = "0.12.0", default-features = false }
 tempfile = "3.23.0"
 time = { version = "0.3.47", features = ["formatting"] }
 tokio = { version = "1.53.3", features = ["macros", "net", "rt", "sync", "time"] }
-transaction-policy = { path = "crates/transaction-policy", version = "0.1.0-beta.1" }
+transaction-policy = { path = "crates/transaction-policy", version = "0.1.0-beta.2" }
 ts-rs = { version = "12.0.1", features = ["no-serde-warnings", "serde-compat"] }
 url = "2.5.8"
 uuid = { version = "1.24.0", features = ["v7"] }
-wallet-core = { path = "crates/wallet-core", version = "0.1.0-beta.1" }
-web-retrieval = { path = "crates/web-retrieval", version = "0.1.0-beta.1" }
-x402-client = { path = "crates/x402-client", version = "0.1.0-beta.1" }
+wallet-core = { path = "crates/wallet-core", version = "0.1.0-beta.2" }
+web-retrieval = { path = "crates/web-retrieval", version = "0.1.0-beta.2" }
+x402-client = { path = "crates/x402-client", version = "0.1.0-beta.2" }
 xattr = "1.6.1"
 zeroize = "1.8.2"
 tauri = { version = "2.11.5" }
